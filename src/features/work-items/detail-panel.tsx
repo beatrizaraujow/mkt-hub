@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatDueDate, inputFromDueDate } from "@/lib/date";
 import { FORMATS, SKILLS } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
+import { TimeBlock } from "@/features/time/time-block";
 import {
   addChecklistItem,
   addComment,
@@ -91,10 +92,14 @@ export function DetailPanel({
   item,
   people,
   today,
+  timeSeconds,
+  timerRunning,
 }: {
   item: DetailData;
   people: Array<{ id: string; name: string }>;
   today: string;
+  timeSeconds: number;
+  timerRunning: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -285,6 +290,13 @@ export function DetailPanel({
             </select>
           </Field>
         </section>
+
+        <TimeBlock
+          workItemId={item.id}
+          totalSeconds={timeSeconds}
+          isRunning={timerRunning}
+          today={today}
+        />
 
         <section className="border-b border-line px-5 py-4">
           <h3 className="label-mono mb-2">Descrição</h3>

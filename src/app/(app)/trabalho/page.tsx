@@ -11,6 +11,7 @@ import { ItemRow } from "@/features/work-items/item-row";
 import { Board } from "@/features/work-items/board";
 import { QuickCreate } from "@/features/work-items/quick-create";
 import { ItemPanel } from "@/features/work-items/item-panel";
+import { runningTimer } from "@/features/time/queries";
 import { Filters } from "./filters";
 import { ViewSwitch } from "./view-switch";
 
@@ -54,6 +55,9 @@ export default async function TrabalhoPage({
       .orderBy(asc(users.name)),
     stagesFor(user.orgId, "task"),
   ]);
+
+  const running = await runningTimer(user.id);
+  const runningItemId = running?.workItemId ?? null;
 
   const filtered = Boolean(params.empresa || params.responsavel || params.concluidas);
   const taskItems = items.filter((i) => i.type === "task");
@@ -100,7 +104,13 @@ export default async function TrabalhoPage({
           <>
             <div className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
               {visible.map((item) => (
-                <ItemRow key={item.id} item={item} today={today} showAssignee />
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  today={today}
+                  showAssignee
+                  runningItemId={runningItemId}
+                />
               ))}
             </div>
             <p className="mt-2 text-[12px] text-faint">

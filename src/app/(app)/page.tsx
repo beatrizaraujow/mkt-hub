@@ -6,6 +6,8 @@ import { ItemRow } from "@/features/work-items/item-row";
 import { QuickCreate } from "@/features/work-items/quick-create";
 import { quickCreateOptions } from "@/features/work-items/queries";
 import { ItemPanel } from "@/features/work-items/item-panel";
+import { closeStaleTimers, runningTimer, unconfirmedEntries } from "@/features/time/queries";
+import { ConfirmBanner } from "@/features/time/confirm-banner";
 
 function greeting(hour: number) {
   if (hour < 12) return "Bom dia";
@@ -38,6 +40,7 @@ function Block({
   items,
   today,
   empty,
+  runningItemId,
 }: {
   title: string;
   count: number;
@@ -45,6 +48,7 @@ function Block({
   items: WorkItemRow[];
   today: string;
   empty?: string;
+  runningItemId: string | null;
 }) {
   if (items.length === 0 && !empty) return null;
 
@@ -62,7 +66,7 @@ function Block({
       ) : (
         <div className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} today={today} />
+            <ItemRow key={item.id} item={item} today={today} runningItemId={runningItemId} />
           ))}
         </div>
       )}
@@ -81,11 +85,18 @@ export default async function HojePage({
   const today = brtToday();
   const firstName = user.name.split(" ")[0];
 
-  const [board, seconds, options] = await Promise.all([
+  // Fecha o que ficou aberto ANTES de perguntar o que precisa de confirmação.
+  // Em paralelo, a primeira carga do dia perderia o aviso.
+  await closeStaleTimers(user.id);
+
+  const [board, seconds, options, running, pendentes] = await Promise.all([
     todayBoard(user),
     secondsTrackedToday(user.id),
     quickCreateOptions(user),
+    runningTimer(user.id),
+    unconfirmedEntries(user.id),
   ]);
+  const runningItemId = running?.workItemId ?? null;
 
   const nothingAtAll =
     board.atrasado.length + board.hoje.length + board.depois.length + board.semPrazo.length === 0;
@@ -106,6 +117,8 @@ export default async function HojePage({
         }
       />
 
+      <ConfirmBanner entries={pendentes} />
+
       <div className="grid gap-8 px-5 py-6 md:px-7 lg:grid-cols-[minmax(0,1fr)_216px]">
         <div className="flex flex-col gap-7">
           <Block
@@ -114,6 +127,7 @@ export default async function HojePage({
             count={board.atrasado.length}
             items={board.atrasado}
             today={today}
+            runningItemId={runningItemId}
           />
 
           <Block
@@ -126,6 +140,7 @@ export default async function HojePage({
                 ? "Nada na sua fila. Pressione C para criar a primeira tarefa."
                 : "Nada com prazo para hoje."
             }
+            runningItemId={runningItemId}
           />
 
           <Block
@@ -133,6 +148,7 @@ export default async function HojePage({
             count={board.depois.length}
             items={board.depois}
             today={today}
+            runningItemId={runningItemId}
           />
 
           <Block
@@ -140,6 +156,7 @@ export default async function HojePage({
             count={board.semPrazo.length}
             items={board.semPrazo}
             today={today}
+            runningItemId={runningItemId}
           />
         </div>
 

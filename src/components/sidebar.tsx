@@ -17,6 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/wordmark";
 import type { NavIcon, NavItem } from "@/components/nav-config";
+import { TimerWidget } from "@/features/time/timer-widget";
+import type { RunningTimer } from "@/features/time/queries";
 
 const ICONS: Record<NavIcon, LucideIcon> = {
   hoje: CircleDot,
@@ -31,6 +33,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
 
 type Props = {
   items: NavItem[];
+  running: RunningTimer | null;
   user: { name: string; jobTitle: string | null; avatarUrl: string | null };
   logoutAction: () => Promise<void>;
 };
@@ -39,7 +42,7 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-export function Sidebar({ items, user, logoutAction }: Props) {
+export function Sidebar({ items, user, running, logoutAction }: Props) {
   const pathname = usePathname();
 
   return (
@@ -87,6 +90,8 @@ export function Sidebar({ items, user, logoutAction }: Props) {
             );
           })}
         </nav>
+
+        <TimerWidget running={running} />
 
         <div className="flex items-center gap-2.5 border-t border-line px-3 py-3">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">

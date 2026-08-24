@@ -1,5 +1,6 @@
 import type { CurrentUser } from "@/lib/auth";
 import { getItemDetail } from "./queries";
+import { runningTimer, secondsOnItem } from "@/features/time/queries";
 import { DetailPanel } from "./detail-panel";
 
 /**
@@ -21,5 +22,15 @@ export async function ItemPanel({
   const item = await getItemDetail(user, id);
   if (!item) return null;
 
-  return <DetailPanel item={item} people={people} today={today} />;
+  const [seconds, running] = await Promise.all([secondsOnItem(id), runningTimer(user.id)]);
+
+  return (
+    <DetailPanel
+      item={item}
+      people={people}
+      today={today}
+      timeSeconds={seconds}
+      timerRunning={running?.workItemId === id}
+    />
+  );
 }

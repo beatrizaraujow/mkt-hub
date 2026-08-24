@@ -106,5 +106,7 @@ Não inferir papel a partir do que a pessoa costuma fazer no board.
 
 ## Estado atual
 
-Pronto: autenticação, shell, empresas, projetos, semente.
-Próximo: work items tipo `task` — criação rápida, lista, quadro, detalhe, horas.
+Pronto: autenticação, shell, empresas com sub-marcas, projetos, semente, tarefas
+(criação rápida, lista, quadro, detalhe em modal) e cronômetro.
+Próximo: anexos (Supabase Storage), formulário de solicitação, fila de aprovação com
+motivo obrigatório no Ajustar, e a tela de pessoas.

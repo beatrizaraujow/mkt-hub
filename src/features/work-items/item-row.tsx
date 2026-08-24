@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatDueDate, startOfBrtDay } from "@/lib/date";
 import { completeWorkItem, reopenWorkItem } from "./actions";
 import { useOpenItem } from "./use-open-item";
+import { TimerButton } from "@/features/time/timer-button";
 
 export type RowItem = {
   id: string;
@@ -43,10 +44,12 @@ export function ItemRow({
   item,
   today,
   showAssignee = false,
+  runningItemId = null,
 }: {
   item: RowItem;
   today: string;
   showAssignee?: boolean;
+  runningItemId?: string | null;
 }) {
   const open = useOpenItem();
   const [pending, start] = useTransition();
@@ -88,6 +91,10 @@ export function ItemRow({
       >
         <Check size={11} strokeWidth={3} />
       </button>
+
+      {!done && (
+        <TimerButton workItemId={item.id} isRunning={runningItemId === item.id} size={15} />
+      )}
 
       <span
         aria-hidden
