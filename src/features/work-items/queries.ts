@@ -190,7 +190,12 @@ export async function quickCreateOptions(user: CurrentUser) {
 
   const [companyRows, projectRows, peopleRows, stageRows] = await Promise.all([
     db
-      .select({ id: companies.id, name: companies.name, color: companies.color })
+      .select({
+        id: companies.id,
+        name: companies.name,
+        color: companies.color,
+        parentId: companies.parentId,
+      })
       .from(companies)
       .where(and(inArray(companies.id, user.companyIds), eq(companies.isActive, true)))
       .orderBy(asc(companies.name)),
@@ -207,5 +212,20 @@ export async function quickCreateOptions(user: CurrentUser) {
     stagesFor(user.orgId, "task"),
   ]);
 
-  return { companies: companyRows, projects: projectRows, people: peopleRows, stages: stageRows };
+  // Empresa-mãe seguida das filhas dela. Ordem alfabética achatada colocaria
+  // "Box Corporativo" antes de "SeuBoné", que é a dona dele.
+  const parents = companyRows.filter((c) => !c.parentId);
+  const ordered = parents.flatMap((parent) => [
+    parent,
+    ...companyRows.filter((c) => c.parentId === parent.id),
+  ]);
+  // Filha cuja mãe a pessoa não enxerga não pode sumir da lista.
+  const orphans = companyRows.filter((c) => !ordered.includes(c));
+
+  return {
+    companies: [...ordered, ...orphans],
+    projects: projectRows,
+    people: peopleRows,
+    stages: stageRows,
+  };
 }

@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
-export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+/** No React 19, `ref` e prop normal — `ComponentProps` ja a inclui. */
+export function Input({ className, ...props }: React.ComponentProps<"input">) {
   return (
     <input
       className={cn(
@@ -14,7 +15,7 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   );
 }
 
-export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
+export function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
     <label
       className={cn("mb-1.5 block text-[13px] font-medium text-muted", className)}

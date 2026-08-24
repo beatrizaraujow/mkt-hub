@@ -28,7 +28,7 @@ export type NavItem = {
 
 export const NAV: NavItem[] = [
   { href: "/", label: "Hoje", icon: "hoje", mobile: true },
-  { href: "/trabalho", label: "Trabalho", icon: "trabalho", soon: true },
+  { href: "/trabalho", label: "Trabalho", icon: "trabalho", mobile: true },
   { href: "/producao", label: "Produção", icon: "producao", soon: true },
   { href: "/rotinas", label: "Rotinas", icon: "rotinas", soon: true },
   { href: "/desempenho", label: "Desempenho", icon: "desempenho", soon: true },
