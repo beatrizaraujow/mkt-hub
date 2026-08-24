@@ -65,6 +65,26 @@ npm run seed       # organização, 4 empresas, pipelines e o primeiro admin
 
 `.env.local` precisa de `DATABASE_URL` (pooler 6543), `DIRECT_URL` (pooler 5432) e `SESSION_SECRET` (32+ caracteres).
 
+## Deploy
+
+Vercel (`mkt-hub`), produção em https://mkt-hub-wheat.vercel.app, conectada ao GitHub.
+Push em `main` dispara build de produção.
+
+**A autoria do commit precisa bater com uma conta do GitHub.** A Vercel bloqueia o deploy com
+*"could not associate the committer with a GitHub user"* — e o deploy fica em BLOCKED sem log de
+build, o que parece travamento. O repositório já está configurado com o e-mail noreply da conta.
+Não troque `user.email` local por um e-mail que o GitHub não reconheça.
+
+Quando um deploy não conclui, o estado real vem da API, não do `vercel ls`:
+
+```bash
+curl -s "https://api.vercel.com/v6/deployments?projectId=<id>&limit=3&teamId=<team>" \
+  -H "Authorization: Bearer <token>"
+```
+
+Falta configurar as variáveis de ambiente do escopo **Preview** — o CLI não aceita adicioná-las
+sem prompt. Production e Development estão prontos.
+
 ## Onde as coisas moram
 
 - `src/db/schema.ts` — modelo de dados inteiro, comentado
