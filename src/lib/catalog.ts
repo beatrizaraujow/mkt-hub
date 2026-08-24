@@ -89,3 +89,60 @@ export const PRIORITY_LABEL = {
   media: "Média",
   baixa: "Baixa",
 } as const;
+
+/**
+ * Grupos para a lista de escolha. Trinta opcoes soltas nao se leem com o
+ * olho; agrupadas, a pessoa acha pelo caminho que ja conhece.
+ */
+export type OptionGroup = { label: string | null; items: readonly string[] };
+
+export const SKILL_GROUPS: OptionGroup[] = [
+  { label: "Captação", items: ["Captação", "Fotos"] },
+  {
+    label: "Vídeo",
+    items: [
+      "Edição de vídeo",
+      "Decupagem",
+      "Roteiro de vídeo",
+      "Vídeo de post",
+      "Vídeo de criativo",
+      "ADS vídeos",
+      "Animação",
+      "Capa de reels",
+    ],
+  },
+  {
+    label: "Arte",
+    items: [
+      "Arte de post",
+      "Arte de criativo",
+      "Arte de endomarketing",
+      "Arte de site",
+      "Arte OFF",
+      "Id visual",
+      "Edição de foto",
+    ],
+  },
+  {
+    label: "Conteúdo",
+    items: ["Copy", "Post feed", "Stories", "Planejamento de conteúdos"],
+  },
+  {
+    label: "Web e mídia",
+    items: [
+      "Criação de landing page",
+      "Otimização de landing page",
+      "Setup do Instagram",
+      "Catálogo",
+      "Tráfego",
+      "Apresentações comerciais",
+    ],
+  },
+  { label: "Outros", items: ["Participação no evento", "Alteração", "Demanda extra"] },
+];
+
+export const FORMAT_GROUPS: OptionGroup[] = [
+  { label: null, items: ["Estático", "Carrossel", "Vídeo", "Stories", "Capa de reels"] },
+  { label: "Pago", items: ["Estático Ads", "Carrossel Ads", "Vídeo Ads"] },
+  { label: null, items: ["Mídia OFF", "Outros"] },
+];

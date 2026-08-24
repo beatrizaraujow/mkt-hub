@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDueDate, formatDuration, inputFromDueDate } from "@/lib/date";
-import { FORMATS, SKILLS } from "@/lib/catalog";
+import { FORMAT_GROUPS, SKILL_GROUPS } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { TimerButton } from "@/features/time/timer-button";
 import { useNowSeconds } from "@/features/time/use-now";
@@ -32,6 +32,12 @@ import {
   type ActionState,
 } from "./actions";
 import { useOpenItem } from "./use-open-item";
+import {
+  AssigneeField,
+  DueDateField,
+  OptionField,
+  type PersonOption,
+} from "./field-controls";
 import { AttachmentList, type AttachmentRow } from "@/features/attachments/attachment-list";
 
 export type DetailData = {
@@ -145,9 +151,10 @@ export function DetailPanel({
   runningSince,
   runningSubtaskId,
   storageOn,
+  meId,
 }: {
   item: DetailData;
-  people: Array<{ id: string; name: string }>;
+  people: PersonOption[];
   today: string;
   summary: TimeSummary;
   entries: TimeEntryRow[];
@@ -155,6 +162,7 @@ export function DetailPanel({
   runningSince: Date | null;
   runningSubtaskId: string | null;
   storageOn: boolean;
+  meId: string;
 }) {
   const router = useRouter();
   const openItem = useOpenItem();
@@ -750,27 +758,22 @@ export function DetailPanel({
 
             <div>
               <RailLabel>Responsável</RailLabel>
-              <select
-                className={field}
-                value={item.assigneeId ?? ""}
-                onChange={(e) => run(() => setAssignee(item.id, e.target.value || null))}
-              >
-                <option value="">Sem responsável</option>
-                {people.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <AssigneeField
+                value={item.assigneeId}
+                people={people}
+                meId={meId}
+                disabled={pending}
+                onChange={(next) => run(() => setAssignee(item.id, next))}
+              />
             </div>
 
             <div>
               <RailLabel>Prazo</RailLabel>
-              <input
-                type="date"
-                className={field}
-                defaultValue={inputFromDueDate(item.dueDate)}
-                onChange={(e) => run(() => setDueDate(item.id, e.target.value || null))}
+              <DueDateField
+                value={inputFromDueDate(item.dueDate)}
+                today={today}
+                disabled={pending}
+                onChange={(next) => run(() => setDueDate(item.id, next))}
               />
               {item.dueDate && !done ? (
                 <p className="mt-1 text-[11.5px] text-faint">{formatDueDate(item.dueDate, today)}</p>
@@ -816,34 +819,24 @@ export function DetailPanel({
 
             <div>
               <RailLabel>Tipo</RailLabel>
-              <select
-                className={field}
+              <OptionField
                 value={item.skill ?? ""}
-                onChange={(e) => run(() => setSkill(item.id, e.target.value))}
-              >
-                <option value="">—</option>
-                {SKILLS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                groups={SKILL_GROUPS}
+                searchable
+                searchPlaceholder="Buscar tipo…"
+                disabled={pending}
+                onChange={(next) => run(() => setSkill(item.id, next))}
+              />
             </div>
 
             <div>
               <RailLabel>Formato</RailLabel>
-              <select
-                className={field}
+              <OptionField
                 value={item.format ?? ""}
-                onChange={(e) => run(() => setFormat(item.id, e.target.value))}
-              >
-                <option value="">—</option>
-                {FORMATS.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
+                groups={FORMAT_GROUPS}
+                disabled={pending}
+                onChange={(next) => run(() => setFormat(item.id, next))}
+              />
             </div>
 
             <button

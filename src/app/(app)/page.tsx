@@ -181,7 +181,7 @@ export default async function HojePage({
       </div>
 
       {params.item ? (
-        <ItemPanel user={user} id={params.item} people={options.people} today={today} />
+        <ItemPanel user={user} id={params.item} today={today} />
       ) : null}
     </>
   );

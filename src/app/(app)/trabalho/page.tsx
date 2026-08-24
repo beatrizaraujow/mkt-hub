@@ -123,7 +123,7 @@ export default async function TrabalhoPage({
       </div>
 
       {params.item ? (
-        <ItemPanel user={user} id={params.item} people={peopleRows} today={today} />
+        <ItemPanel user={user} id={params.item} today={today} />
       ) : null}
     </>
   );

@@ -324,3 +324,35 @@ export async function getItemDetail(user: CurrentUser, id: string) {
     stages,
   };
 }
+
+export type PersonLoad = { id: string; name: string; todayCount: number };
+
+/**
+ * Pessoas com a carga do dia: quantas tarefas abertas cada uma tem com prazo
+ * para hoje ou ja vencido. Serve para atribuir sem abrir o painel do time —
+ * dar mais uma tarefa para quem ja tem sete e uma decisao, nao um acidente.
+ */
+export async function peopleWithLoad(user: CurrentUser): Promise<PersonLoad[]> {
+  const endToday = endOfBrtDay(brtToday());
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      todayCount: sql<number>`count(${workItems.id})::int`,
+    })
+    .from(users)
+    .leftJoin(
+      workItems,
+      and(
+        eq(workItems.assigneeId, users.id),
+        isNull(workItems.completedAt),
+        lt(workItems.dueDate, endToday),
+      ),
+    )
+    .where(and(eq(users.orgId, user.orgId), eq(users.isActive, true)))
+    .groupBy(users.id, users.name)
+    .orderBy(asc(users.name));
+
+  return rows;
+}

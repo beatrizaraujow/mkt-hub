@@ -1,5 +1,5 @@
 import type { CurrentUser } from "@/lib/auth";
-import { getItemDetail } from "./queries";
+import { getItemDetail, peopleWithLoad } from "./queries";
 import { entriesForItem, runningTimer, timeSummary } from "@/features/time/queries";
 import { storageConfigured } from "@/lib/storage";
 import { DetailPanel } from "./detail-panel";
@@ -12,21 +12,20 @@ import { DetailPanel } from "./detail-panel";
 export async function ItemPanel({
   user,
   id,
-  people,
   today,
 }: {
   user: CurrentUser;
   id: string;
-  people: Array<{ id: string; name: string }>;
   today: string;
 }) {
   const item = await getItemDetail(user, id);
   if (!item) return null;
 
-  const [summary, entries, running] = await Promise.all([
+  const [summary, entries, running, people] = await Promise.all([
     timeSummary(id),
     entriesForItem(id),
     runningTimer(user.id),
+    peopleWithLoad(user),
   ]);
 
   const onThis = running?.workItemId === id;
@@ -39,6 +38,7 @@ export async function ItemPanel({
     <DetailPanel
       item={item}
       people={people}
+      meId={user.id}
       today={today}
       summary={summary}
       entries={entries}
