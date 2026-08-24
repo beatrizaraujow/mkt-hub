@@ -106,7 +106,5 @@ Não inferir papel a partir do que a pessoa costuma fazer no board.
 
 ## Estado atual
 
-Pronto: autenticação, shell, empresas com sub-marcas, projetos, semente, tarefas
-(criação rápida, lista, quadro, detalhe em modal) e cronômetro.
-Próximo: anexos (Supabase Storage), formulário de solicitação, fila de aprovação com
-motivo obrigatório no Ajustar, e a tela de pessoas.
+Em [docs/03-estado-do-projeto.md](docs/03-estado-do-projeto.md) — o que funciona, as pendências
+e as armadilhas que já custaram tempo. Atualize esse arquivo quando um módulo ficar pronto.

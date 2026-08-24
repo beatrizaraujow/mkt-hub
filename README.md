@@ -10,6 +10,7 @@ Substitui o ClickUp e, depois, absorve o MKT Hub atual (`mktimer`).
 
 - [Análise, arquitetura e MVP](docs/01-analise-e-arquitetura.md) — o porquê de cada decisão
 - [O board que vamos substituir](docs/02-clickup-house-quatro5.md) — levantamento do ClickUp House Quatro5
+- [Estado do projeto](docs/03-estado-do-projeto.md) — onde está, o que falta, armadilhas conhecidas
 - [CLAUDE.md](CLAUDE.md) — regras de engenharia do projeto
 
 ## Stack
