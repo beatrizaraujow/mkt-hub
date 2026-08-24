@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, timeEntries, workItems } from "@/db/schema";
@@ -14,7 +15,7 @@ import { brtToday, endOfBrtDay, startOfBrtDay } from "@/lib/date";
  *
  * E preguicoso de proposito: roda na leitura, sem cron e sem worker.
  */
-export async function closeStaleTimers(userId: string) {
+export const closeStaleTimers = cache(async (userId: string) => {
   const startToday = startOfBrtDay(brtToday());
 
   const stale = await db
@@ -39,7 +40,7 @@ export async function closeStaleTimers(userId: string) {
   }
 
   return stale.length;
-}
+});
 
 export type RunningTimer = {
   id: string;
@@ -50,7 +51,7 @@ export type RunningTimer = {
 };
 
 /** O timer que está rodando agora. No máximo um por pessoa, garantido no banco. */
-export async function runningTimer(userId: string): Promise<RunningTimer | null> {
+export const runningTimer = cache(async (userId: string): Promise<RunningTimer | null> => {
   await closeStaleTimers(userId);
 
   const [row] = await db
@@ -68,7 +69,7 @@ export async function runningTimer(userId: string): Promise<RunningTimer | null>
     .limit(1);
 
   return row ?? null;
-}
+});
 
 /** Registros fechados pelo corte automático e ainda não confirmados. */
 export async function unconfirmedEntries(userId: string) {

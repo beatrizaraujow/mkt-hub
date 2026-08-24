@@ -498,3 +498,50 @@ export async function addComment(id: string, body: string): Promise<ActionState>
     return fail(err instanceof Error ? err.message : "Não foi possível comentar.");
   }
 }
+
+/* ------------------------------------------------------------- subtarefas */
+
+/**
+ * Subtarefa herda empresa, projeto e tipo do pai. Só o título é pedido —
+ * quebrar trabalho em pedaços tem que custar uma linha digitada, senão
+ * ninguém quebra e a tarefa vira um bloco opaco de três dias.
+ */
+export async function addSubtask(parentId: string, title: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    const parent = await loadItem(user, parentId);
+
+    if (parent.parentId) return fail("Subtarefa de subtarefa não existe. Um nível basta.");
+
+    const clean = title.trim();
+    if (clean.length < 2) return fail("Escreva o título da subtarefa.");
+    if (clean.length > 200) return fail("Título muito longo.");
+
+    const stages = await stagesOf(user.orgId, parent.type);
+    const target = stages.find((s) => s.kind === "todo") ?? stages[0];
+    if (!target) return fail("Nenhum estágio configurado para esse tipo.");
+
+    const [created] = await db
+      .insert(workItems)
+      .values({
+        orgId: user.orgId,
+        companyId: parent.companyId,
+        projectId: parent.projectId,
+        parentId: parent.id,
+        type: parent.type,
+        title: clean,
+        stageId: target.id,
+        priority: parent.priority,
+        assigneeId: parent.assigneeId,
+        createdById: user.id,
+        dueDate: parent.dueDate,
+      })
+      .returning({ id: workItems.id });
+
+    await log(user.orgId, parent.id, user.id, "subtask.created", { title: clean });
+    refresh();
+    return { ok: true, id: created.id };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível criar a subtarefa.");
+  }
+}

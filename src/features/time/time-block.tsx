@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { formatDuration } from "@/lib/date";
+import { useNowSeconds } from "./use-now";
+
+/** hh:mm:ss enquanto conta. Segundo visível é o que faz o cronômetro parecer vivo. */
+function clock(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
 import { Button } from "@/components/ui/button";
 import { TimerButton } from "./timer-button";
 import { logManualTime } from "./actions";
@@ -12,14 +20,20 @@ export function TimeBlock({
   workItemId,
   totalSeconds,
   isRunning,
+  runningSince,
   today,
 }: {
   workItemId: string;
   totalSeconds: number;
   isRunning: boolean;
+  runningSince: Date | null;
   today: string;
 }) {
-  const router = useRouter();
+  const now = useNowSeconds(isRunning);
+  const live =
+    isRunning && runningSince && now > 0
+      ? Math.max(0, now - Math.floor(runningSince.getTime() / 1000))
+      : 0;
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
@@ -36,7 +50,6 @@ export function TimeBlock({
       }
       setMinutes("");
       setManual(false);
-      router.refresh();
     });
   }
 
@@ -46,11 +59,22 @@ export function TimeBlock({
 
       <div className="flex items-center gap-3">
         <TimerButton workItemId={workItemId} isRunning={isRunning} size={20} />
-        <span className="tnum font-display text-[20px] font-semibold text-ink">
-          {formatDuration(totalSeconds)}
-        </span>
+        {isRunning ? (
+          <span
+            suppressHydrationWarning
+            className="tnum font-display text-[22px] font-semibold text-accent"
+          >
+            {clock(live)}
+          </span>
+        ) : (
+          <span className="tnum font-display text-[20px] font-semibold text-ink">
+            {formatDuration(totalSeconds)}
+          </span>
+        )}
         <span className="flex-1 text-[12.5px] text-faint">
-          {isRunning ? "contando agora" : "registradas nesta tarefa"}
+          {isRunning
+            ? `contando agora · ${formatDuration(totalSeconds)} no total`
+            : "registradas nesta tarefa"}
         </span>
         {!manual && (
           <button

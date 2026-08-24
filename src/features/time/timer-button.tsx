@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Play, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { startTimer, stopTimer } from "./actions";
@@ -19,7 +18,6 @@ export function TimerButton({
   isRunning: boolean;
   size?: number;
 }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +26,6 @@ export function TimerButton({
     start(async () => {
       const result = isRunning ? await stopTimer() : await startTimer(workItemId);
       if (result.error) setError(result.error);
-      else router.refresh();
     });
   }
 

@@ -31,6 +31,7 @@ export async function ItemPanel({
       today={today}
       timeSeconds={seconds}
       timerRunning={running?.workItemId === id}
+      runningSince={running?.workItemId === id ? running.startedAt : null}
     />
   );
 }

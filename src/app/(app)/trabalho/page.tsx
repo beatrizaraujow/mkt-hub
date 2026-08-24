@@ -33,7 +33,7 @@ export default async function TrabalhoPage({
   const today = brtToday();
   const isBoard = params.view === "quadro";
 
-  const [items, options, companyRows, peopleRows, stages] = await Promise.all([
+  const [items, options, companyRows, peopleRows, stages, running] = await Promise.all([
     listWorkItems(user, {
       companyId: params.empresa,
       assigneeId: params.responsavel,
@@ -54,9 +54,9 @@ export default async function TrabalhoPage({
       .where(and(eq(users.orgId, user.orgId), eq(users.isActive, true)))
       .orderBy(asc(users.name)),
     stagesFor(user.orgId, "task"),
+    runningTimer(user.id),
   ]);
 
-  const running = await runningTimer(user.id);
   const runningItemId = running?.workItemId ?? null;
 
   const filtered = Boolean(params.empresa || params.responsavel || params.concluidas);

@@ -1,15 +1,10 @@
 "use client";
 
-import { useEffect, useReducer, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { Square, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { discardTimer, stopTimer } from "./actions";
-
-/** Segundos entre dois instantes, nunca negativo. */
-function elapsed(from: Date) {
-  return Math.max(0, Math.round((Date.now() - from.getTime()) / 1000));
-}
+import { useNowSeconds } from "./use-now";
 
 function clock(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -25,25 +20,17 @@ export function TimerWidget({
 }: {
   running: { id: string; startedAt: Date; title: string | null; companyName: string | null } | null;
 }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
-  const [, tick] = useReducer((n: number) => n + 1, 0);
-
   // O relógio anda no navegador. Nada de bater no servidor a cada segundo.
-  useEffect(() => {
-    if (!running) return;
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [running]);
+  const now = useNowSeconds(Boolean(running));
 
   if (!running) return null;
 
-  const seconds = elapsed(running.startedAt);
+  const seconds = now > 0 ? Math.max(0, now - Math.floor(running.startedAt.getTime() / 1000)) : 0;
 
   function act(fn: () => Promise<{ error?: string }>) {
     start(async () => {
       await fn();
-      router.refresh();
     });
   }
 

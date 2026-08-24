@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { formatDuration } from "@/lib/date";
 import { adjustEntry, confirmEntry, discardEntry } from "./actions";
 
@@ -28,7 +27,6 @@ function dayLabel(date: Date) {
  * mês inteiro, e ninguém volta para arrumar.
  */
 export function ConfirmBanner({ entries }: { entries: PendingEntry[] }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState<string | null>(null);
   const [minutes, setMinutes] = useState("");
@@ -39,7 +37,6 @@ export function ConfirmBanner({ entries }: { entries: PendingEntry[] }) {
     start(async () => {
       await fn();
       setEditing(null);
-      router.refresh();
     });
   }
 

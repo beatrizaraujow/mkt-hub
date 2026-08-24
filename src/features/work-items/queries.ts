@@ -251,7 +251,7 @@ export async function getItemDetail(user: CurrentUser, id: string) {
 
   const [full] = await db.select().from(workItems).where(eq(workItems.id, id)).limit(1);
 
-  const [checklist, commentRows, activity, stages] = await Promise.all([
+  const [checklist, commentRows, activity, stages, subtasks] = await Promise.all([
     db
       .select()
       .from(checklistItems)
@@ -282,6 +282,17 @@ export async function getItemDetail(user: CurrentUser, id: string) {
       .orderBy(desc(activityLog.createdAt))
       .limit(20),
     stagesFor(user.orgId, item.type, item.companyId),
+    db
+      .select({
+        id: workItems.id,
+        title: workItems.title,
+        completedAt: workItems.completedAt,
+        assigneeName: users.name,
+      })
+      .from(workItems)
+      .leftJoin(users, eq(users.id, workItems.assigneeId))
+      .where(eq(workItems.parentId, id))
+      .orderBy(asc(workItems.position), asc(workItems.createdAt)),
   ]);
 
   return {
@@ -291,6 +302,7 @@ export async function getItemDetail(user: CurrentUser, id: string) {
     skill: full?.skill ?? null,
     format: full?.format ?? null,
     checklist,
+    subtasks,
     comments: commentRows,
     activity,
     stages,

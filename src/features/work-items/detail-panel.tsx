@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { TimeBlock } from "@/features/time/time-block";
 import {
   addChecklistItem,
+  addSubtask,
+  completeWorkItem,
+  reopenWorkItem,
   addComment,
   deleteWorkItem,
   removeChecklistItem,
@@ -43,6 +46,7 @@ export type DetailData = {
   assigneeId: string | null;
   stages: Array<{ id: string; name: string; kind: string }>;
   checklist: Array<{ id: string; text: string; isDone: boolean }>;
+  subtasks: Array<{ id: string; title: string; completedAt: Date | null; assigneeName: string | null }>;
   comments: Array<{ id: string; body: string; createdAt: Date; authorName: string }>;
   activity: Array<{
     id: string;
@@ -67,6 +71,7 @@ const ACTION_LABEL: Record<string, string> = {
   "item.description_changed": "editou a descrição",
   "item.points_changed": "mudou o ponto",
   "comment.created": "comentou",
+  "subtask.created": "criou uma subtarefa",
 };
 
 function when(date: Date) {
@@ -94,12 +99,14 @@ export function DetailPanel({
   today,
   timeSeconds,
   timerRunning,
+  runningSince,
 }: {
   item: DetailData;
   people: Array<{ id: string; name: string }>;
   today: string;
   timeSeconds: number;
   timerRunning: boolean;
+  runningSince: Date | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -107,6 +114,7 @@ export function DetailPanel({
   const [draftTitle, setDraftTitle] = useState(item.title);
   const [draftDesc, setDraftDesc] = useState(item.description ?? "");
   const [newCheck, setNewCheck] = useState("");
+  const [newSub, setNewSub] = useState("");
   const [newComment, setNewComment] = useState("");
 
   function run(fn: () => Promise<ActionState>) {
@@ -114,7 +122,6 @@ export function DetailPanel({
     start(async () => {
       const result = await fn();
       if (result.error) setError(result.error);
-      else router.refresh();
     });
   }
 
@@ -139,6 +146,7 @@ export function DetailPanel({
   }, [close]);
 
   const doneCount = item.checklist.filter((c) => c.isDone).length;
+  const subDone = item.subtasks.filter((s) => s.completedAt).length;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
@@ -295,6 +303,7 @@ export function DetailPanel({
           workItemId={item.id}
           totalSeconds={timeSeconds}
           isRunning={timerRunning}
+          runningSince={runningSince}
           today={today}
         />
 
@@ -310,6 +319,73 @@ export function DetailPanel({
             placeholder="Briefing, contexto, links…"
             className="w-full resize-y rounded-[var(--radius-control)] border border-line bg-surface p-2.5 text-[13.5px] leading-relaxed text-ink placeholder:text-faint focus:border-accent focus:outline-none"
           />
+        </section>
+
+
+        <section className="border-b border-line px-5 py-4">
+          <h3 className="label-mono mb-2 flex items-center gap-2">
+            Subtarefas
+            {item.subtasks.length > 0 && (
+              <span className="tnum opacity-70">
+                {subDone}/{item.subtasks.length}
+              </span>
+            )}
+          </h3>
+
+          <div className="flex flex-col">
+            {item.subtasks.map((sub) => {
+              const done = Boolean(sub.completedAt);
+              return (
+                <div key={sub.id} className="flex items-center gap-2 py-1">
+                  <button
+                    type="button"
+                    aria-label={done ? "Reabrir subtarefa" : "Concluir subtarefa"}
+                    onClick={() =>
+                      run(() => (done ? reopenWorkItem(sub.id) : completeWorkItem(sub.id)))
+                    }
+                    className={cn(
+                      "flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border transition-colors",
+                      done
+                        ? "border-success bg-success text-white"
+                        : "border-line-strong text-transparent hover:border-accent",
+                    )}
+                  >
+                    <Check size={10} strokeWidth={3} />
+                  </button>
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-[13px]",
+                      done ? "text-faint line-through" : "text-ink",
+                    )}
+                  >
+                    {sub.title}
+                  </span>
+                  {sub.assigneeName ? (
+                    <span className="shrink-0 text-[11.5px] text-faint">{sub.assigneeName}</span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+
+          <form
+            className="mt-1.5 flex items-center gap-1.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newSub.trim()) return;
+              const title = newSub;
+              setNewSub("");
+              run(() => addSubtask(item.id, title));
+            }}
+          >
+            <Plus size={13} className="shrink-0 text-faint" />
+            <input
+              value={newSub}
+              onChange={(e) => setNewSub(e.target.value)}
+              placeholder="Adicionar subtarefa"
+              className="flex-1 border-0 bg-transparent text-[13px] text-ink placeholder:text-faint focus:outline-none"
+            />
+          </form>
         </section>
 
         <section className="border-b border-line px-5 py-4">
