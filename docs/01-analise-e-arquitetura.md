@@ -192,10 +192,27 @@ Hierarquia:
 ```
 Organization
   └── Company
-        └── Project
-              └── WorkItem
-                    └── WorkItem (subitem)
+        └── Company (sub-marca)
+              └── Project
+                    └── WorkItem
+                          └── WorkItem (subitem)
 ```
+
+**Sub-marca é empresa, não entidade nova.** O levantamento do board antigo (24/08/2026) mostrou
+nove empresas onde o plano previa quatro. Elas não são nove pares: são quatro empresas com
+sub-marcas dentro.
+
+| Empresa | Sub-marcas |
+|---|---|
+| SeuBoné | Box Corporativo |
+| Onevo | Onevo Energia · Onevo Investimentos · Cássio Maia P2P |
+| Carbone Educação | Carbone Club · Pedro Galvão P2P |
+| Weevo | — |
+
+Resolvido com uma coluna `parent_id` na própria tabela `companies`, em vez de uma tabela de
+marcas. Três consequências, todas desejadas: a tarefa aponta sempre para a empresa mais
+específica que existir; quem tem acesso à mãe alcança as filhas; e a lista mostra quatro linhas,
+não nove — a hierarquia aparece, a poluição não.
 
 Tabelas:
 
@@ -226,7 +243,44 @@ Tabelas:
 
 **Por que JSONB em `meta`:** captação tem local, horário, quantidade de vídeos e referências; conteúdo tem plataforma, formato e data de publicação. São campos que variam por tipo e não entram em cálculo crítico. Tudo que entra em cálculo — data, responsável, estágio, tempo — é coluna de verdade, indexada.
 
-## 2.3 Permissões
+## 2.3 Estágios — de 12 para 6
+
+O board antigo tinha doze status para todo tipo de trabalho. Nem todos eram estado: `banco de
+criativos` era um arquivo de peças prontas ocupando uma coluna do fluxo, e `revisão solicitada`
+estava vazio. Quatro colunas diferentes significavam "esperando alguém olhar".
+
+Cada tipo passa a ter o seu pipeline, e nenhum estágio existe só para guardar coisa parada.
+
+**`task` — demanda de trabalho** (arte, copy, tráfego, landing page, apresentação)
+
+`Solicitado` → `Pendente` → `Em andamento` → `Ajustar` → `Aprovação` → `Concluído`
+
+**`content` — peça de conteúdo**
+
+`Briefing` → `Roteiro` → `Gravação` → `Edição` → `Aprovação` → `Publicado`
+
+**`capture` — captação**
+
+`Solicitado` → `Agendado` → `Captado` → `Enviado` → `Finalizado`
+
+### De onde veio cada um
+
+| Board antigo | Agora | Por quê |
+|---|---|---|
+| solicitado form | `Solicitado` | Entrada do formulário, ainda não triada |
+| pendente | `Pendente` | — |
+| em progresso | `Em andamento` | — |
+| alterar · revisão solicitada | `Ajustar` | Os dois querem dizer "refaz". Um só bastava |
+| pré revisão · revisão ia · aprovar · aprovação líder | `Aprovação` | Quatro colunas para "esperando alguém olhar". Quem aprova é atributo do item, não coluna do quadro |
+| publicar | `Publicado`, no pipeline de conteúdo | Publicar é etapa de conteúdo, não de demanda genérica |
+| banco de criativos | marca `is_asset` no item concluído | Era arquivo, não etapa. Como coluna, a peça ficava "em andamento" para sempre |
+| completo | `Concluído` | — |
+
+`Ajustar` foi mantido como estágio, e não como marcador no item, por um motivo prático: é assim
+que o time já trabalha. Trocar o modelo de dados e o hábito da equipe ao mesmo tempo são dois
+riscos; um de cada vez.
+
+## 2.4 Permissões
 
 Quatro papéis, mais uma flag:
 
@@ -239,7 +293,7 @@ Quatro papéis, mais uma flag:
 
 Regra: **o papel define o teto, o acesso por empresa define o alcance.** Validação sempre no servidor — esconder item de menu no front é experiência, não segurança. Permissão granular por funcionalidade fica para a V2; com sete pessoas, papel mais empresa cobre todos os casos reais.
 
-## 2.4 Stack — confirmações e divergências
+## 2.5 Stack — confirmações e divergências
 
 Confirmo o documento técnico: **Next.js (App Router) + TypeScript + Tailwind + shadcn/ui + PostgreSQL + Zod + Vercel.**
 
@@ -266,6 +320,7 @@ O MVP recomendado pelo documento técnico tem seis fases. Seis fases não é MVP
 1. Autenticação, usuários, papéis, acesso por empresa
 2. Empresas e projetos
 3. Work items do tipo `task`: criação rápida, lista, quadro, detalhe, subitens, checklist, comentários, anexos, histórico
+3b. **Formulário de solicitação.** Quem pede a demanda não é do time — no board antigo isso era o status `solicitado form` com cerca de cem campos de briefing. Sem formulário, quem solicita volta para o ClickUp e o MVP não substitui nada. Entrou no MVP por decisão de 24/08/2026.
 4. Painel **Hoje**
 5. Controle de horas — timer, lançamento manual, auto-pausa
 6. Calendário como visualização

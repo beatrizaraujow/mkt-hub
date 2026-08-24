@@ -45,20 +45,38 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   if (!row) return null;
 
-  const companyIds =
-    row.role === "admin"
-      ? (
-          await db
-            .select({ id: companies.id })
-            .from(companies)
-            .where(and(eq(companies.orgId, row.orgId), eq(companies.isActive, true)))
-        ).map((c) => c.id)
-      : (
-          await db
-            .select({ id: userCompanyAccess.companyId })
-            .from(userCompanyAccess)
-            .where(eq(userCompanyAccess.userId, row.id))
-        ).map((c) => c.id);
+  const all = await db
+    .select({ id: companies.id, parentId: companies.parentId })
+    .from(companies)
+    .where(and(eq(companies.orgId, row.orgId), eq(companies.isActive, true)));
+
+  let granted: Set<string>;
+
+  if (row.role === "admin") {
+    granted = new Set(all.map((c) => c.id));
+  } else {
+    const direct = await db
+      .select({ id: userCompanyAccess.companyId })
+      .from(userCompanyAccess)
+      .where(eq(userCompanyAccess.userId, row.id));
+
+    granted = new Set(direct.map((c) => c.id));
+
+    // Acesso a uma empresa alcança as sub-marcas dela. Sem isto, dar acesso a
+    // Onevo deixaria a pessoa sem ver nada de Onevo Energia.
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const c of all) {
+        if (c.parentId && granted.has(c.parentId) && !granted.has(c.id)) {
+          granted.add(c.id);
+          changed = true;
+        }
+      }
+    }
+  }
+
+  const companyIds = [...granted];
 
   return {
     id: row.id,

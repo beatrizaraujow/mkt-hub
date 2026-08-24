@@ -1,8 +1,11 @@
 /**
  * Semente inicial. Idempotente: pode rodar de novo sem duplicar nada.
  *   npm run seed
+ *
+ * Empresas e estagios vem do levantamento do board antigo — ver
+ * docs/02-clickup-house-quatro5.md.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { client, db } from "./index";
 import {
@@ -10,6 +13,7 @@ import {
   organizations,
   userCompanyAccess,
   users,
+  workItems,
   workItemStages,
   type StageKind,
   type WorkItemType,
@@ -17,31 +21,70 @@ import {
 
 const ORG = { name: "Grupo SB", slug: "grupo-sb" };
 
-const COMPANIES = [
-  { name: "SeuBoné", slug: "seubone", color: "#b3261e" },
-  { name: "Onevo", slug: "onevo", color: "#2e7d4f" },
-  { name: "Carbone Educação", slug: "carbone-educacao", color: "#c98a2e" },
+/**
+ * Quatro empresas, cada uma com suas sub-marcas. A tarefa aponta sempre
+ * para a mais especifica; quem tem acesso a mae alcança as filhas.
+ */
+const TREE: Array<{
+  name: string;
+  slug: string;
+  color: string;
+  children?: Array<{ name: string; slug: string }>;
+}> = [
+  {
+    name: "SeuBoné",
+    slug: "seubone",
+    color: "#b3261e",
+    children: [{ name: "Box Corporativo", slug: "box-corporativo" }],
+  },
+  {
+    name: "Onevo",
+    slug: "onevo",
+    color: "#2e7d4f",
+    children: [
+      { name: "Onevo Energia", slug: "onevo-energia" },
+      { name: "Onevo Investimentos", slug: "onevo-investimentos" },
+      { name: "Cássio Maia P2P", slug: "cassio-maia-p2p" },
+    ],
+  },
+  {
+    name: "Carbone Educação",
+    slug: "carbone-educacao",
+    color: "#c98a2e",
+    children: [
+      { name: "Carbone Club", slug: "carbone-club" },
+      { name: "Pedro Galvão P2P", slug: "pedro-galvao-p2p" },
+    ],
+  },
   { name: "Weevo", slug: "weevo", color: "#4a5bb5" },
 ];
 
-/** O nome e livre; `kind` e o que o sistema usa para calcular. */
+/**
+ * Estagios. O board antigo tinha 12 para tudo; aqui cada tipo tem o seu,
+ * e nenhum estagio existe so para guardar coisa parada.
+ *
+ * O nome e livre; `kind` e o que o sistema usa para calcular.
+ */
 const STAGES: Record<WorkItemType, Array<[string, StageKind]>> = {
+  // Demanda de trabalho: arte, copy, tráfego, landing page, apresentação.
   task: [
-    ["Backlog", "backlog"],
-    ["A fazer", "todo"],
+    ["Solicitado", "backlog"],
+    ["Pendente", "todo"],
     ["Em andamento", "doing"],
-    ["Em revisão", "review"],
+    ["Ajustar", "doing"],
+    ["Aprovação", "review"],
     ["Concluído", "done"],
   ],
+  // Peça de conteúdo, do briefing ao ar.
   content: [
     ["Briefing", "backlog"],
     ["Roteiro", "todo"],
     ["Gravação", "doing"],
     ["Edição", "doing"],
-    ["Revisão", "review"],
-    ["Aprovado", "review"],
+    ["Aprovação", "review"],
     ["Publicado", "done"],
   ],
+  // Captação de vídeo e foto.
   capture: [
     ["Solicitado", "backlog"],
     ["Agendado", "todo"],
@@ -50,6 +93,108 @@ const STAGES: Record<WorkItemType, Array<[string, StageKind]>> = {
     ["Finalizado", "done"],
   ],
 };
+
+async function seedCompanies(orgId: string) {
+  for (const parent of TREE) {
+    let [row] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.orgId, orgId), eq(companies.slug, parent.slug)))
+      .limit(1);
+
+    if (!row) {
+      [row] = await db
+        .insert(companies)
+        .values({ orgId, name: parent.name, slug: parent.slug, color: parent.color })
+        .returning({ id: companies.id });
+      console.log(`+ empresa ${parent.name}`);
+    }
+
+    for (const child of parent.children ?? []) {
+      const [exists] = await db
+        .select({ id: companies.id })
+        .from(companies)
+        .where(and(eq(companies.orgId, orgId), eq(companies.slug, child.slug)))
+        .limit(1);
+
+      if (!exists) {
+        await db.insert(companies).values({
+          orgId,
+          name: child.name,
+          slug: child.slug,
+          color: parent.color,
+          parentId: row.id,
+        });
+        console.log(`  + ${child.name} (dentro de ${parent.name})`);
+      }
+    }
+  }
+}
+
+async function seedStages(orgId: string) {
+  for (const [type, wanted] of Object.entries(STAGES) as Array<
+    [WorkItemType, Array<[string, StageKind]>]
+  >) {
+    const current = await db
+      .select()
+      .from(workItemStages)
+      .where(
+        and(
+          eq(workItemStages.orgId, orgId),
+          eq(workItemStages.type, type),
+          isNull(workItemStages.companyId),
+        ),
+      );
+
+    const same =
+      current.length === wanted.length &&
+      wanted.every(([name], i) =>
+        current.some((s) => s.name === name && s.position === (i + 1) * 10),
+      );
+
+    if (same) continue;
+
+    if (current.length) {
+      // So troca o pipeline se nenhum item estiver usando os estagios atuais —
+      // reescrever isso com trabalho em andamento perderia o estado do time.
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workItems)
+        .where(
+          inArray(
+            workItems.stageId,
+            current.map((s) => s.id),
+          ),
+        );
+
+      if (count > 0) {
+        console.log(
+          `! pipeline ${type} desatualizado, mas ${count} item(ns) em uso — nada alterado`,
+        );
+        continue;
+      }
+
+      await db.delete(workItemStages).where(
+        inArray(
+          workItemStages.id,
+          current.map((s) => s.id),
+        ),
+      );
+    }
+
+    await db.insert(workItemStages).values(
+      wanted.map(([name, kind], i) => ({
+        orgId,
+        companyId: null,
+        type,
+        name,
+        kind,
+        position: (i + 1) * 10,
+      })),
+    );
+    console.log(`+ pipeline ${type}: ${wanted.map(([n]) => n).join(" > ")}`);
+  }
+}
 
 async function main() {
   const email = (process.env.SEED_ADMIN_EMAIL ?? "").trim().toLowerCase();
@@ -62,51 +207,15 @@ async function main() {
     );
   }
 
-  // Organizacao
   let [org] = await db.select().from(organizations).where(eq(organizations.slug, ORG.slug)).limit(1);
   if (!org) {
     [org] = await db.insert(organizations).values(ORG).returning();
     console.log(`+ organizacao ${org.name}`);
   }
 
-  // Empresas
-  for (const c of COMPANIES) {
-    const [found] = await db
-      .select({ id: companies.id })
-      .from(companies)
-      .where(and(eq(companies.orgId, org.id), eq(companies.slug, c.slug)))
-      .limit(1);
-    if (!found) {
-      await db.insert(companies).values({ ...c, orgId: org.id });
-      console.log(`+ empresa ${c.name}`);
-    }
-  }
+  await seedCompanies(org.id);
+  await seedStages(org.id);
 
-  // Pipelines padrao da organizacao (companyId nulo)
-  for (const [type, list] of Object.entries(STAGES) as Array<
-    [WorkItemType, Array<[string, StageKind]>]
-  >) {
-    const existing = await db
-      .select({ id: workItemStages.id })
-      .from(workItemStages)
-      .where(and(eq(workItemStages.orgId, org.id), eq(workItemStages.type, type)));
-
-    if (existing.length === 0) {
-      await db.insert(workItemStages).values(
-        list.map(([stageName, kind], i) => ({
-          orgId: org.id,
-          companyId: null,
-          type,
-          name: stageName,
-          kind,
-          position: (i + 1) * 10,
-        })),
-      );
-      console.log(`+ pipeline ${type} (${list.length} estagios)`);
-    }
-  }
-
-  // Administrador
   const [existingUser] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   let userId = existingUser?.id;
 
@@ -129,14 +238,12 @@ async function main() {
     console.log(`= administrador ${email} ja existe (senha nao alterada)`);
   }
 
-  // Acesso a todas as empresas (admin ja enxerga tudo, mas o vinculo
-  // explicito evita surpresa se o papel mudar depois)
-  const allCompanies = await db
+  const all = await db
     .select({ id: companies.id })
     .from(companies)
     .where(eq(companies.orgId, org.id));
 
-  for (const c of allCompanies) {
+  for (const c of all) {
     await db
       .insert(userCompanyAccess)
       .values({ userId: userId!, companyId: c.id })

@@ -24,6 +24,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 /* ------------------------------------------------------------------ enums */
@@ -80,12 +81,26 @@ export const companies = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    /**
+     * Sub-marca de uma empresa. Onevo Energia, Onevo Investimentos e
+     * Cassio Maia P2P sao filhas de Onevo; Box Corporativo e filha de SeuBone;
+     * Carbone Club e Pedro Galvao P2P sao filhas de Carbone Educacao.
+     *
+     * A tarefa aponta sempre para a empresa mais especifica que existir.
+     * Quem tem acesso a mae alcança as filhas — a regra vive em `lib/auth`.
+     */
+    parentId: uuid("parent_id").references((): AnyPgColumn => companies.id, {
+      onDelete: "cascade",
+    }),
     /** Cor de identificacao na lista. Nunca usada para status. */
     color: text("color").notNull().default("#0d5c59"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("companies_org_slug_unique").on(t.orgId, t.slug)],
+  (t) => [
+    uniqueIndex("companies_org_slug_unique").on(t.orgId, t.slug),
+    index("companies_parent_idx").on(t.parentId),
+  ],
 );
 
 /** O papel define o teto, o acesso por empresa define o alcance. */
@@ -176,6 +191,29 @@ export const workItems = pgTable(
     dueDate: timestamp("due_date", { withTimezone: true }),
     estimateMinutes: integer("estimate_minutes"),
 
+    /**
+     * "Ponto de atividade MKT" — o unico campo obrigatorio do board antigo.
+     * E a moeda de pontuacao do time e o que a ponte com o MKT Hub atual le.
+     */
+    points: integer("points"),
+
+    /** "Tarefas SKILL" — que tipo de trabalho e. Opcoes em lib/catalog. */
+    skill: text("skill"),
+    /** "Formato SKILL" — formato da peca. Opcoes em lib/catalog. */
+    format: text("format"),
+
+    /**
+     * Banco de criativos. No ClickUp isso era uma coluna do quadro, o que
+     * misturava arquivo com fluxo: a peca ficava "parada" para sempre num
+     * estagio. Aqui e uma marca em cima do item concluido.
+     */
+    isAsset: boolean("is_asset").notNull().default(false),
+
+    /** Quem pediu, quando a demanda entra pelo formulario e nao pelo time. */
+    requesterName: text("requester_name"),
+    requesterEmail: text("requester_email"),
+    requesterPhone: text("requester_phone"),
+
     /** Ordem dentro da coluna do quadro. Fracionaria: reordenar nao reescreve a lista. */
     position: doublePrecision("position").notNull().default(1000),
 
@@ -198,6 +236,7 @@ export const workItems = pgTable(
     index("wi_stage_idx").on(t.stageId),
     index("wi_parent_idx").on(t.parentId),
     index("wi_type_idx").on(t.orgId, t.type),
+    index("wi_asset_idx").on(t.orgId, t.isAsset),
   ],
 );
 
