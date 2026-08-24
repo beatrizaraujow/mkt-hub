@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MKT Hub
 
-## Getting Started
+Sistema de gestão do time de marketing do Grupo SB — SeuBoné, Onevo, Carbone Educação e Weevo.
 
-First, run the development server:
+Substitui o ClickUp e, depois, absorve o MKT Hub atual (`mktimer`).
+
+> **Máxima clareza com o mínimo de complexidade.**
+
+## Documentação
+
+- [Análise, arquitetura e MVP](docs/01-analise-e-arquitetura.md) — o porquê de cada decisão
+- [CLAUDE.md](CLAUDE.md) — regras de engenharia do projeto
+
+## Stack
+
+Next.js 16 · TypeScript · Tailwind v4 · Drizzle · PostgreSQL (Supabase) · Vercel
+
+## Rodando localmente
 
 ```bash
+npm install
+cp .env.example .env.local   # preencher DATABASE_URL, DIRECT_URL e SESSION_SECRET
+npm run db:migrate
+npm run seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Comandos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run typecheck` | TypeScript sem emitir |
+| `npm run db:generate` | Gera migration a partir do schema |
+| `npm run db:migrate` | Aplica migrations pendentes |
+| `npm run seed` | Organização, empresas, pipelines e primeiro admin |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Estado
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Módulo | Situação |
+|---|---|
+| Autenticação, papéis e acesso por empresa | Pronto |
+| Empresas e projetos | Pronto |
+| Tarefas, quadro e cronômetro | Em construção |
+| Rotinas, metas, coins e ranking | V1.5 |
+| Produção de conteúdo e captações | V2 |
