@@ -1,8 +1,8 @@
 import "server-only";
 import { cache } from "react";
-import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { companies, timeEntries, workItems } from "@/db/schema";
+import { companies, timeEntries, users, workItems } from "@/db/schema";
 import { brtToday, endOfBrtDay, startOfBrtDay } from "@/lib/date";
 
 /**
@@ -132,4 +132,70 @@ export async function todayByCompany(userId: string) {
     )
     .groupBy(companies.name, companies.color)
     .orderBy(desc(sql`2`));
+}
+
+export type TimeSummary = {
+  own: number;
+  subtasks: number;
+  bySubtask: Record<string, number>;
+};
+
+/** Tempo da tarefa e das subtarefas dela, separados. */
+export async function timeSummary(itemId: string): Promise<TimeSummary> {
+  const rows = await db
+    .select({
+      itemId: timeEntries.workItemId,
+      seconds: sql<number>`sum(
+        coalesce(${timeEntries.durationSeconds},
+                 extract(epoch from (now() - ${timeEntries.startedAt}))::int)
+      )::int`,
+    })
+    .from(timeEntries)
+    .innerJoin(workItems, eq(workItems.id, timeEntries.workItemId))
+    .where(or(eq(workItems.id, itemId), eq(workItems.parentId, itemId)))
+    .groupBy(timeEntries.workItemId);
+
+  const summary: TimeSummary = { own: 0, subtasks: 0, bySubtask: {} };
+
+  for (const row of rows) {
+    if (row.itemId === itemId) summary.own += row.seconds;
+    else if (row.itemId) {
+      summary.subtasks += row.seconds;
+      summary.bySubtask[row.itemId] = row.seconds;
+    }
+  }
+
+  return summary;
+}
+
+export type TimeEntryRow = {
+  id: string;
+  startedAt: Date;
+  durationSeconds: number | null;
+  autoClosed: boolean;
+  confirmedAt: Date | null;
+  userName: string | null;
+  fromTitle: string | null;
+  isSubtask: boolean;
+};
+
+/** Registros da tarefa e das subtarefas, do mais recente para o mais antigo. */
+export async function entriesForItem(itemId: string): Promise<TimeEntryRow[]> {
+  return db
+    .select({
+      id: timeEntries.id,
+      startedAt: timeEntries.startedAt,
+      durationSeconds: timeEntries.durationSeconds,
+      autoClosed: timeEntries.autoClosed,
+      confirmedAt: timeEntries.confirmedAt,
+      userName: users.name,
+      fromTitle: workItems.title,
+      isSubtask: sql<boolean>`${workItems.parentId} is not null`,
+    })
+    .from(timeEntries)
+    .innerJoin(workItems, eq(workItems.id, timeEntries.workItemId))
+    .leftJoin(users, eq(users.id, timeEntries.userId))
+    .where(or(eq(workItems.id, itemId), eq(workItems.parentId, itemId)))
+    .orderBy(desc(timeEntries.startedAt))
+    .limit(50);
 }

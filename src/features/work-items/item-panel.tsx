@@ -1,6 +1,6 @@
 import type { CurrentUser } from "@/lib/auth";
 import { getItemDetail } from "./queries";
-import { runningTimer, secondsOnItem } from "@/features/time/queries";
+import { entriesForItem, runningTimer, timeSummary } from "@/features/time/queries";
 import { DetailPanel } from "./detail-panel";
 
 /**
@@ -22,16 +22,28 @@ export async function ItemPanel({
   const item = await getItemDetail(user, id);
   if (!item) return null;
 
-  const [seconds, running] = await Promise.all([secondsOnItem(id), runningTimer(user.id)]);
+  const [summary, entries, running] = await Promise.all([
+    timeSummary(id),
+    entriesForItem(id),
+    runningTimer(user.id),
+  ]);
+
+  const onThis = running?.workItemId === id;
+  const onSubtask =
+    running?.workItemId && item.subtasks.some((s) => s.id === running.workItemId)
+      ? running.workItemId
+      : null;
 
   return (
     <DetailPanel
       item={item}
       people={people}
       today={today}
-      timeSeconds={seconds}
-      timerRunning={running?.workItemId === id}
-      runningSince={running?.workItemId === id ? running.startedAt : null}
+      summary={summary}
+      entries={entries}
+      timerRunning={onThis}
+      runningSince={onThis || onSubtask ? (running?.startedAt ?? null) : null}
+      runningSubtaskId={onSubtask}
     />
   );
 }
