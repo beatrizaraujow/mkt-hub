@@ -1,0 +1,1 @@
+CREATE TYPE "public"."attachment_kind" AS ENUM('file', 'link');

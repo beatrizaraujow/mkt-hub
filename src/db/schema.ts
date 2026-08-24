@@ -35,6 +35,9 @@ export const workItemType = pgEnum("work_item_type", ["task", "content", "captur
 
 export const priority = pgEnum("priority", ["urgente", "alta", "media", "baixa"]);
 
+/** Anexo pode ser arquivo guardado por nos ou link para fora. */
+export const attachmentKind = pgEnum("attachment_kind", ["file", "link"]);
+
 /** O nome do estagio e livre; `kind` e o que o sistema usa para calcular. */
 export const stageKind = pgEnum("stage_kind", ["backlog", "todo", "doing", "review", "done"]);
 
@@ -289,10 +292,15 @@ export const attachments = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     uploadedById: uuid("uploaded_by_id").references(() => users.id, { onDelete: "set null" }),
+    kind: attachmentKind("kind").notNull().default("file"),
+    /** Nome do arquivo, ou o rotulo do link. */
     filename: text("filename").notNull(),
-    mimeType: text("mime_type").notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
-    storageKey: text("storage_key").notNull(),
+    mimeType: text("mime_type").notNull().default(""),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    /** Caminho no bucket. Vazio quando e link. */
+    storageKey: text("storage_key").notNull().default(""),
+    /** Endereco de fora. Nulo quando e arquivo nosso. */
+    url: text("url"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("attachments_item_idx").on(t.workItemId)],
@@ -378,6 +386,8 @@ export type WorkItem = typeof workItems.$inferSelect;
 export type WorkItemStage = typeof workItemStages.$inferSelect;
 export type TimeEntry = typeof timeEntries.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
+export type Attachment = typeof attachments.$inferSelect;
+export type AttachmentKind = (typeof attachmentKind.enumValues)[number];
 export type UserRole = (typeof userRole.enumValues)[number];
 export type WorkItemType = (typeof workItemType.enumValues)[number];
 export type Priority = (typeof priority.enumValues)[number];

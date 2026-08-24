@@ -1,6 +1,7 @@
 import type { CurrentUser } from "@/lib/auth";
 import { getItemDetail } from "./queries";
 import { entriesForItem, runningTimer, timeSummary } from "@/features/time/queries";
+import { storageConfigured } from "@/lib/storage";
 import { DetailPanel } from "./detail-panel";
 
 /**
@@ -44,6 +45,7 @@ export async function ItemPanel({
       timerRunning={onThis}
       runningSince={onThis || onSubtask ? (running?.startedAt ?? null) : null}
       runningSubtaskId={onSubtask}
+      storageOn={storageConfigured()}
     />
   );
 }

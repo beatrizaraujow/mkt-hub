@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   activityLog,
+  attachments,
   checklistItems,
   comments,
   companies,
@@ -251,7 +252,7 @@ export async function getItemDetail(user: CurrentUser, id: string) {
 
   const [full] = await db.select().from(workItems).where(eq(workItems.id, id)).limit(1);
 
-  const [checklist, commentRows, activity, stages, subtasks] = await Promise.all([
+  const [checklist, commentRows, activity, stages, subtasks, files] = await Promise.all([
     db
       .select()
       .from(checklistItems)
@@ -293,6 +294,20 @@ export async function getItemDetail(user: CurrentUser, id: string) {
       .leftJoin(users, eq(users.id, workItems.assigneeId))
       .where(eq(workItems.parentId, id))
       .orderBy(asc(workItems.position), asc(workItems.createdAt)),
+    db
+      .select({
+        id: attachments.id,
+        kind: attachments.kind,
+        filename: attachments.filename,
+        mimeType: attachments.mimeType,
+        sizeBytes: attachments.sizeBytes,
+        url: attachments.url,
+        uploadedByName: users.name,
+      })
+      .from(attachments)
+      .leftJoin(users, eq(users.id, attachments.uploadedById))
+      .where(eq(attachments.workItemId, id))
+      .orderBy(asc(attachments.createdAt)),
   ]);
 
   return {
@@ -303,6 +318,7 @@ export async function getItemDetail(user: CurrentUser, id: string) {
     format: full?.format ?? null,
     checklist,
     subtasks,
+    files,
     comments: commentRows,
     activity,
     stages,

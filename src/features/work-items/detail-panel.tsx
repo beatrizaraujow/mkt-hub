@@ -32,6 +32,7 @@ import {
   type ActionState,
 } from "./actions";
 import { useOpenItem } from "./use-open-item";
+import { AttachmentList, type AttachmentRow } from "@/features/attachments/attachment-list";
 
 export type DetailData = {
   id: string;
@@ -56,6 +57,7 @@ export type DetailData = {
     completedAt: Date | null;
     assigneeName: string | null;
   }>;
+  files: AttachmentRow[];
   comments: Array<{ id: string; body: string; createdAt: Date; authorName: string }>;
   activity: Array<{
     id: string;
@@ -142,6 +144,7 @@ export function DetailPanel({
   timerRunning,
   runningSince,
   runningSubtaskId,
+  storageOn,
 }: {
   item: DetailData;
   people: Array<{ id: string; name: string }>;
@@ -151,6 +154,7 @@ export function DetailPanel({
   timerRunning: boolean;
   runningSince: Date | null;
   runningSubtaskId: string | null;
+  storageOn: boolean;
 }) {
   const router = useRouter();
   const openItem = useOpenItem();
@@ -475,6 +479,12 @@ export function DetailPanel({
                       />
                     </form>
                   </section>
+
+                  <AttachmentList
+                    workItemId={item.id}
+                    items={item.files}
+                    storageOn={storageOn}
+                  />
 
                   <section>
                     <h3 className="label-mono mb-2 flex items-center gap-2">
