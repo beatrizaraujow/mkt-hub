@@ -194,6 +194,12 @@
   }
 }
 
+/* Barra de progresso: mostra que algo esta rodando sem apagar a tela. */
+@keyframes slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

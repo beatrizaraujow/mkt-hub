@@ -94,7 +94,7 @@ export function Board({
   items: BoardItem[];
   today: string;
 }) {
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
 
@@ -130,10 +130,8 @@ export function Board({
       ) : null}
 
       <div
-        className={cn(
-          "scroll-thin flex gap-3 overflow-x-auto pb-3",
-          pending && "opacity-70 transition-opacity",
-        )}
+        // O cartao ja se move na hora; apagar o quadro inteiro so atrapalha.
+        className="scroll-thin flex gap-3 overflow-x-auto pb-3"
       >
         {stages.map((stage) => {
           const list = shown.filter((i) => i.stageId === stage.id);

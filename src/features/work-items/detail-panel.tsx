@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -166,6 +166,9 @@ export function DetailPanel({
   const [manualMin, setManualMin] = useState("");
   const [manualDay, setManualDay] = useState(today);
 
+  // A etapa muda na hora. Se o servidor recusar, volta sozinha.
+  const [shownStageId, setShownStage] = useOptimistic(item.stageId);
+
   const anyTimer = timerRunning || Boolean(runningSubtaskId);
   const now = useNowSeconds(anyTimer);
   const live =
@@ -227,7 +230,6 @@ export function DetailPanel({
           "relative z-10 flex max-h-[90vh] w-full max-w-[900px] flex-col overflow-hidden",
           "rounded-[var(--radius-card)] border border-line bg-surface",
           "shadow-[0_24px_64px_rgba(0,0,0,0.32)]",
-          pending && "opacity-90",
         )}
       >
         {/* ------------------------------------------------------------ topo */}
@@ -300,13 +302,18 @@ export function DetailPanel({
           {/* Trilha de etapas: onde está e para onde vai, num clique. */}
           <div className="mt-3.5 flex gap-[2px]">
             {item.stages.map((stage, i) => {
-              const active = stage.id === item.stageId;
+              const active = stage.id === shownStageId;
               return (
                 <button
                   key={stage.id}
                   type="button"
                   disabled={pending}
-                  onClick={() => run(() => setStage(item.id, stage.id))}
+                  onClick={() =>
+                    run(async () => {
+                      setShownStage(stage.id);
+                      return setStage(item.id, stage.id);
+                    })
+                  }
                   className={cn(
                     "flex flex-1 items-center justify-center gap-1.5 px-2 py-2 text-[12.5px] transition-colors duration-150",
                     i === 0 && "rounded-l-[7px]",
@@ -324,14 +331,19 @@ export function DetailPanel({
           </div>
         </header>
 
+        {/* Progresso sem apagar a tela: o conteudo continua legivel. */}
+        <div aria-hidden className="relative mt-4 h-[2px] overflow-hidden bg-line">
+          {pending && <div className="absolute inset-y-0 left-0 w-1/3 animate-[slide_1s_ease-in-out_infinite] bg-accent" />}
+        </div>
+
         {error ? (
-          <p role="alert" className="mt-3 bg-danger-soft px-5 py-2 text-[13px] text-danger">
+          <p role="alert" className="bg-danger-soft px-5 py-2 text-[13px] text-danger">
             {error}
           </p>
         ) : null}
 
         {/* ----------------------------------------------------------- corpo */}
-        <div className="mt-4 grid min-h-0 flex-1 border-t border-line md:grid-cols-[minmax(0,1fr)_264px]">
+        <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1fr)_264px]">
           <div className="flex min-w-0 flex-col border-line md:border-r">
             <div className="flex gap-4 border-b border-line px-5 pt-3">
               {TABS.map((t) => (
