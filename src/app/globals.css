@@ -1,26 +1,204 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ---------------------------------------------------------------
+   Tokens — MKT Hub 2
+   A cor codifica camada do sistema, nao decoracao:
+   superficies neutras, acento petroleo para acao/foco/progresso,
+   semanticas so para estado, ambar so para reconhecimento.
+   --------------------------------------------------------------- */
+:root {
+  --bg: #f7f8f7;
+  --surface: #ffffff;
+  --surface-sunk: #eff2f1;
+  --surface-hover: #f2f5f4;
+  --border: #e2e6e4;
+  --border-strong: #cfd6d3;
+  --text: #141918;
+  --text-muted: #6b7472;
+  --text-faint: #9aa3a0;
+
+  --accent: #0d5c59;
+  --accent-hover: #0a4a47;
+  --accent-soft: #e3efee;
+  --accent-fg: #ffffff;
+
+  --success: #2e7d4f;
+  --success-soft: #e6f1ea;
+  --warning: #b7791f;
+  --warning-soft: #fbf1de;
+  --danger: #b3261e;
+  --danger-soft: #fbeae8;
+  --reward: #c98a2e;
+  --reward-soft: #fbf2e3;
+
+  --p-urgente: #b3261e;
+  --p-alta: #b7791f;
+  --p-media: #0d5c59;
+  --p-baixa: #9aa3a0;
+
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --row-h: 36px;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not(.light) {
+    --bg: #0f1413;
+    --surface: #171d1c;
+    --surface-sunk: #121817;
+    --surface-hover: #1d2524;
+    --border: #2a3231;
+    --border-strong: #3a4441;
+    --text: #edf1f0;
+    --text-muted: #93a09d;
+    --text-faint: #6e7a77;
+
+    --accent: #4fbfb4;
+    --accent-hover: #6bd0c6;
+    --accent-soft: #14302e;
+    --accent-fg: #06201e;
+
+    --success: #5cb77f;
+    --success-soft: #16281e;
+    --warning: #e0a53f;
+    --warning-soft: #2a2114;
+    --danger: #f0776c;
+    --danger-soft: #2e1917;
+    --reward: #e5b25c;
+    --reward-soft: #2a2114;
+
+    --p-urgente: #f0776c;
+    --p-alta: #e0a53f;
+    --p-media: #4fbfb4;
+    --p-baixa: #6e7a77;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.dark {
+  --bg: #0f1413;
+  --surface: #171d1c;
+  --surface-sunk: #121817;
+  --surface-hover: #1d2524;
+  --border: #2a3231;
+  --border-strong: #3a4441;
+  --text: #edf1f0;
+  --text-muted: #93a09d;
+  --text-faint: #6e7a77;
+
+  --accent: #4fbfb4;
+  --accent-hover: #6bd0c6;
+  --accent-soft: #14302e;
+  --accent-fg: #06201e;
+
+  --success: #5cb77f;
+  --success-soft: #16281e;
+  --warning: #e0a53f;
+  --warning-soft: #2a2114;
+  --danger: #f0776c;
+  --danger-soft: #2e1917;
+  --reward: #e5b25c;
+  --reward-soft: #2a2114;
+
+  --p-urgente: #f0776c;
+  --p-alta: #e0a53f;
+  --p-media: #4fbfb4;
+  --p-baixa: #6e7a77;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunk: var(--surface-sunk);
+  --color-hover: var(--surface-hover);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-reward: var(--reward);
+  --color-reward-soft: var(--reward-soft);
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --radius-control: 8px;
+  --radius-card: 10px;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  /* Numeros que se alinham em coluna nunca dancam */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+  .label-mono {
+    font-family: var(--font-jetbrains), ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
