@@ -7,6 +7,9 @@ Sucessor do MKT Hub atual (repo `mktimer`). Substitui o ClickUp e, depois, absor
 
 **Antes de mexer, leia [docs/01-analise-e-arquitetura.md](docs/01-analise-e-arquitetura.md).**
 Ele traz a análise, os 11 achados de UX, o corte de MVP e o design system — e as decisões já aprovadas.
+Para estágios, empresas ou campos de tarefa, confira antes
+[docs/02-clickup-house-quatro5.md](docs/02-clickup-house-quatro5.md): é o levantamento do board real
+que o MVP precisa substituir.
 
 ## Doutrina
 
