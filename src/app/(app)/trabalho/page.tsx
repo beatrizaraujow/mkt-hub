@@ -10,6 +10,7 @@ import { listWorkItems, quickCreateOptions, stagesFor } from "@/features/work-it
 import { ItemRow } from "@/features/work-items/item-row";
 import { Board } from "@/features/work-items/board";
 import { QuickCreate } from "@/features/work-items/quick-create";
+import { ItemPanel } from "@/features/work-items/item-panel";
 import { Filters } from "./filters";
 import { ViewSwitch } from "./view-switch";
 
@@ -23,6 +24,7 @@ export default async function TrabalhoPage({
     responsavel?: string;
     concluidas?: string;
     view?: string;
+    item?: string;
   }>;
 }) {
   const user = await requireUser();
@@ -109,6 +111,10 @@ export default async function TrabalhoPage({
           </>
         )}
       </div>
+
+      {params.item ? (
+        <ItemPanel user={user} id={params.item} people={peopleRows} today={today} />
+      ) : null}
     </>
   );
 }

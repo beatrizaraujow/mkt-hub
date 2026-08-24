@@ -4,6 +4,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { formatDueDate, startOfBrtDay } from "@/lib/date";
 import { setStage } from "./actions";
+import { useOpenItem } from "./use-open-item";
 import type { RowItem } from "./item-row";
 
 export type BoardStage = { id: string; name: string; kind: string };
@@ -21,6 +22,7 @@ function initials(name: string) {
 }
 
 function Card({ item, today }: { item: BoardItem; today: string }) {
+  const open = useOpenItem();
   const overdue =
     !item.completedAt && item.dueDate !== null && item.dueDate < startOfBrtDay(today);
 
@@ -42,7 +44,13 @@ function Card({ item, today }: { item: BoardItem; today: string }) {
           style={{ background: PRIORITY_COLOR[item.priority] }}
           className="mt-[3px] h-3 w-[3px] shrink-0 rounded-full"
         />
-        <p className="min-w-0 flex-1 text-[13px] leading-snug text-ink">{item.title}</p>
+        <button
+          type="button"
+          onClick={() => open(item.id)}
+          className="min-w-0 flex-1 text-left text-[13px] leading-snug text-ink"
+        >
+          {item.title}
+        </button>
       </div>
 
       <div className="mt-2 flex items-center gap-2 pl-[11px]">

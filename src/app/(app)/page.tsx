@@ -5,6 +5,7 @@ import { secondsTrackedToday, todayBoard, type WorkItemRow } from "@/features/wo
 import { ItemRow } from "@/features/work-items/item-row";
 import { QuickCreate } from "@/features/work-items/quick-create";
 import { quickCreateOptions } from "@/features/work-items/queries";
+import { ItemPanel } from "@/features/work-items/item-panel";
 
 function greeting(hour: number) {
   if (hour < 12) return "Bom dia";
@@ -69,7 +70,12 @@ function Block({
   );
 }
 
-export default async function HojePage() {
+export default async function HojePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ item?: string }>;
+}) {
+  const params = await searchParams;
   const user = await requireUser();
   const { hour, label } = brtNow();
   const today = brtToday();
@@ -156,6 +162,10 @@ export default async function HojePage() {
           </div>
         </aside>
       </div>
+
+      {params.item ? (
+        <ItemPanel user={user} id={params.item} people={options.people} today={today} />
+      ) : null}
     </>
   );
 }

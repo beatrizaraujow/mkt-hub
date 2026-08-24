@@ -5,6 +5,7 @@ import { Check, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDueDate, startOfBrtDay } from "@/lib/date";
 import { completeWorkItem, reopenWorkItem } from "./actions";
+import { useOpenItem } from "./use-open-item";
 
 export type RowItem = {
   id: string;
@@ -47,6 +48,7 @@ export function ItemRow({
   today: string;
   showAssignee?: boolean;
 }) {
+  const open = useOpenItem();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const done = Boolean(item.completedAt);
@@ -94,15 +96,17 @@ export function ItemRow({
         className="h-3.5 w-[3px] shrink-0 rounded-full"
       />
 
-      <span
+      <button
+        type="button"
+        onClick={() => open(item.id)}
         className={cn(
-          "min-w-0 flex-1 truncate text-[13.5px]",
+          "min-w-0 flex-1 truncate text-left text-[13.5px]",
           done ? "text-faint line-through" : "text-ink",
         )}
         title={item.title}
       >
         {item.title}
-      </span>
+      </button>
 
       {error ? (
         <span role="alert" className="shrink-0 text-[12px] text-danger">

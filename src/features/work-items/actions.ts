@@ -1,10 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { activityLog, projects, workItemStages, workItems } from "@/db/schema";
+import {
+  activityLog,
+  checklistItems,
+  comments,
+  projects,
+  workItemStages,
+  workItems,
+} from "@/db/schema";
 import { assertCompanyAccess, requireUserAction, type CurrentUser } from "@/lib/auth";
 import { dueDateFromInput } from "@/lib/date";
 import { isFormat, isSkill } from "@/lib/catalog";
@@ -302,5 +309,192 @@ export async function deleteWorkItem(id: string): Promise<ActionState> {
     return { ok: true };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Não foi possível excluir.");
+  }
+}
+
+/* ------------------------------------------------------ conteudo do item */
+
+export async function setTitle(id: string, title: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    await loadItem(user, id);
+
+    const clean = title.trim();
+    if (clean.length < 2) return fail("Escreva um título.");
+    if (clean.length > 200) return fail("Título muito longo.");
+
+    await db.update(workItems).set({ title: clean, updatedAt: new Date() }).where(eq(workItems.id, id));
+    await log(user.orgId, id, user.id, "item.title_changed", { para: clean });
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível renomear.");
+  }
+}
+
+export async function setDescription(id: string, description: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    await loadItem(user, id);
+
+    const clean = description.trim();
+    await db
+      .update(workItems)
+      .set({ description: clean || null, updatedAt: new Date() })
+      .where(eq(workItems.id, id));
+
+    await log(user.orgId, id, user.id, "item.description_changed");
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível salvar a descrição.");
+  }
+}
+
+/** Ponto de atividade MKT — a moeda de pontuacao do time. */
+export async function setPoints(id: string, points: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    await loadItem(user, id);
+
+    const clean = points.trim();
+    const value = clean === "" ? null : Number(clean);
+
+    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 100)) {
+      return fail("Ponto precisa ser um número inteiro entre 0 e 100.");
+    }
+
+    await db.update(workItems).set({ points: value, updatedAt: new Date() }).where(eq(workItems.id, id));
+    await log(user.orgId, id, user.id, "item.points_changed", { para: value });
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível mudar o ponto.");
+  }
+}
+
+export async function setSkill(id: string, skill: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    await loadItem(user, id);
+    if (skill && !isSkill(skill)) return fail("Tipo de trabalho inválido.");
+
+    await db
+      .update(workItems)
+      .set({ skill: skill || null, updatedAt: new Date() })
+      .where(eq(workItems.id, id));
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível mudar o tipo.");
+  }
+}
+
+export async function setFormat(id: string, format: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    await loadItem(user, id);
+    if (format && !isFormat(format)) return fail("Formato inválido.");
+
+    await db
+      .update(workItems)
+      .set({ format: format || null, updatedAt: new Date() })
+      .where(eq(workItems.id, id));
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível mudar o formato.");
+  }
+}
+
+/* -------------------------------------------------------------- checklist */
+
+export async function addChecklistItem(id: string, text: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    await loadItem(user, id);
+
+    const clean = text.trim();
+    if (!clean) return fail("Escreva o item.");
+
+    const [last] = await db
+      .select({ position: checklistItems.position })
+      .from(checklistItems)
+      .where(eq(checklistItems.workItemId, id))
+      .orderBy(desc(checklistItems.position))
+      .limit(1);
+
+    await db.insert(checklistItems).values({
+      workItemId: id,
+      text: clean,
+      position: (last?.position ?? 0) + 1000,
+    });
+
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível adicionar.");
+  }
+}
+
+export async function toggleChecklistItem(itemId: string, done: boolean): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+
+    const [row] = await db
+      .select({ workItemId: checklistItems.workItemId })
+      .from(checklistItems)
+      .where(eq(checklistItems.id, itemId))
+      .limit(1);
+
+    if (!row) return fail("Item não encontrado.");
+    await loadItem(user, row.workItemId);
+
+    await db.update(checklistItems).set({ isDone: done }).where(eq(checklistItems.id, itemId));
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível marcar.");
+  }
+}
+
+export async function removeChecklistItem(itemId: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+
+    const [row] = await db
+      .select({ workItemId: checklistItems.workItemId })
+      .from(checklistItems)
+      .where(eq(checklistItems.id, itemId))
+      .limit(1);
+
+    if (!row) return { ok: true };
+    await loadItem(user, row.workItemId);
+
+    await db.delete(checklistItems).where(eq(checklistItems.id, itemId));
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível remover.");
+  }
+}
+
+/* ----------------------------------------------------------- comentarios */
+
+export async function addComment(id: string, body: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    await loadItem(user, id);
+
+    const clean = body.trim();
+    if (!clean) return fail("Escreva alguma coisa.");
+    if (clean.length > 4000) return fail("Comentário muito longo.");
+
+    await db.insert(comments).values({ workItemId: id, authorId: user.id, body: clean });
+    await log(user.orgId, id, user.id, "comment.created");
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível comentar.");
   }
 }

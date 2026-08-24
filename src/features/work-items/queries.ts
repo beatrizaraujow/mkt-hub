@@ -2,6 +2,9 @@ import "server-only";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  activityLog,
+  checklistItems,
+  comments,
   companies,
   projects,
   users,
@@ -227,5 +230,69 @@ export async function quickCreateOptions(user: CurrentUser) {
     projects: projectRows,
     people: peopleRows,
     stages: stageRows,
+  };
+}
+
+/* --------------------------------------------------------------- detalhe */
+
+export type ItemDetail = NonNullable<Awaited<ReturnType<typeof getItemDetail>>>;
+
+/**
+ * Tudo que o painel lateral mostra, numa ida só ao banco por bloco.
+ * Devolve null quando o item nao existe ou esta fora do alcance da pessoa —
+ * o painel trata os dois casos igual, de proposito: nao revela existencia.
+ */
+export async function getItemDetail(user: CurrentUser, id: string) {
+  const [item] = await baseQuery()
+    .where(and(eq(workItems.orgId, user.orgId), eq(workItems.id, id)))
+    .limit(1);
+
+  if (!item || !user.companyIds.includes(item.companyId)) return null;
+
+  const [full] = await db.select().from(workItems).where(eq(workItems.id, id)).limit(1);
+
+  const [checklist, commentRows, activity, stages] = await Promise.all([
+    db
+      .select()
+      .from(checklistItems)
+      .where(eq(checklistItems.workItemId, id))
+      .orderBy(asc(checklistItems.position)),
+    db
+      .select({
+        id: comments.id,
+        body: comments.body,
+        createdAt: comments.createdAt,
+        authorName: users.name,
+      })
+      .from(comments)
+      .innerJoin(users, eq(users.id, comments.authorId))
+      .where(eq(comments.workItemId, id))
+      .orderBy(asc(comments.createdAt)),
+    db
+      .select({
+        id: activityLog.id,
+        action: activityLog.action,
+        payload: activityLog.payload,
+        createdAt: activityLog.createdAt,
+        actorName: users.name,
+      })
+      .from(activityLog)
+      .leftJoin(users, eq(users.id, activityLog.actorId))
+      .where(eq(activityLog.workItemId, id))
+      .orderBy(desc(activityLog.createdAt))
+      .limit(20),
+    stagesFor(user.orgId, item.type, item.companyId),
+  ]);
+
+  return {
+    ...item,
+    description: full?.description ?? null,
+    points: full?.points ?? null,
+    skill: full?.skill ?? null,
+    format: full?.format ?? null,
+    checklist,
+    comments: commentRows,
+    activity,
+    stages,
   };
 }
