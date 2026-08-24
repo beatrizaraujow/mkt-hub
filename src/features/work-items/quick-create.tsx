@@ -63,6 +63,8 @@ export function QuickCreate({ options }: { options: QuickCreateOptions }) {
         return;
       }
       if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+      // Nao abre por cima de outro modal, como o detalhe da tarefa.
+      if (!open && document.querySelector('[aria-modal="true"]')) return;
       if (event.key === "c" || event.key === "C") {
         event.preventDefault();
         setOpen(true);

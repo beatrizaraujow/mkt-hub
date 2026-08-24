@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -113,26 +113,44 @@ export function DetailPanel({
     });
   }
 
-  function close() {
+  const close = useCallback(() => {
     const url = new URL(window.location.href);
     url.searchParams.delete("item");
     router.replace(url.pathname + url.search, { scroll: false });
-  }
+  }, [router]);
+
+  // Esc fecha, e o fundo não rola enquanto o modal está aberto.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+    window.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [close]);
 
   const doneCount = item.checklist.filter((c) => c.isDone).length;
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" role="dialog" aria-label="Detalhe da tarefa">
-      <button
-        type="button"
-        aria-label="Fechar detalhe"
-        onClick={close}
-        className="flex-1 cursor-default bg-black/20"
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
+      <div
+        aria-hidden
+        onMouseDown={close}
+        className="absolute inset-0 bg-black/35 backdrop-blur-[1px]"
       />
 
       <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detalhe da tarefa"
         className={cn(
-          "scroll-thin flex w-full max-w-[520px] flex-col overflow-y-auto border-l border-line bg-surface",
+          "scroll-thin relative z-10 flex max-h-[88vh] w-full max-w-[620px] flex-col overflow-y-auto",
+          "rounded-[var(--radius-card)] border border-line bg-surface",
+          "shadow-[0_24px_64px_rgba(0,0,0,0.24)]",
           pending && "opacity-80",
         )}
       >
