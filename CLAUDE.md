@@ -97,6 +97,13 @@ sem prompt. Production e Development estão prontos.
 - `src/components/nav-config.ts` — os 8 itens de navegação; `soon: true` marca o que não existe ainda
 - `src/app/(app)/` — aplicação autenticada · `src/app/(auth)/` — login
 
+## Pessoas — não cadastrar ainda
+
+Existem duas contas no banco: a da Anny e uma de teste. **Não criar as outras.**
+Os nomes do time estão na skill `clickup-house-quatro5`; e-mail e papel de cada um vêm depois,
+quando a tela de pessoas estiver pronta e a própria usuária subir os dados corretos.
+Não inferir papel a partir do que a pessoa costuma fazer no board.
+
 ## Estado atual
 
 Pronto: autenticação, shell, empresas, projetos, semente.

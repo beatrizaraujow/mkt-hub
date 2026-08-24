@@ -67,15 +67,18 @@ export function Filters({
           ))}
       </select>
 
-      <label className="flex cursor-pointer items-center gap-1.5 text-[13px] text-muted">
-        <input
-          type="checkbox"
-          checked={current("concluidas") === "1"}
-          onChange={(e) => set("concluidas", e.target.checked ? "1" : "")}
-          className="h-3.5 w-3.5 accent-[var(--accent)]"
-        />
-        Mostrar concluídas
-      </label>
+      {/* No quadro a coluna de concluído já existe — o filtro não faria sentido. */}
+      {params.get("view") !== "quadro" && (
+        <label className="flex cursor-pointer items-center gap-1.5 text-[13px] text-muted">
+          <input
+            type="checkbox"
+            checked={current("concluidas") === "1"}
+            onChange={(e) => set("concluidas", e.target.checked ? "1" : "")}
+            className="h-3.5 w-3.5 accent-[var(--accent)]"
+          />
+          Mostrar concluídas
+        </label>
+      )}
 
       <button
         type="button"
