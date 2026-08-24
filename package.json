@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "seed": "tsx --env-file=.env.local src/db/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "user": "tsx --env-file=.env.local src/db/create-user.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
