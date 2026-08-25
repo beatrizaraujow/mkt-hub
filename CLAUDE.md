@@ -68,6 +68,11 @@ npm run seed       # organização, 4 empresas, pipelines e o primeiro admin
 
 `.env.local` precisa de `DATABASE_URL` (pooler 6543), `DIRECT_URL` (pooler 5432) e `SESSION_SECRET` (32+ caracteres).
 
+**O `.env.local` aponta para o banco de desenvolvimento** (`mkt-hub-dev`, ref `hqohquknxgiywpokmndp`),
+nunca para produção — as variáveis de produção vivem na Vercel e não passam por este arquivo.
+Antes de rodar seed em qualquer banco, `npm run dev:setup`: ele mostra o host, conta as linhas e
+para sozinho se achar dado dentro.
+
 ## Deploy
 
 Vercel (`mkt-hub`), produção em https://mkt-hub-wheat.vercel.app, conectada ao GitHub.

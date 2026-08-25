@@ -13,7 +13,8 @@ Para o revisor de entregas, [04-revisor.md](04-revisor.md).
 | Produção | https://mkt-hub-wheat.vercel.app |
 | Código | `D:\mkt-hub` |
 | Repositório | github.com/beatrizaraujow/mkt-hub (privado) |
-| Banco | Supabase `mkt-hub` · região sa-east-1 · org mktimer45 |
+| Banco de produção | Supabase `mkt-hub` (`tnfjjaxrmatuovwjiptz`) · sa-east-1 · org mktimer45 |
+| Banco de desenvolvimento | Supabase `mkt-hub-dev` (`hqohquknxgiywpokmndp`) · sa-east-1 · mesma org |
 | Deploy | push em `main` sobe sozinho; função roda em `gru1` |
 
 ## O que funciona
@@ -144,7 +145,9 @@ cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualiz
 
 **Conhecidas, do lado técnico:**
 
-- Produção e desenvolvimento dividem o mesmo banco
+- ~~Produção e desenvolvimento dividem o mesmo banco.~~ Separados em 25/08/2026: o `.env.local`
+  aponta para `mkt-hub-dev` e produção vive só nas variáveis da Vercel. Banco, anexos e bucket
+  isolados. A trava do `npm run dev:setup` impede rodar o seed no lugar errado.
 - Variáveis do escopo Preview não configuradas (o CLI da Vercel exige prompt)
 - Não existe número sequencial de tarefa; referir tarefa por número em conversa seria útil
 - Dados de teste no banco: duas tarefas, uma subtarefa, um link e alguns registros de tempo
