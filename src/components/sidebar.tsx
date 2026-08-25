@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/wordmark";
 import type { NavIcon, NavItem } from "@/components/nav-config";
 import { TimerWidget } from "@/features/time/timer-widget";
+import { GlobalSearch } from "@/features/search/global-search";
 import type { RunningTimer } from "@/features/time/queries";
 
 const ICONS: Record<NavIcon, LucideIcon> = {
@@ -51,6 +52,11 @@ export function Sidebar({ items, user, running, logoutAction }: Props) {
       <aside className="hidden w-[212px] shrink-0 flex-col border-r border-line bg-surface md:flex">
         <div className="flex h-14 items-center px-4">
           <Wordmark />
+        </div>
+
+        {/* A caixa fica montada aqui e o atalho vale em qualquer tela. */}
+        <div className="px-2.5 pb-1">
+          <GlobalSearch />
         </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 px-2.5 py-2">

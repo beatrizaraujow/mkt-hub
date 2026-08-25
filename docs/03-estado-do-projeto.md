@@ -68,6 +68,12 @@ concluído pede um texto — pela trilha de etapas e pelo arrastar no quadro. O 
 histórico e fica em destaque no topo da tarefa enquanto ela estiver de volta, sumindo sozinho
 quando ela anda de novo.
 
+**Busca global**, na barra lateral, aberta por `/` ou Ctrl+K de qualquer tela. Procura por título,
+briefing e nome de quem pediu, e ignora acento dos dois lados — `aniversario` acha "aniversário".
+Ao contrário das listas, inclui subtarefa e concluída: quem busca procura algo específico, e
+esconder o que terminou é o jeito mais rápido de a busca parecer quebrada. Respeita o alcance de
+empresa, com a mesma herança de sub-marca do resto.
+
 Apagados na navegação, ainda não construídos: Produção, Rotinas, Desempenho e Time.
 
 ## Decisões que governam o resto
@@ -124,8 +130,8 @@ cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualiz
 
 ## O que falta
 
-**Para fechar o V1.0:** busca global, calendário como visualização e a tela de pessoas — que é o
-que destrava o time entrar, e está parada por decisão até os dados corretos subirem.
+**Para fechar o V1.0:** calendário como visualização e a tela de pessoas — que é o que destrava o
+time entrar, e está parada por decisão até os dados corretos subirem.
 
 A ponte de leitura para o MKT Hub atual está listada como item do MVP no doc de arquitetura e como
 V1.5 aqui. Os dois não podem estar certos: depende de a pontuação semanal precisar ou não continuar
