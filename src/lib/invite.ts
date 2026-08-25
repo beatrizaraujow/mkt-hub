@@ -1,8 +1,13 @@
-import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 /**
  * Convite de acesso.
+ *
+ * Sem `server-only` de proposito: o script de cadastro em lote (`npm run
+ * invite`) precisa da mesma geracao de token, e duas copias da mesma logica
+ * divergem no dia em que uma mudar. O `node:crypto` daqui ja impede o arquivo
+ * de entrar num bundle de navegador — o marcador nao acrescentava protecao,
+ * so bloqueava o uso legitimo.
  *
  * Quem cria a conta **nunca escolhe a senha de ninguém**. A conta nasce sem
  * senha e a pessoa define a dela pelo link — assim a senha não passa por um

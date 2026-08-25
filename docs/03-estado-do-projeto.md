@@ -48,6 +48,13 @@ grupos, navegação por teclado e calendário com semana começando na segunda.
 manual, e o corte automático na virada do dia com o aviso de confirmar, ajustar ou descartar no
 dia seguinte.
 
+**Time.** Quem administra convida; a pessoa define a própria senha pelo link. A conta nasce sem
+senha — quem convida nunca escolhe a senha de ninguém. O banco guarda só o hash do token, que vale
+7 dias e serve uma vez. Desativa em vez de apagar, porque apagar levaria junto o histórico.
+
+O envio do link por e-mail não existe: exigiria serviço de envio, conta e chave. O link é copiado e
+mandado pelo canal que o time já usa. `npm run invite -- --base <url>` faz o mesmo em lote.
+
 **Anexos.** Link funciona. Arquivo está construído e espera as chaves do storage — enquanto não
 chegam, o botão fica desabilitado em vez de aceitar o arquivo e recusar depois.
 
@@ -129,7 +136,9 @@ cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualiz
 **Que dependem da usuária:**
 
 - `SUPABASE_URL` e a chave `service_role` — sem elas o upload de arquivo fica desligado
-- Nome, e-mail e papel das sete pessoas, quando for a hora de cadastrar
+- Desativar a conta `teste@mkthub.test`: é admin master, com senha que já passou por chat, e agora
+  existem contas reais no sistema
+- Limpar os dados de teste antes de o time começar
 - `npx vercel login` uma vez; o token do CLI expirou
 - `CRON_SECRET` nas variáveis de ambiente da Vercel — sem ela a fila do revisor responde 503
 
@@ -142,8 +151,7 @@ cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualiz
 
 ## O que falta
 
-**Para fechar o V1.0:** só a tela de pessoas — que é o que destrava o time entrar, e está parada
-por decisão até os dados corretos subirem.
+**O V1.0 está fechado.** A tela de Time entrou em 25/08/2026 e o time foi cadastrado por convite.
 
 A ponte de leitura para o MKT Hub atual está listada como item do MVP no doc de arquitetura e como
 V1.5 aqui. Os dois não podem estar certos: depende de a pontuação semanal precisar ou não continuar

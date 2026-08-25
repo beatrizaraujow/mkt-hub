@@ -97,12 +97,17 @@ sem prompt. Production e Development estão prontos.
 - `src/components/nav-config.ts` — os 8 itens de navegação; `soon: true` marca o que não existe ainda
 - `src/app/(app)/` — aplicação autenticada · `src/app/(auth)/` — login
 
-## Pessoas — não cadastrar ainda
+## Pessoas
 
-Existem duas contas no banco: a da Anny e uma de teste. **Não criar as outras.**
-Os nomes do time estão na skill `clickup-house-quatro5`; e-mail e papel de cada um vêm depois,
-quando a tela de pessoas estiver pronta e a própria usuária subir os dados corretos.
-Não inferir papel a partir do que a pessoa costuma fazer no board.
+O time foi cadastrado em 25/08/2026, por convite: Maria Clara (admin master), Samuel, Maria Luiza,
+Zion, Klenio e Thiago (colaboradores, com as quatro empresas). Anny é admin.
+
+**A conta nasce sem senha e quem convida nunca escolhe a senha de ninguém.** Se precisar de mais
+alguém, use a tela de Time ou `npm run invite`. Papel é o teto no sistema e não se infere do cargo
+nem do que a pessoa costuma fazer no board — pergunte.
+
+`teste@mkthub.test` é conta de teste com poder de admin e senha conhecida. Desativar quando não
+precisar mais.
 
 ## Estado atual
 
