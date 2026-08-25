@@ -15,6 +15,7 @@ import {
 import { assertCompanyAccess, requireUserAction, type CurrentUser } from "@/lib/auth";
 import { dueDateFromInput } from "@/lib/date";
 import { isFormat, isSkill } from "@/lib/catalog";
+import { REASON_MAX, REASON_MIN, needsReason } from "./rework";
 
 export type ActionState = { error?: string; ok?: boolean; id?: string };
 
@@ -162,7 +163,11 @@ export async function createWorkItem(
 
 /* ---------------------------------------------------------------- alterar */
 
-export async function setStage(id: string, stageId: string): Promise<ActionState> {
+export async function setStage(
+  id: string,
+  stageId: string,
+  reason?: string | null,
+): Promise<ActionState> {
   try {
     const user = await requireUserAction();
     const item = await loadItem(user, id);
@@ -173,6 +178,13 @@ export async function setStage(id: string, stageId: string): Promise<ActionState
 
     const from = stages.find((s) => s.id === item.stageId);
     if (from?.id === target.id) return { ok: true };
+
+    // A tela pergunta antes; aqui e a trava, nao o aviso.
+    const clean = reason?.trim() ?? "";
+    if (needsReason(from, target)) {
+      if (clean.length < REASON_MIN) return fail("Escreva o motivo de voltar a tarefa.");
+      if (clean.length > REASON_MAX) return fail("Motivo muito longo.");
+    }
 
     await db
       .update(workItems)
@@ -187,6 +199,7 @@ export async function setStage(id: string, stageId: string): Promise<ActionState
     await log(user.orgId, id, user.id, "item.stage_changed", {
       de: from?.name ?? null,
       para: target.name,
+      ...(needsReason(from, target) ? { motivo: clean } : {}),
     });
 
     refresh();

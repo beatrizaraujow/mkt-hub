@@ -4,6 +4,8 @@ import { useOptimistic, useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { formatDueDate, startOfBrtDay } from "@/lib/date";
 import { setStage } from "./actions";
+import { ReasonPrompt } from "./reason-prompt";
+import { needsReason } from "./rework";
 import { useOpenItem } from "./use-open-item";
 import type { RowItem } from "./item-row";
 
@@ -94,9 +96,13 @@ export function Board({
   items: BoardItem[];
   today: string;
 }) {
-  const [, start] = useTransition();
+  const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  /** Arraste que reprovou uma entrega e espera o motivo. */
+  const [askFor, setAskFor] = useState<{ id: string; title: string; stage: BoardStage } | null>(
+    null,
+  );
 
   // A coluna muda na hora; se o servidor recusar, volta sozinho.
   const [shown, moveOptimistic] = useOptimistic(
@@ -105,21 +111,47 @@ export function Board({
       current.map((i) => (i.id === move.id ? { ...i, stageId: move.stageId } : i)),
   );
 
+  function move(id: string, stageId: string, reason?: string) {
+    setError(null);
+    start(async () => {
+      moveOptimistic({ id, stageId });
+      const result = await setStage(id, stageId, reason);
+      if (result.error) setError(result.error);
+    });
+  }
+
   function drop(stageId: string, id: string) {
     setOver(null);
     const item = shown.find((i) => i.id === id);
     if (!item || item.stageId === stageId) return;
 
-    setError(null);
-    start(async () => {
-      moveOptimistic({ id, stageId });
-      const result = await setStage(id, stageId);
-      if (result.error) setError(result.error);
-    });
+    const to = stages.find((s) => s.id === stageId);
+    const from = stages.find((s) => s.id === item.stageId);
+    if (to && needsReason(from, to)) {
+      // Sem mover o cartao: se a pessoa desistir, nada mudou.
+      setAskFor({ id, title: item.title, stage: to });
+      return;
+    }
+
+    move(id, stageId);
   }
 
   return (
     <div className="relative">
+      {askFor && (
+        <ReasonPrompt
+          itemTitle={askFor.title}
+          stageName={askFor.stage.name}
+          pending={pending}
+          onCancel={() => setAskFor(null)}
+          onConfirm={(reason) => {
+            const target = askFor;
+            setAskFor(null);
+            move(target.id, target.stage.id, reason);
+          }}
+        />
+      )}
+
       {error ? (
         <p
           role="alert"

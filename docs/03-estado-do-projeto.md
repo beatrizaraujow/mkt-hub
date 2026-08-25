@@ -47,7 +47,22 @@ grupos, navegação por teclado e calendário com semana começando na segunda.
 manual, e o corte automático na virada do dia com o aviso de confirmar, ajustar ou descartar no
 dia seguinte.
 
-**Anexos.** Link funciona. Arquivo está construído e espera as chaves do storage.
+**Anexos.** Link funciona. Arquivo está construído e espera as chaves do storage — enquanto não
+chegam, o botão fica desabilitado em vez de aceitar o arquivo e recusar depois.
+
+**Formulário de solicitação**, em `/solicitar/<empresa>`, sem login. Quem pede a demanda não é do
+time e não tem conta; exigir login mandaria o pedido de volta para o WhatsApp. O link abre a
+empresa e as sub-marcas dela, e nada mais — quem tem o link abre pedido, não vê tarefa, não vê
+pessoa, não vê o que já foi pedido. Cada empresa mostra o próprio link em `/empresas/<empresa>`.
+
+Onde o board antigo tinha cerca de cem campos de briefing quase sempre vazios, aqui são no máximo
+quatro por tipo de demanda. As respostas vão para `meta.briefing` e aparecem no detalhe da tarefa,
+na ordem em que foram perguntadas, junto de quem pediu e como falar com a pessoa.
+
+**Motivo obrigatório ao reprovar.** Sair de um estágio de revisão para qualquer coisa que não seja
+concluído pede um texto — pela trilha de etapas e pelo arrastar no quadro. O motivo entra no
+histórico e fica em destaque no topo da tarefa enquanto ela estiver de volta, sumindo sozinho
+quando ela anda de novo.
 
 Apagados na navegação, ainda não construídos: Produção, Rotinas, Desempenho e Time.
 
@@ -101,11 +116,14 @@ cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualiz
 
 ## O que falta
 
-**Para fechar o V1.0:** formulário de solicitação, fila de aprovação com motivo obrigatório no
-Ajustar, e a tela de pessoas — que é o que destrava o time entrar.
+**Para fechar o V1.0:** busca global, calendário como visualização e a tela de pessoas — que é o
+que destrava o time entrar, e está parada por decisão até os dados corretos subirem.
 
-**V1.5:** rotinas, metas, motor de pontuação, coins, ranking, snapshot semanal e a ponte com o
-sistema atual.
+A ponte de leitura para o MKT Hub atual está listada como item do MVP no doc de arquitetura e como
+V1.5 aqui. Os dois não podem estar certos: depende de a pontuação semanal precisar ou não continuar
+rodando durante a migração. Decisão pendente.
+
+**V1.5:** rotinas, metas, motor de pontuação, coins, ranking e snapshot semanal.
 
 **V2:** esteira de conteúdo, captações, capacidade da semana, templates de projeto.
 

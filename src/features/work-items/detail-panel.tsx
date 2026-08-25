@@ -32,6 +32,8 @@ import {
 } from "./actions";
 import { useOpenItem } from "./use-open-item";
 import { SubtaskCreate } from "./subtask-create";
+import { ReasonPrompt } from "./reason-prompt";
+import { needsReason } from "./rework";
 import {
   AssigneeField,
   DueDateField,
@@ -91,6 +93,7 @@ const ACTION_LABEL: Record<string, string> = {
   "item.points_changed": "mudou o ponto",
   "comment.created": "comentou",
   "subtask.created": "criou uma subtarefa",
+  "item.requested": "abriu o pedido",
 };
 
 const PRIORITIES = [
@@ -177,6 +180,8 @@ export function DetailPanel({
   const [draftDesc, setDraftDesc] = useState(item.description ?? "");
   const [newCheck, setNewCheck] = useState("");
   const [subOpen, setSubOpen] = useState(false);
+  /** Etapa escolhida que ainda espera o motivo da volta. */
+  const [askFor, setAskFor] = useState<{ id: string; name: string } | null>(null);
   const [newComment, setNewComment] = useState("");
   const [manual, setManual] = useState(false);
   const [manualMin, setManualMin] = useState("");
@@ -218,6 +223,15 @@ export function DetailPanel({
       document.body.style.overflow = previous;
     };
   }, [close]);
+
+  /**
+   * Motivo da ultima volta, se a ultima mudanca de etapa foi uma. Some
+   * sozinho quando a tarefa anda de novo — nao e historico, e o recado de
+   * quem vai refazer agora.
+   */
+  const lastMove = item.activity.find((a) => a.action === "item.stage_changed");
+  const reworkReason =
+    typeof lastMove?.payload.motivo === "string" ? lastMove.payload.motivo : null;
 
   const done = Boolean(item.completedAt);
   const subDone = item.subtasks.filter((s) => s.completedAt).length;
@@ -324,12 +338,17 @@ export function DetailPanel({
                   key={stage.id}
                   type="button"
                   disabled={pending}
-                  onClick={() =>
+                  onClick={() => {
+                    const from = item.stages.find((s) => s.id === shownStageId);
+                    if (needsReason(from, stage)) {
+                      setAskFor({ id: stage.id, name: stage.name });
+                      return;
+                    }
                     run(async () => {
                       setShownStage(stage.id);
                       return setStage(item.id, stage.id);
-                    })
-                  }
+                    });
+                  }}
                   className={cn(
                     "flex flex-1 items-center justify-center gap-1.5 px-2 py-2 text-[12.5px] transition-colors duration-150",
                     i === 0 && "rounded-l-[7px]",
@@ -384,6 +403,20 @@ export function DetailPanel({
             <div className="scroll-thin min-h-[320px] flex-1 overflow-y-auto px-5 py-4">
               {tab === "trabalho" && (
                 <div className="flex flex-col gap-5">
+                  {reworkReason ? (
+                    <section className="rounded-[var(--radius-card)] border border-warning/40 bg-warning-soft p-4">
+                      <h3 className="label-mono mb-1.5 text-warning">Voltou para ajuste</h3>
+                      <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink">
+                        {reworkReason}
+                      </p>
+                      {lastMove?.actorName ? (
+                        <p className="mt-1.5 text-[12px] text-faint">
+                          {lastMove.actorName} · {when(lastMove.createdAt)}
+                        </p>
+                      ) : null}
+                    </section>
+                  ) : null}
+
                   {item.request ? <BriefingCard request={item.request} /> : null}
 
                   <section>
@@ -701,7 +734,11 @@ export function DetailPanel({
                   )}
                   {item.activity.map((a) => (
                     <li key={a.id} className="text-[12.5px] text-faint">
-                      <span className="text-muted">{a.actorName ?? "alguém"}</span>{" "}
+                      {/* O pedido vem de fora e nao tem sessao: o nome esta no payload. */}
+                      <span className="text-muted">
+                        {a.actorName ??
+                          (typeof a.payload?.por === "string" ? a.payload.por : "alguém")}
+                      </span>{" "}
                       {ACTION_LABEL[a.action] ?? a.action}
                       {a.payload?.de && a.payload?.para ? (
                         <>
@@ -717,6 +754,11 @@ export function DetailPanel({
                       ) : null}
                       {" · "}
                       {when(a.createdAt)}
+                      {typeof a.payload?.motivo === "string" ? (
+                        <span className="mt-0.5 block border-l-2 border-line pl-2 text-[12.5px] text-muted">
+                          {a.payload.motivo}
+                        </span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -852,6 +894,23 @@ export function DetailPanel({
           </aside>
         </div>
       </aside>
+
+      {askFor && (
+        <ReasonPrompt
+          itemTitle={item.title}
+          stageName={askFor.name}
+          pending={pending}
+          onCancel={() => setAskFor(null)}
+          onConfirm={(reason) => {
+            const target = askFor;
+            setAskFor(null);
+            run(async () => {
+              setShownStage(target.id);
+              return setStage(item.id, target.id, reason);
+            });
+          }}
+        />
+      )}
 
       {subOpen && (
         <SubtaskCreate
