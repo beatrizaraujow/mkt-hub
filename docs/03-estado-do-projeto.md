@@ -68,6 +68,12 @@ concluído pede um texto — pela trilha de etapas e pelo arrastar no quadro. O 
 histórico e fica em destaque no topo da tarefa enquanto ela estiver de volta, sumindo sozinho
 quando ela anda de novo.
 
+**Calendário**, a terceira visualização de Trabalho, ao lado de Lista e Quadro. Mês em grade
+começando na segunda, com os dias das pontas das semanas vizinhas, e o mês na URL (`?mes=`) para
+sobreviver ao F5. Respeita os mesmos filtros. O dia de cada tarefa é calculado em BRT no servidor,
+não no navegador. Tarefa sem prazo não cabe num calendário, então o rodapé diz quantas são — senão
+ela some sem aviso.
+
 **Busca global**, na barra lateral, aberta por `/` ou Ctrl+K de qualquer tela. Procura por título,
 briefing e nome de quem pediu, e ignora acento dos dois lados — `aniversario` acha "aniversário".
 Ao contrário das listas, inclui subtarefa e concluída: quem busca procura algo específico, e
@@ -107,6 +113,10 @@ não tem o que rolar. Vale o mesmo para item de flex, que precisa de `min-h-0`.
 **Nunca apagar a tela durante uma ação.** Opacidade em modal deixa o fundo escuro atravessar e
 parece defeito. O certo é retorno otimista mais uma barra fina de progresso.
 
+**`next build` e `next dev` dividem o `.next`.** Rodar o build de produção e depois subir o dev
+deixa rota devolvendo 404 sem erro nenhum no log — o `/login` some e parece bug de código. Apagar
+`.next` resolve.
+
 **Confirmar que a edição do schema pegou** antes de acreditar no `db:generate`. Sem diferença no
 schema, ele não gera nada — e o silêncio parece bug da ferramenta.
 
@@ -130,8 +140,8 @@ cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualiz
 
 ## O que falta
 
-**Para fechar o V1.0:** calendário como visualização e a tela de pessoas — que é o que destrava o
-time entrar, e está parada por decisão até os dados corretos subirem.
+**Para fechar o V1.0:** só a tela de pessoas — que é o que destrava o time entrar, e está parada
+por decisão até os dados corretos subirem.
 
 A ponte de leitura para o MKT Hub atual está listada como item do MVP no doc de arquitetura e como
 V1.5 aqui. Os dois não podem estar certos: depende de a pontuação semanal precisar ou não continuar

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   activityLog,
@@ -110,6 +110,52 @@ export async function listWorkItems(
       desc(workItems.createdAt),
     )
     .limit(300);
+}
+
+/**
+ * Itens com prazo dentro de uma faixa de dias. O calendario nao pode usar
+ * `listWorkItems`: aquela consulta corta em 300 linhas ordenadas por prazo,
+ * entao um mes distante viria vazio sem ninguem entender por que.
+ *
+ * Traz o concluido junto — calendario com buraco no lugar do que ja foi
+ * entregue nao conta a historia do mes.
+ */
+export async function listInRange(
+  user: CurrentUser,
+  filters: Pick<WorkFilters, "companyId" | "assigneeId">,
+  fromYmd: string,
+  toYmd: string,
+): Promise<WorkItemRow[]> {
+  const where = [
+    scope(user),
+    gte(workItems.dueDate, startOfBrtDay(fromYmd)),
+    lte(workItems.dueDate, endOfBrtDay(toYmd)),
+  ];
+
+  if (filters.companyId) where.push(eq(workItems.companyId, filters.companyId));
+  if (filters.assigneeId) where.push(eq(workItems.assigneeId, filters.assigneeId));
+
+  return baseQuery()
+    .where(and(...where))
+    .orderBy(asc(workItems.dueDate), asc(workItemStages.position))
+    .limit(500);
+}
+
+/** Quantas tarefas abertas estao sem prazo — o que o calendario nao mostra. */
+export async function countWithoutDueDate(
+  user: CurrentUser,
+  filters: Pick<WorkFilters, "companyId" | "assigneeId">,
+): Promise<number> {
+  const where = [scope(user), isNull(workItems.dueDate), isNull(workItems.completedAt)];
+  if (filters.companyId) where.push(eq(workItems.companyId, filters.companyId));
+  if (filters.assigneeId) where.push(eq(workItems.assigneeId, filters.assigneeId));
+
+  const [row] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(workItems)
+    .where(and(...where));
+
+  return row?.total ?? 0;
 }
 
 export type TodayBoard = {

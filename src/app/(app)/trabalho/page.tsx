@@ -4,11 +4,19 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
-import { brtToday } from "@/lib/date";
+import { brtToday, inputFromDueDate } from "@/lib/date";
+import { gridRange, isMonth } from "@/lib/month";
 import { EmptyState, PageHeader } from "@/components/page-header";
-import { listWorkItems, quickCreateOptions, stagesFor } from "@/features/work-items/queries";
+import {
+  countWithoutDueDate,
+  listInRange,
+  listWorkItems,
+  quickCreateOptions,
+  stagesFor,
+} from "@/features/work-items/queries";
 import { ItemRow } from "@/features/work-items/item-row";
 import { Board } from "@/features/work-items/board";
+import { Calendar } from "@/features/work-items/calendar";
 import { QuickCreate } from "@/features/work-items/quick-create";
 import { ItemPanel } from "@/features/work-items/item-panel";
 import { runningTimer } from "@/features/time/queries";
@@ -25,6 +33,7 @@ export default async function TrabalhoPage({
     responsavel?: string;
     concluidas?: string;
     view?: string;
+    mes?: string;
     item?: string;
   }>;
 }) {
@@ -32,14 +41,22 @@ export default async function TrabalhoPage({
   const params = await searchParams;
   const today = brtToday();
   const isBoard = params.view === "quadro";
+  const isCalendar = params.view === "calendario";
+  const month = isMonth(params.mes) ? params.mes : today.slice(0, 7);
+  const range = gridRange(month);
 
-  const [items, options, companyRows, peopleRows, stages, running] = await Promise.all([
-    listWorkItems(user, {
-      companyId: params.empresa,
-      assigneeId: params.responsavel,
-      // No quadro, a coluna de concluído precisa existir com conteúdo.
-      includeDone: isBoard || params.concluidas === "1",
-    }),
+  const scope = { companyId: params.empresa, assigneeId: params.responsavel };
+
+  const [items, options, companyRows, peopleRows, stages, running, monthItems, noDueDate] =
+    await Promise.all([
+    // O calendário busca pela faixa do mês; a lista, pelo limite de página.
+    isCalendar
+      ? Promise.resolve([])
+      : listWorkItems(user, {
+          ...scope,
+          // No quadro, a coluna de concluído precisa existir com conteúdo.
+          includeDone: isBoard || params.concluidas === "1",
+        }),
     quickCreateOptions(user),
     user.companyIds.length
       ? db
@@ -55,6 +72,8 @@ export default async function TrabalhoPage({
       .orderBy(asc(users.name)),
     stagesFor(user.orgId, "task"),
     runningTimer(user.id),
+    isCalendar ? listInRange(user, scope, range.from, range.to) : Promise.resolve([]),
+    isCalendar ? countWithoutDueDate(user, scope) : Promise.resolve(0),
   ]);
 
   const runningItemId = running?.workItemId ?? null;
@@ -91,7 +110,7 @@ export default async function TrabalhoPage({
       </Suspense>
 
       <div className="px-5 py-5 md:px-7">
-        {visible.length === 0 ? (
+        {visible.length === 0 && !isCalendar ? (
           <EmptyState
             title={filtered ? "Nada com esses filtros" : "Nenhuma tarefa ainda"}
             description={
@@ -102,6 +121,21 @@ export default async function TrabalhoPage({
           />
         ) : isBoard ? (
           <Board stages={stages} items={taskItems} today={today} />
+        ) : isCalendar ? (
+          <Calendar
+            month={month}
+            today={today}
+            withoutDueDate={noDueDate}
+            items={monthItems.map((item) => ({
+              id: item.id,
+              title: item.title,
+              day: inputFromDueDate(item.dueDate),
+              companyColor: item.companyColor,
+              priority: item.priority,
+              done: Boolean(item.completedAt),
+              assigneeName: item.assigneeName,
+            }))}
+          />
         ) : (
           <>
             <div className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">

@@ -1,12 +1,13 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Columns3, List } from "lucide-react";
+import { CalendarDays, Columns3, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const VIEWS = [
   { key: "", label: "Lista", icon: List },
   { key: "quadro", label: "Quadro", icon: Columns3 },
+  { key: "calendario", label: "Calendário", icon: CalendarDays },
 ] as const;
 
 export function ViewSwitch() {
