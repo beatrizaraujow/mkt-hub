@@ -51,7 +51,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ slug: 
       />
 
       <div className="flex flex-col gap-5 px-5 py-5 md:px-7">
-        <RequestLink slug={company.slug} />
+        <RequestLink slug={company.slug} label={`Link direto da ${company.name}`} />
 
         {rows.length === 0 ? (
           <EmptyState

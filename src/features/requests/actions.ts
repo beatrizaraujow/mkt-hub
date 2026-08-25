@@ -29,7 +29,8 @@ const MAX_PER_WINDOW = 5;
 const WINDOW_MINUTES = 10;
 
 const schema = z.object({
-  slug: z.string().min(1).max(80),
+  /** Vazio no formulario geral, que oferece todas as empresas. */
+  slug: z.string().max(80).nullish(),
   companyId: z.string().uuid("Escolha a empresa."),
   projectId: z.string().uuid().nullish(),
   requestType: z.string().min(1, "Escolha o tipo de demanda."),
@@ -96,29 +97,44 @@ export async function submitRequest(
   const requestType: RequestType = data.requestType;
 
   try {
-    // A empresa vem do link, e a escolhida tem que pertencer a essa raiz.
-    const [root] = await db
-      .select({ id: companies.id, orgId: companies.orgId })
-      .from(companies)
-      .where(and(eq(companies.slug, data.slug), eq(companies.isActive, true)))
-      .limit(1);
+    /**
+     * O formulario geral aceita qualquer empresa ativa — e o que a propria
+     * lista dele oferece. O recortado por link so aceita a empresa do slug e
+     * as filhas dela, para um link nao virar porta para o grupo inteiro.
+     */
+    let root: { id: string; orgId: string } | null = null;
 
-    if (!root) return fail("Esse link não existe mais. Peça um novo ao time de marketing.");
+    if (data.slug) {
+      const [found] = await db
+        .select({ id: companies.id, orgId: companies.orgId })
+        .from(companies)
+        .where(and(eq(companies.slug, data.slug), eq(companies.isActive, true)))
+        .limit(1);
+
+      if (!found) return fail("Esse link não existe mais. Peça um novo ao time de marketing.");
+      root = found;
+    }
 
     const [target] = await db
-      .select({ id: companies.id, name: companies.name })
+      .select({ id: companies.id, name: companies.name, orgId: companies.orgId })
       .from(companies)
       .where(
         and(
           eq(companies.id, data.companyId),
-          eq(companies.orgId, root.orgId),
           eq(companies.isActive, true),
-          or(eq(companies.id, root.id), eq(companies.parentId, root.id)),
+          ...(root
+            ? [
+                eq(companies.orgId, root.orgId),
+                or(eq(companies.id, root.id), eq(companies.parentId, root.id)),
+              ]
+            : []),
         ),
       )
       .limit(1);
 
     if (!target) return fail("Empresa inválida para este formulário.");
+
+    const orgId = target.orgId;
 
     if (data.projectId) {
       const [project] = await db
@@ -135,7 +151,7 @@ export async function submitRequest(
       .from(workItems)
       .where(
         and(
-          eq(workItems.orgId, root.orgId),
+          eq(workItems.orgId, orgId),
           eq(workItems.requesterEmail, data.requesterEmail),
           gte(workItems.createdAt, since),
         ),
@@ -153,7 +169,7 @@ export async function submitRequest(
       .from(workItemStages)
       .where(
         and(
-          eq(workItemStages.orgId, root.orgId),
+          eq(workItemStages.orgId, orgId),
           eq(workItemStages.type, type),
           eq(workItemStages.kind, "backlog"),
           isNull(workItemStages.companyId),
@@ -178,7 +194,7 @@ export async function submitRequest(
     const [created] = await db
       .insert(workItems)
       .values({
-        orgId: root.orgId,
+        orgId,
         companyId: target.id,
         projectId: data.projectId ?? null,
         type,
@@ -205,7 +221,7 @@ export async function submitRequest(
 
     // Sem ator: nao ha sessao. O historico registra a origem.
     await db.insert(activityLog).values({
-      orgId: root.orgId,
+      orgId,
       workItemId: created.id,
       actorId: null,
       action: "item.requested",

@@ -8,11 +8,13 @@ import { cn } from "@/lib/utils";
 import { REQUEST_TYPES, type RequestType } from "@/lib/catalog";
 import { QUESTIONS } from "@/lib/request-questions";
 import { submitRequest, type RequestState } from "./actions";
+import type { CompanyChoice } from "./queries";
 
 export type RequestFormData = {
-  slug: string;
-  rootName: string;
-  companies: Array<{ id: string; name: string }>;
+  /** Nulo no formulario geral, que oferece todas as empresas. */
+  slug: string | null;
+  title: string | null;
+  companies: CompanyChoice[];
   projects: Array<{ id: string; name: string; companyId: string }>;
 };
 
@@ -59,6 +61,17 @@ export function RequestForm({ data, today }: { data: RequestFormData; today: str
   const questions = QUESTIONS[requestType];
   const projects = data.projects.filter((p) => p.companyId === companyId);
 
+  /**
+   * Mae solta, filhas sob o nome da mae. A lista ja chega ordenada; aqui e
+   * so a quebra em blocos que o `optgroup` pede.
+   */
+  const groups: Array<{ label: string | null; items: CompanyChoice[] }> = [];
+  for (const company of data.companies) {
+    const last = groups[groups.length - 1];
+    if (last && last.label === company.group) last.items.push(company);
+    else groups.push({ label: company.group, items: [company] });
+  }
+
   if (state.ok) {
     return (
       <div className="rounded-[var(--radius-card)] border border-line bg-surface px-6 py-10 text-center">
@@ -83,7 +96,7 @@ export function RequestForm({ data, today }: { data: RequestFormData; today: str
 
   return (
     <form action={action} className="flex flex-col gap-6">
-      <input type="hidden" name="slug" value={data.slug} />
+      <input type="hidden" name="slug" value={data.slug ?? ""} />
       <input type="hidden" name="requestType" value={requestType} />
 
       {/* Armadilha para robo. Invisivel e fora da ordem de tabulacao. */}
@@ -130,11 +143,24 @@ export function RequestForm({ data, today }: { data: RequestFormData; today: str
               onChange={(e) => setCompanyId(e.target.value)}
               className={cn(control, "cursor-pointer")}
             >
-              {data.companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
+              {/* Sub-marca aparece dentro da mae: a lista fica curta de ler. */}
+              {groups.map((group) =>
+                group.label ? (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.items.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : (
+                  group.items.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))
+                ),
+              )}
             </select>
           </label>
         </div>

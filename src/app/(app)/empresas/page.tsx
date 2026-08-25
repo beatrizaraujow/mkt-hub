@@ -6,6 +6,7 @@ import { companies, projects } from "@/db/schema";
 import { canManage, requireUser } from "@/lib/auth";
 import { EmptyState, PageHeader } from "@/components/page-header";
 import { NewCompany } from "./new-company";
+import { RequestLink } from "@/features/requests/request-link";
 
 export const metadata: Metadata = { title: "Empresas · MKT Hub" };
 
@@ -94,7 +95,9 @@ export default async function EmpresasPage() {
         actions={manage ? <NewCompany /> : undefined}
       />
 
-      <div className="px-5 py-5 md:px-7">
+      <div className="flex flex-col gap-5 px-5 py-5 md:px-7">
+        <RequestLink label="Link para quem pede demanda" />
+
         {rows.length === 0 ? (
           <EmptyState
             title="Nenhuma empresa por aqui"

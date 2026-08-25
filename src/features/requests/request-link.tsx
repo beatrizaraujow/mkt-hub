@@ -7,9 +7,9 @@ import { Check, Copy, ExternalLink } from "lucide-react";
  * O link do formulario publico daquela empresa, para o time mandar a quem
  * pede. Sem isso o formulario existe e ninguem sabe o endereco.
  */
-export function RequestLink({ slug }: { slug: string }) {
+export function RequestLink({ slug, label }: { slug?: string; label?: string }) {
   const [copied, setCopied] = useState(false);
-  const path = `/solicitar/${slug}`;
+  const path = slug ? `/solicitar/${slug}` : "/solicitar";
 
   async function copy() {
     // A URL completa so existe no navegador; o servidor nao sabe o dominio.
@@ -21,9 +21,13 @@ export function RequestLink({ slug }: { slug: string }) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-line px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-medium text-ink">Link para pedir demanda</p>
+        <p className="text-[13px] font-medium text-ink">
+          {label ?? "Link para pedir demanda"}
+        </p>
         <p className="truncate text-[12px] text-faint">
-          Mande para quem é de fora do time. Não precisa de login.
+          {slug
+            ? "Abre já nesta empresa. Não precisa de login."
+            : "Uma página só, com todas as empresas. Não precisa de login."}
         </p>
       </div>
 

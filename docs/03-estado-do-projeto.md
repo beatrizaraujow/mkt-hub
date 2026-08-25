@@ -50,10 +50,14 @@ dia seguinte.
 **Anexos.** Link funciona. Arquivo está construído e espera as chaves do storage — enquanto não
 chegam, o botão fica desabilitado em vez de aceitar o arquivo e recusar depois.
 
-**Formulário de solicitação**, em `/solicitar/<empresa>`, sem login. Quem pede a demanda não é do
-time e não tem conta; exigir login mandaria o pedido de volta para o WhatsApp. O link abre a
-empresa e as sub-marcas dela, e nada mais — quem tem o link abre pedido, não vê tarefa, não vê
-pessoa, não vê o que já foi pedido. Cada empresa mostra o próprio link em `/empresas/<empresa>`.
+**Formulário de solicitação**, em `/solicitar`, sem login. Quem pede a demanda não é do time e não
+tem conta; exigir login mandaria o pedido de volta para o WhatsApp. Uma página só para o grupo
+inteiro: as quatro empresas com as sub-marcas agrupadas dentro de cada uma. Quem tem o link abre
+pedido, não vê tarefa, não vê pessoa, não vê o que já foi pedido.
+
+`/solicitar/<empresa>` continua valendo como atalho recortado numa empresa, e um link recortado
+não vira porta para o grupo — ele só aceita aquela empresa e as filhas dela. O link geral está em
+`/empresas`; o de cada empresa, na página dela.
 
 Onde o board antigo tinha cerca de cem campos de briefing quase sempre vazios, aqui são no máximo
 quatro por tipo de demanda. As respostas vão para `meta.briefing` e aparecem no detalhe da tarefa,
