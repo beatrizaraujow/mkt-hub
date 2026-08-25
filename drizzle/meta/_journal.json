@@ -29,6 +29,13 @@
       "when": 1787614007001,
       "tag": "0004_condemned_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787669773499,
+      "tag": "0004_simple_darkhawk",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ Onde o MKT Hub 2 está. Atualizado em **24/08/2026**.
 
 Para o porquê de cada decisão, veja [01-analise-e-arquitetura.md](01-analise-e-arquitetura.md).
 Para o board que estamos substituindo, [02-clickup-house-quatro5.md](02-clickup-house-quatro5.md).
+Para o revisor de entregas, [04-revisor.md](04-revisor.md).
 
 ## Endereços
 
@@ -130,6 +131,7 @@ cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualiz
 - `SUPABASE_URL` e a chave `service_role` — sem elas o upload de arquivo fica desligado
 - Nome, e-mail e papel das sete pessoas, quando for a hora de cadastrar
 - `npx vercel login` uma vez; o token do CLI expirou
+- `CRON_SECRET` nas variáveis de ambiente da Vercel — sem ela a fila do revisor responde 503
 
 **Conhecidas, do lado técnico:**
 
@@ -151,5 +153,7 @@ rodando durante a migração. Decisão pendente.
 
 **V2:** esteira de conteúdo, captações, capacidade da semana, templates de projeto.
 
-**V3:** revisor automático de entregas. Parado por decisão: sem as regras da Carbone
-classificadas em máquina / pessoa / fora de escopo, seria chute.
+**V3:** revisor automático de entregas. As tabelas e a fila já existem — ver
+[04-revisor.md](04-revisor.md). O julgamento está parado por decisão: sem as regras da Carbone
+classificadas em máquina / pessoa / fora de escopo, seria chute. Hoje o porteiro barra e diz
+exatamente isso, em vez de inventar parecer.

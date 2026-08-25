@@ -41,6 +41,34 @@ export const attachmentKind = pgEnum("attachment_kind", ["file", "link"]);
 /** O nome do estagio e livre; `kind` e o que o sistema usa para calcular. */
 export const stageKind = pgEnum("stage_kind", ["backlog", "todo", "doing", "review", "done"]);
 
+/* --- revisor de entregas --- */
+
+/**
+ * Quem consegue conferir a regra. E a classificacao mais importante do
+ * revisor: na duvida entre maquina e pessoa, e pessoa. Uma reprovacao errada
+ * custa muito mais caro que uma verificacao a menos.
+ */
+export const ruleVerifier = pgEnum("rule_verifier", ["maquina", "pessoa", "fora"]);
+
+/** Estado de uma rodada de revisao. `falhou` nunca e veredito. */
+export const cycleStatus = pgEnum("review_cycle_status", [
+  "pendente",
+  "rodando",
+  "emitido",
+  "incompleto",
+  "falhou",
+]);
+
+/**
+ * O veredito. Binario e nomeavel: violou regra inegociavel, reprova. Nota nao
+ * decide nada — ela oscila entre execucoes e ninguem consegue explicar por que
+ * foi 6,8 e nao 7,1.
+ */
+export const cycleVerdict = pgEnum("review_verdict", ["aprovado", "ajustar", "reprovado"]);
+
+/** Estado tecnico de uma execucao. Separado do veredito de proposito. */
+export const runState = pgEnum("review_run_state", ["na_fila", "rodando", "concluida", "falhou"]);
+
 /* ---------------------------------------------------------- organizacoes */
 
 export const organizations = pgTable("organizations", {
@@ -377,6 +405,248 @@ export const savedViews = pgTable(
   (t) => [index("saved_views_user_idx").on(t.userId)],
 );
 
+/* ------------------------------------------------------- revisor: regras */
+
+/**
+ * As duas metades do revisor tem regras diferentes de vida.
+ *
+ * **Material aprovado** (`review_rules`, `review_checklist_items`) entra por
+ * carga e e tratado como configuracao: quem sabe a regra e a area de negocio,
+ * e ela precisa mudar sem abrir chamado de desenvolvimento.
+ *
+ * **Operacao** (`review_cycles`, `review_runs`, `review_findings`) nasce do
+ * uso. Misturar as duas numa tabela so e o comeco da confusao.
+ *
+ * Duas tabelas do padrao original ficaram de fora de proposito:
+ *
+ * - `entregas`, que la era espelho do que estava sendo julgado. Aqui a entrega
+ *   e o proprio `work_items` — espelhar seria copiar dado que ja e nosso.
+ * - `recortes`, que la guardava as dimensoes que escolhem as regras. Aqui as
+ *   dimensoes ja existem como dado de primeira classe: empresa (com heranca de
+ *   sub-marca) e tipo/formato do catalogo. Criar a tabela seria duplica-las.
+ */
+export const reviewRules = pgTable(
+  "review_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+
+    /**
+     * As camadas que se somam, nunca copiadas. Empresa nula = vale para todo
+     * mundo. `skill`/`format` nulos = vale para qualquer tipo de peca. Copiar
+     * a regra comum para cada recorte faz elas divergirem: alguem corrige numa
+     * e esquece nas outras.
+     */
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
+    skill: text("skill"),
+    format: text("format"),
+
+    /** Codigo curto e estavel. E o que aparece no parecer e o que se contesta. */
+    code: text("code").notNull(),
+    text: text("text").notNull(),
+    /** Por que a regra existe. Sem isso ela vira supersticao em seis meses. */
+    rationale: text("rationale"),
+
+    verifier: ruleVerifier("verifier").notNull(),
+    /** Violou inegociavel, reprova. O resto vira ajuste. */
+    isBlocking: boolean("is_blocking").notNull().default(false),
+
+    /** O que a maquina procura. So faz sentido com `verifier = maquina`. */
+    machineHint: text("machine_hint"),
+
+    isActive: boolean("is_active").notNull().default(true),
+    position: doublePrecision("position").notNull().default(1000),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("review_rules_org_code_unique").on(t.orgId, t.code),
+    index("review_rules_scope_idx").on(t.orgId, t.companyId, t.skill),
+  ],
+);
+
+/**
+ * O checklist humano cobre so o que a maquina nao pega. Se pedir para a pessoa
+ * conferir o que o robo ja confere, em duas semanas ela marca tudo no
+ * automatico — e ai o checklist deixa de valer para o que ele era a unica
+ * defesa.
+ */
+export const reviewChecklistItems = pgTable(
+  "review_checklist_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
+    skill: text("skill"),
+
+    text: text("text").notNull(),
+    /** A regra que o item cobre, quando cobre uma. */
+    ruleId: uuid("rule_id").references((): AnyPgColumn => reviewRules.id, {
+      onDelete: "set null",
+    }),
+
+    /**
+     * Excecao deliberada ao paragrafo acima: um ou dois itens que a maquina
+     * tambem confere, para medir confiabilidade. Se a pessoa marcou "revisei a
+     * ortografia" e a maquina achou tres erros, voce aprendeu algo sobre o
+     * processo, nao sobre o texto.
+     */
+    isReliabilityProbe: boolean("is_reliability_probe").notNull().default(false),
+
+    isActive: boolean("is_active").notNull().default(true),
+    position: doublePrecision("position").notNull().default(1000),
+  },
+  (t) => [index("review_checklist_scope_idx").on(t.orgId, t.companyId, t.skill)],
+);
+
+/* ----------------------------------------------------- revisor: operacao */
+
+/**
+ * Uma rodada de revisao de uma entrega. A terceira tentativa e uma linha nova,
+ * nao uma atualizacao da primeira — sem isso nao da para saber se melhorou.
+ */
+export const reviewCycles = pgTable(
+  "review_cycles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => workItems.id, { onDelete: "cascade" }),
+
+    /** 1, 2, 3... dentro da mesma entrega. */
+    round: integer("round").notNull().default(1),
+
+    status: cycleStatus("status").notNull().default("pendente"),
+    verdict: cycleVerdict("verdict"),
+
+    /**
+     * O porteiro roda antes de gastar IA e devolve o que falta. `incompleto`
+     * nao e reprovacao: e entrada que ainda nao da para julgar.
+     */
+    gateMissing: jsonb("gate_missing").$type<string[]>().notNull().default([]),
+
+    /**
+     * Modo silencioso: o sistema emite parecer e nao move nada. Antes de
+     * deixar decidir, roda um periodo assim para calibrar contra o que uma
+     * pessoa acharia — e a unica calibragem honesta.
+     */
+    isSilent: boolean("is_silent").notNull().default(true),
+
+    /** Quem pediu. Nulo quando veio de gatilho automatico. */
+    requestedById: uuid("requested_by_id").references(() => users.id, { onDelete: "set null" }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("review_cycles_item_round_unique").on(t.workItemId, t.round),
+    index("review_cycles_status_idx").on(t.status, t.createdAt),
+  ],
+);
+
+/**
+ * O log tecnico que sustenta o assincrono. Existe desde o primeiro dia porque
+ * adaptar depois significa reescrever o miolo.
+ *
+ * Falha tecnica **nunca vira veredito**: se a chamada falhou, se o modelo nao
+ * respondeu, se acabaram as tentativas, o ciclo termina em `falhou` e alguem e
+ * avisado. Aprovacao silenciosa por erro de rede e a falha mais perigosa que
+ * um sistema desses pode ter, porque e invisivel — ninguem investiga o que
+ * passou, so o que barrou.
+ */
+export const reviewRuns = pgTable(
+  "review_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cycleId: uuid("cycle_id")
+      .notNull()
+      .references(() => reviewCycles.id, { onDelete: "cascade" }),
+
+    attempt: integer("attempt").notNull().default(1),
+    state: runState("state").notNull().default("na_fila"),
+
+    /** Qual modelo respondeu. Muda com o tempo e o parecer precisa dizer. */
+    model: text("model"),
+    /** Custo separado por entrada e saida: os precos sao diferentes. */
+    tokensIn: integer("tokens_in"),
+    tokensOut: integer("tokens_out"),
+
+    error: text("error"),
+
+    /**
+     * Quem pegou a execucao e ate quando. Duas invocacoes do cron ao mesmo
+     * tempo nao podem processar a mesma linha; a reserva expira para a
+     * execucao nao ficar presa se o processo morrer no meio.
+     */
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
+
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("review_runs_cycle_attempt_unique").on(t.cycleId, t.attempt),
+    index("review_runs_queue_idx").on(t.state, t.createdAt),
+  ],
+);
+
+/**
+ * Cada problema encontrado, sempre citando a regra que o originou. E o que
+ * torna o parecer contestavel — sem a regra, vira opiniao de robo.
+ */
+export const reviewFindings = pgTable(
+  "review_findings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cycleId: uuid("cycle_id")
+      .notNull()
+      .references(() => reviewCycles.id, { onDelete: "cascade" }),
+    /**
+     * `set null` e nao `cascade`: apagar uma regra nao pode apagar a historia
+     * de quando ela foi aplicada. Por isso o texto tambem fica congelado aqui.
+     */
+    ruleId: uuid("rule_id").references(() => reviewRules.id, { onDelete: "set null" }),
+    ruleCode: text("rule_code").notNull(),
+    ruleText: text("rule_text").notNull(),
+
+    /** O que foi visto, nas palavras do parecer. */
+    detail: text("detail").notNull(),
+    /** Onde: nome do arquivo, trecho, coordenada. Livre por tipo de peca. */
+    evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull().default({}),
+
+    /** Veio de regra inegociavel — e o que decide reprovar. */
+    isBlocking: boolean("is_blocking").notNull().default(false),
+
+    /** O anexo em que o problema apareceu, quando e de um so. */
+    attachmentId: uuid("attachment_id").references(() => attachments.id, { onDelete: "set null" }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("review_findings_cycle_idx").on(t.cycleId)],
+);
+
+/** O que muda sem deploy: datas de corte, limites, chaves de comportamento. */
+export const reviewSettings = pgTable(
+  "review_settings",
+  {
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: jsonb("value").$type<unknown>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.key] })],
+);
+
 /* ----------------------------------------------------------------- tipos */
 
 export type User = typeof users.$inferSelect;
@@ -392,3 +662,13 @@ export type UserRole = (typeof userRole.enumValues)[number];
 export type WorkItemType = (typeof workItemType.enumValues)[number];
 export type Priority = (typeof priority.enumValues)[number];
 export type StageKind = (typeof stageKind.enumValues)[number];
+
+export type ReviewRule = typeof reviewRules.$inferSelect;
+export type ReviewChecklistItem = typeof reviewChecklistItems.$inferSelect;
+export type ReviewCycle = typeof reviewCycles.$inferSelect;
+export type ReviewRun = typeof reviewRuns.$inferSelect;
+export type ReviewFinding = typeof reviewFindings.$inferSelect;
+export type RuleVerifier = (typeof ruleVerifier.enumValues)[number];
+export type CycleStatus = (typeof cycleStatus.enumValues)[number];
+export type CycleVerdict = (typeof cycleVerdict.enumValues)[number];
+export type RunState = (typeof runState.enumValues)[number];
