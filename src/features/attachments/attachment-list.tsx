@@ -151,11 +151,13 @@ export function AttachmentList({
 
       <div
         onDragOver={(e) => {
+          if (!storageOn) return;
           e.preventDefault();
           if (!dragging) setDragging(true);
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
+          if (!storageOn) return;
           e.preventDefault();
           setDragging(false);
           const file = e.dataTransfer.files?.[0];
@@ -177,11 +179,17 @@ export function AttachmentList({
           }}
         />
 
+        {/*
+          Com o storage desligado, o botao fica desabilitado em vez de abrir o
+          seletor e recusar depois. Escolher o arquivo, esperar e so entao levar
+          nao a e o pior jeito de dar a noticia.
+        */}
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || !storageOn}
+          title={storageOn ? undefined : "Guardar arquivo ainda nao esta ligado"}
           onClick={() => fileRef.current?.click()}
-          className="inline-flex items-center gap-1.5 text-[12.5px] text-muted transition-colors hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-[12.5px] text-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:text-faint disabled:hover:text-faint"
         >
           <Paperclip size={13} />
           Anexar arquivo
@@ -200,9 +208,11 @@ export function AttachmentList({
           Colar link
         </button>
 
-        <span className="ml-auto text-[11.5px] text-faint">
-          {dragging ? "Solte aqui" : "arraste também"}
-        </span>
+        {storageOn ? (
+          <span className="ml-auto text-[11.5px] text-faint">
+            {dragging ? "Solte aqui" : "arraste também"}
+          </span>
+        ) : null}
       </div>
 
       {linkOpen && (
@@ -246,7 +256,8 @@ export function AttachmentList({
 
       {!storageOn && (
         <p className="mt-2 text-[11.5px] text-faint">
-          Guardar arquivo ainda não está ligado. Link já funciona.
+          Guardar arquivo ainda não está ligado — falta a chave do storage no ambiente. Cole o
+          link do Drive aqui, que funciona normalmente.
         </p>
       )}
 
