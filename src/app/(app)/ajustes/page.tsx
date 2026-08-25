@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { requireUser } from "@/lib/auth";
+import Link from "next/link";
+import { canManage, requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = { title: "Ajustes · MKT Hub" };
@@ -41,6 +42,26 @@ export default async function AjustesPage() {
             value={`${user.companyIds.length} ${user.companyIds.length === 1 ? "empresa" : "empresas"}`}
           />
         </div>
+
+        {/*
+          O revisor nao ganhou item de menu: ele nao emite parecer ainda, e
+          entrada fixa na navegacao para ferramenta que nao faz nada e ruido
+          para quem usa o sistema todo dia.
+        */}
+        {canManage(user) && (
+          <Link
+            href="/revisor"
+            className="mt-4 flex items-center justify-between gap-4 rounded-[var(--radius-card)] border border-dashed border-line px-4 py-3 transition-colors hover:border-line-strong"
+          >
+            <span>
+              <span className="block text-[13px] font-medium text-ink">Revisor de entregas</span>
+              <span className="block text-[12px] text-faint">
+                Aponte para uma entrega e veja o recorte, as regras e o que o porteiro barraria.
+              </span>
+            </span>
+            <span className="text-[12.5px] text-accent">abrir</span>
+          </Link>
+        )}
 
         <p className="mt-4 text-[12.5px] text-faint">
           Gestão de pessoas, permissões e regras de pontuação entram junto com o módulo Time.

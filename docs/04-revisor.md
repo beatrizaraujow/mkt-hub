@@ -73,6 +73,37 @@ Fila completa, com o cron local:
 - Tentativa 3 esgotada leva o ciclo a `falhou` e **não** cria a tentativa 4
 - Nenhum caminho produziu veredito
 - Passada com a fila vazia não faz nada
+- Com o porteiro **passando**, o ciclo termina em `falhou` com "julgamento ainda
+  não implementado", sem repetir a tentativa, sem veredito e sem achado gravado
+
+## A tela de diagnóstico
+
+Em `/revisor`, para gestor e admin. Não ganhou item de menu — entrada fixa na
+navegação para uma ferramenta que ainda não emite parecer é ruído para quem usa
+o sistema todo dia. O caminho é **Ajustes → Revisor de entregas**.
+
+Você escolhe uma entrega real e ela mostra, em ordem:
+
+1. **O que o sistema vê** — empresa, projeto, etapa, tipo, formato e arquivos.
+   É daqui que sai o recorte.
+2. **O porteiro**, rodando de verdade. Não é simulação parecida: é a mesma
+   função que o cron chama, senão as duas divergem com o tempo.
+3. **As regras que se aplicam**, cada uma com a camada em que entrou e quem
+   consegue verificar. É o que revela recorte errado de longe.
+4. **O checklist da pessoa** para aquela combinação.
+5. **As revisões da entrega**, com tentativa e erro de cada uma.
+
+Conferido com cinco regras de exemplo, depois removidas:
+
+| Regra | Camada | Apareceu? |
+|---|---|---|
+| universal, sem tipo | todas as empresas | sim |
+| empresa Onevo | mãe da sub-marca | **sim** — herança funciona |
+| tipo "Arte de post" | todas as empresas · tipo | sim |
+| tipo "Edição de vídeo" | outro tipo | não |
+| empresa Carbone | outra empresa | não |
+
+O porteiro contou 2 regras de máquina e ignorou a de balde humano, como deve.
 
 ## O que falta, em ordem
 
@@ -83,8 +114,7 @@ Fila completa, com o cron local:
 2. **Fechar o checklist humano** — entre quatro e oito itens por combinação.
 3. **Carga das regras**, com teste que prova que o que entrou no banco é o que
    estava no arquivo de origem.
-4. **Tela de leitura e diagnóstico** — apontar o sistema para um caso real e
-   ver o que ele entendeu, antes de ele poder fazer qualquer coisa.
+4. ~~Tela de leitura e diagnóstico.~~ Pronta — ver acima.
 5. **Julgamento.** Precisa de chave de modelo no ambiente, que ainda não existe.
 6. **Modo silencioso por um período**, comparando com parecer humano.
 7. **Autonomia**, só então.
