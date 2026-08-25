@@ -212,6 +212,24 @@ export function OptionField({
 
 /* -------------------------------------------------------------- responsável */
 
+/** Rotulo em cima do controle. Mesmo par em Nova tarefa e Nova subtarefa. */
+export function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <span className="label-mono">{label}</span>
+      {children}
+    </div>
+  );
+}
+
 export type PersonOption = { id: string; name: string; todayCount: number };
 
 function initials(name: string) {

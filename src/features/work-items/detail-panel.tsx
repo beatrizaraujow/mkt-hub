@@ -14,7 +14,6 @@ import type { TimeEntryRow, TimeSummary } from "@/features/time/queries";
 import {
   addChecklistItem,
   addComment,
-  addSubtask,
   completeWorkItem,
   deleteWorkItem,
   removeChecklistItem,
@@ -32,6 +31,7 @@ import {
   type ActionState,
 } from "./actions";
 import { useOpenItem } from "./use-open-item";
+import { SubtaskCreate } from "./subtask-create";
 import {
   AssigneeField,
   DueDateField,
@@ -172,7 +172,7 @@ export function DetailPanel({
   const [draftTitle, setDraftTitle] = useState(item.title);
   const [draftDesc, setDraftDesc] = useState(item.description ?? "");
   const [newCheck, setNewCheck] = useState("");
-  const [newSub, setNewSub] = useState("");
+  const [subOpen, setSubOpen] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [manual, setManual] = useState(false);
   const [manualMin, setManualMin] = useState("");
@@ -468,24 +468,14 @@ export function DetailPanel({
                       })}
                     </div>
 
-                    <form
-                      className="mt-1 flex items-center gap-1.5 px-1"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (!newSub.trim()) return;
-                        const title = newSub;
-                        setNewSub("");
-                        run(() => addSubtask(item.id, title));
-                      }}
+                    <button
+                      type="button"
+                      onClick={() => setSubOpen(true)}
+                      className="mt-1 flex items-center gap-1.5 rounded-[var(--radius-control)] px-1 py-1 text-[13px] text-faint transition-colors hover:bg-hover hover:text-ink"
                     >
-                      <Plus size={13} className="shrink-0 text-faint" />
-                      <input
-                        value={newSub}
-                        onChange={(e) => setNewSub(e.target.value)}
-                        placeholder="Nova subtarefa"
-                        className="flex-1 border-0 bg-transparent text-[13px] text-ink placeholder:text-faint focus:outline-none"
-                      />
-                    </form>
+                      <Plus size={13} className="shrink-0" />
+                      Nova subtarefa
+                    </button>
                   </section>
 
                   <AttachmentList
@@ -856,6 +846,22 @@ export function DetailPanel({
           </aside>
         </div>
       </aside>
+
+      {subOpen && (
+        <SubtaskCreate
+          parentId={item.id}
+          parentTitle={item.title}
+          people={people}
+          meId={meId}
+          today={today}
+          inherited={{
+            assigneeId: item.assigneeId,
+            dueDate: inputFromDueDate(item.dueDate),
+            priority: item.priority,
+          }}
+          onClose={() => setSubOpen(false)}
+        />
+      )}
     </div>
   );
 }

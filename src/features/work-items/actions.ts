@@ -505,20 +505,40 @@ export async function addComment(id: string, body: string): Promise<ActionState>
 /* ------------------------------------------------------------- subtarefas */
 
 /**
- * Subtarefa herda empresa, projeto e tipo do pai. Só o título é pedido —
- * quebrar trabalho em pedaços tem que custar uma linha digitada, senão
- * ninguém quebra e a tarefa vira um bloco opaco de três dias.
+ * Empresa, projeto e tipo de pipeline vêm sempre do pai — subtarefa de outra
+ * empresa não existe. O resto é escolha: quem faz, para quando, prioridade,
+ * ponto, tipo e formato. Quando o campo não vem, herda do pai, que é o que
+ * acontece se a pessoa só digitar o título e apertar Enter.
  */
-export async function addSubtask(parentId: string, title: string): Promise<ActionState> {
+const subtaskSchema = z.object({
+  title: z.string().trim().min(2, "Escreva o título da subtarefa.").max(200, "Título muito longo."),
+  assigneeId: z.string().uuid().nullish(),
+  dueDate: z.string().nullish(),
+  priority: z.enum(["urgente", "alta", "media", "baixa"]).nullish(),
+  points: z.coerce.number().int().min(0).max(100).nullish(),
+  skill: z.string().nullish(),
+  format: z.string().nullish(),
+});
+
+export type SubtaskInput = z.input<typeof subtaskSchema>;
+
+export async function addSubtask(parentId: string, input: SubtaskInput): Promise<ActionState> {
+  const parsed = subtaskSchema.safeParse(input);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? "";
+    return fail(/^[A-Z][a-z]+ input/.test(message) ? "Dados inválidos." : message);
+  }
+
+  const data = parsed.data;
+
   try {
     const user = await requireUserAction();
     const parent = await loadItem(user, parentId);
 
     if (parent.parentId) return fail("Subtarefa de subtarefa não existe. Um nível basta.");
 
-    const clean = title.trim();
-    if (clean.length < 2) return fail("Escreva o título da subtarefa.");
-    if (clean.length > 200) return fail("Título muito longo.");
+    if (data.skill && !isSkill(data.skill)) return fail("Tipo de trabalho inválido.");
+    if (data.format && !isFormat(data.format)) return fail("Formato inválido.");
 
     const stages = await stagesOf(user.orgId, parent.type);
     const target = stages.find((s) => s.kind === "todo") ?? stages[0];
@@ -532,16 +552,20 @@ export async function addSubtask(parentId: string, title: string): Promise<Actio
         projectId: parent.projectId,
         parentId: parent.id,
         type: parent.type,
-        title: clean,
+        title: data.title,
         stageId: target.id,
-        priority: parent.priority,
-        assigneeId: parent.assigneeId,
+        priority: data.priority ?? parent.priority,
+        assigneeId: data.assigneeId ?? parent.assigneeId,
         createdById: user.id,
-        dueDate: parent.dueDate,
+        // `dueDate` ausente herda; vindo vazio, a subtarefa fica sem prazo.
+        dueDate: data.dueDate === undefined ? parent.dueDate : dueDateFromInput(data.dueDate),
+        points: data.points ?? null,
+        skill: data.skill ?? null,
+        format: data.format ?? null,
       })
       .returning({ id: workItems.id });
 
-    await log(user.orgId, parent.id, user.id, "subtask.created", { title: clean });
+    await log(user.orgId, parent.id, user.id, "subtask.created", { title: data.title });
     refresh();
     return { ok: true, id: created.id };
   } catch (err) {

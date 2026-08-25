@@ -86,6 +86,8 @@ export function PopoverPanel({
     <div
       ref={panelRef}
       role="listbox"
+      /* Marca para quem escuta Escape saber que ha um popover na frente. */
+      data-popover=""
       style={
         rect
           ? {

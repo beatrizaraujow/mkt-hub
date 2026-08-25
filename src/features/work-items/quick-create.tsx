@@ -2,14 +2,16 @@
 
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Modal, ModalFooter } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import { FORMAT_GROUPS, SKILL_GROUPS } from "@/lib/catalog";
 import { createWorkItem, type ActionState } from "./actions";
 import {
   AssigneeField,
   DueDateField,
+  Field,
   OptionField,
   PointsField,
   PriorityField,
@@ -21,23 +23,6 @@ export type QuickCreateOptions = {
   projects: Array<{ id: string; name: string; companyId: string }>;
   people: PersonOption[];
 };
-
-function Field({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <span className="label-mono">{label}</span>
-      {children}
-    </div>
-  );
-}
 
 function Submit() {
   const { pending } = useFormStatus();
@@ -107,10 +92,6 @@ export function QuickCreate({
         target?.tagName === "SELECT" ||
         target?.isContentEditable;
 
-      if (event.key === "Escape" && open) {
-        close();
-        return;
-      }
       if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
       // Nao abre por cima de outro modal, como o detalhe da tarefa.
       if (!open && document.querySelector('[aria-modal="true"]')) return;
@@ -155,170 +136,145 @@ export function QuickCreate({
       </Button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-3 pt-[8vh] sm:p-6 sm:pt-[10vh]">
-          <div
-            aria-hidden
-            onMouseDown={close}
-            className="fixed inset-0 bg-black/40 backdrop-blur-[1px]"
-          />
+        <Modal
+          label="Nova tarefa"
+          title="Nova tarefa"
+          subtitle="Entra em Pendente e na fila de quem for responsável."
+          onClose={close}
+        >
+          <form ref={formRef} action={action} className="flex flex-col gap-4 px-5 py-4">
+            <input type="hidden" name="companyId" value={companyId} />
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="assigneeId" value={assigneeId ?? ""} />
+            <input type="hidden" name="dueDate" value={dueDate} />
+            <input type="hidden" name="priority" value={priority} />
+            <input type="hidden" name="points" value={points} />
+            <input type="hidden" name="skill" value={skill} />
+            <input type="hidden" name="format" value={format} />
 
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Nova tarefa"
-            className="relative z-10 w-full max-w-[580px] overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.32)]"
-          >
-            <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-3.5">
-              <div>
-                <p className="text-[15px] font-semibold text-ink">Nova tarefa</p>
-                <p className="mt-0.5 text-[12px] text-faint">
-                  Entra em Pendente e na fila de quem for responsável.
-                </p>
+            <Field label="Tarefa">
+              <input
+                ref={titleRef}
+                name="title"
+                required
+                autoFocus
+                autoComplete="off"
+                placeholder="O que precisa ser feito?"
+                className="h-[42px] w-full rounded-[var(--radius-control)] border border-accent bg-surface px-3 text-[14px] text-ink placeholder:text-faint focus:outline-none"
+              />
+            </Field>
+
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              <Field label="Empresa">
+                <OptionField
+                  value={companyId}
+                  options={companyOptions}
+                  allowEmpty={false}
+                  onChange={(next) => {
+                    setCompanyId(next);
+                    setProjectId("");
+                  }}
+                />
+              </Field>
+
+              <Field label="Projeto">
+                <OptionField
+                  value={projectId}
+                  options={projectsOfCompany}
+                  emptyLabel="Sem projeto"
+                  onChange={setProjectId}
+                />
+              </Field>
+
+              <Field label="Responsável">
+                <AssigneeField
+                  value={assigneeId}
+                  people={options.people}
+                  meId={meId}
+                  onChange={setAssigneeId}
+                />
+              </Field>
+
+              <Field label="Prazo">
+                <DueDateField
+                  value={dueDate}
+                  today={today}
+                  onChange={(next) => setDueDate(next ?? "")}
+                />
+              </Field>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setDetails((v) => !v)}
+              className="flex items-center gap-1 self-start text-[12.5px] text-faint transition-colors hover:text-ink"
+            >
+              <ChevronDown
+                size={13}
+                className={cn("transition-transform", details && "rotate-180")}
+              />
+              {details ? "menos detalhes" : "mais detalhes"}
+            </button>
+
+            {/* Ponto, tipo e formato existem, mas não travam a criação rápida. */}
+            {details && (
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-[104px_1fr_1fr]">
+                <Field label="Ponto MKT">
+                  <PointsField
+                    value={points}
+                    onChange={setPoints}
+                    onStep={(delta) =>
+                      setPoints((prev) => {
+                        const base = prev === "" ? 0 : Number(prev);
+                        return String(Math.min(100, Math.max(0, base + delta)));
+                      })
+                    }
+                  />
+                </Field>
+
+                <Field label="Tipo">
+                  <OptionField
+                    value={skill}
+                    groups={SKILL_GROUPS}
+                    searchable
+                    searchPlaceholder="Buscar tipo…"
+                    onChange={setSkill}
+                  />
+                </Field>
+
+                <Field label="Formato">
+                  <OptionField
+                    value={format}
+                    groups={FORMAT_GROUPS}
+                    emptyLabel="Selecionar"
+                    onChange={setFormat}
+                  />
+                </Field>
               </div>
+            )}
+
+            <Field label="Prioridade">
+              <PriorityField value={priority} onChange={setPriority} />
+            </Field>
+
+            {state.error ? (
+              <p role="alert" className="text-[13px] text-danger">
+                {state.error}
+              </p>
+            ) : null}
+
+            <ModalFooter>
               <button
                 type="button"
                 onClick={close}
-                aria-label="Fechar"
-                className="text-faint transition-colors hover:text-ink"
+                className="h-9 rounded-[var(--radius-control)] px-3 text-sm text-muted transition-colors hover:text-ink"
               >
-                <X size={17} />
+                Cancelar
               </button>
-            </header>
-
-            <form ref={formRef} action={action} className="flex flex-col gap-4 px-5 py-4">
-              <input type="hidden" name="companyId" value={companyId} />
-              <input type="hidden" name="projectId" value={projectId} />
-              <input type="hidden" name="assigneeId" value={assigneeId ?? ""} />
-              <input type="hidden" name="dueDate" value={dueDate} />
-              <input type="hidden" name="priority" value={priority} />
-              <input type="hidden" name="points" value={points} />
-              <input type="hidden" name="skill" value={skill} />
-              <input type="hidden" name="format" value={format} />
-
-              <Field label="Tarefa">
-                <input
-                  ref={titleRef}
-                  name="title"
-                  required
-                  autoFocus
-                  autoComplete="off"
-                  placeholder="O que precisa ser feito?"
-                  className="h-[42px] w-full rounded-[var(--radius-control)] border border-accent bg-surface px-3 text-[14px] text-ink placeholder:text-faint focus:outline-none"
-                />
-              </Field>
-
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                <Field label="Empresa">
-                  <OptionField
-                    value={companyId}
-                    options={companyOptions}
-                    allowEmpty={false}
-                    onChange={(next) => {
-                      setCompanyId(next);
-                      setProjectId("");
-                    }}
-                  />
-                </Field>
-
-                <Field label="Projeto">
-                  <OptionField
-                    value={projectId}
-                    options={projectsOfCompany}
-                    emptyLabel="Sem projeto"
-                    onChange={setProjectId}
-                  />
-                </Field>
-
-                <Field label="Responsável">
-                  <AssigneeField
-                    value={assigneeId}
-                    people={options.people}
-                    meId={meId}
-                    onChange={setAssigneeId}
-                  />
-                </Field>
-
-                <Field label="Prazo">
-                  <DueDateField
-                    value={dueDate}
-                    today={today}
-                    onChange={(next) => setDueDate(next ?? "")}
-                  />
-                </Field>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setDetails((v) => !v)}
-                className="flex items-center gap-1 self-start text-[12.5px] text-faint transition-colors hover:text-ink"
-              >
-                <ChevronDown
-                  size={13}
-                  className={cn("transition-transform", details && "rotate-180")}
-                />
-                {details ? "menos detalhes" : "mais detalhes"}
-              </button>
-
-              {/* Ponto, tipo e formato existem, mas não travam a criação rápida. */}
-              {details && (
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-[104px_1fr_1fr]">
-                  <Field label="Ponto MKT">
-                    <PointsField
-                      value={points}
-                      onChange={setPoints}
-                      onStep={(delta) =>
-                        setPoints((prev) => {
-                          const base = prev === "" ? 0 : Number(prev);
-                          return String(Math.min(100, Math.max(0, base + delta)));
-                        })
-                      }
-                    />
-                  </Field>
-
-                  <Field label="Tipo">
-                    <OptionField
-                      value={skill}
-                      groups={SKILL_GROUPS}
-                      searchable
-                      searchPlaceholder="Buscar tipo…"
-                      onChange={setSkill}
-                    />
-                  </Field>
-
-                  <Field label="Formato">
-                    <OptionField
-                      value={format}
-                      groups={FORMAT_GROUPS}
-                      emptyLabel="Selecionar"
-                      onChange={setFormat}
-                    />
-                  </Field>
-                </div>
-              )}
-
-              <Field label="Prioridade">
-                <PriorityField value={priority} onChange={setPriority} />
-              </Field>
-
-              {state.error ? (
-                <p role="alert" className="text-[13px] text-danger">
-                  {state.error}
-                </p>
-              ) : null}
-
-              <div className="-mx-5 -mb-4 mt-1 flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-                <button
-                  type="button"
-                  onClick={close}
-                  className="h-9 rounded-[var(--radius-control)] px-3 text-sm text-muted transition-colors hover:text-ink"
-                >
-                  Cancelar
-                </button>
-                <Submit />
-              </div>
-            </form>
-          </div>
-        </div>
+              <Submit />
+            </ModalFooter>
+          </form>
+        </Modal>
       )}
     </>
   );
