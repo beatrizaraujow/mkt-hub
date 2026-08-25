@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { canManage, requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
+import { ChangePassword } from "@/features/people/change-password";
 
 export const metadata: Metadata = { title: "Ajustes · MKT Hub" };
 
@@ -43,6 +44,8 @@ export default async function AjustesPage() {
           />
         </div>
 
+        <ChangePassword />
+
         {/*
           O revisor nao ganhou item de menu: ele nao emite parecer ainda, e
           entrada fixa na navegacao para ferramenta que nao faz nada e ruido
@@ -64,7 +67,7 @@ export default async function AjustesPage() {
         )}
 
         <p className="mt-4 text-[12.5px] text-faint">
-          Gestão de pessoas, permissões e regras de pontuação entram junto com o módulo Time.
+          Regras de pontuação e metas entram na V1.5. Pessoas e permissões ficam em Time.
         </p>
       </div>
     </>

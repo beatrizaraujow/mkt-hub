@@ -32,7 +32,7 @@ export const NAV: NavItem[] = [
   { href: "/producao", label: "Produção", icon: "producao", soon: true },
   { href: "/rotinas", label: "Rotinas", icon: "rotinas", soon: true },
   { href: "/desempenho", label: "Desempenho", icon: "desempenho", soon: true },
-  { href: "/time", label: "Time", icon: "time", soon: true, minRole: "gestor" },
+  { href: "/time", label: "Time", icon: "time", minRole: "gestor" },
   { href: "/empresas", label: "Empresas", icon: "empresas", mobile: true },
   { href: "/ajustes", label: "Ajustes", icon: "ajustes", mobile: true },
 ];

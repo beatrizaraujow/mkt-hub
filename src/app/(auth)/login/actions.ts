@@ -42,8 +42,19 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const invalid = { error: "E-mail ou senha incorretos." };
   if (!user) return invalid;
 
+  /**
+   * Convidada e ainda sem senha. Aqui a mensagem e especifica de proposito:
+   * mandar "e-mail ou senha incorretos" para quem nunca definiu senha faz a
+   * pessoa tentar de novo achando que errou de digitar.
+   */
+  if (!user.passwordHash) {
+    return { error: "Esta conta ainda não foi ativada. Peça o link de convite a quem administra." };
+  }
+
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) return invalid;
+
+  await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
   await createSession({
     userId: user.id,

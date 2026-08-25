@@ -7,8 +7,11 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 const SESSION_COOKIE = "mkt_session";
 
-/** Aberto para qualquer um, logado ou nao. O formulario de pedido mora aqui. */
-const OPEN_PATHS = ["/solicitar"];
+/**
+ * Aberto para qualquer um, logado ou nao: o formulario de pedido e o link de
+ * convite. Quem recebe um convite ainda nao tem conta para logar.
+ */
+const OPEN_PATHS = ["/solicitar", "/convite"];
 
 /** Porta de entrada: quem ja entrou nao volta para ela. */
 const AUTH_PATHS = ["/login"];

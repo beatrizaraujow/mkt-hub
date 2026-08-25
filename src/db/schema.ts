@@ -89,7 +89,25 @@ export const users = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     email: text("email").notNull(),
-    passwordHash: text("password_hash").notNull(),
+
+    /**
+     * Nulo enquanto a pessoa foi convidada e ainda nao definiu a senha.
+     * Quem cria a conta nunca escolhe a senha de ninguem: ela nasce vazia e
+     * so a propria pessoa preenche, pelo link de convite.
+     */
+    passwordHash: text("password_hash"),
+
+    /**
+     * Guarda o **hash** do token, nunca o token. Se o banco vazar, o que
+     * vazou nao abre conta nenhuma. O valor cru existe uma vez so, na tela de
+     * quem convidou.
+     */
+    inviteTokenHash: text("invite_token_hash"),
+    inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
+
+    /** Para a tela de pessoas distinguir "nunca entrou" de "parou de entrar". */
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+
     role: userRole("role").notNull().default("colaborador"),
     /** Valida fechamento de semana. Sempre checado no servidor. */
     isMaster: boolean("is_master").notNull().default(false),
@@ -98,7 +116,10 @@ export const users = pgTable(
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_unique").on(t.email)],
+  (t) => [
+    uniqueIndex("users_email_unique").on(t.email),
+    index("users_invite_idx").on(t.inviteTokenHash),
+  ],
 );
 
 /* -------------------------------------------------------------- empresas */
