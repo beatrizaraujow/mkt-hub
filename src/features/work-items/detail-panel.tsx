@@ -39,6 +39,8 @@ import {
   type PersonOption,
 } from "./field-controls";
 import { AttachmentList, type AttachmentRow } from "@/features/attachments/attachment-list";
+import { BriefingCard } from "@/features/requests/briefing-card";
+import type { RequestInfo } from "./queries";
 
 export type DetailData = {
   id: string;
@@ -64,6 +66,8 @@ export type DetailData = {
     assigneeName: string | null;
   }>;
   files: AttachmentRow[];
+  /** Preenchido so quando a tarefa entrou pelo formulario publico. */
+  request: RequestInfo | null;
   comments: Array<{ id: string; body: string; createdAt: Date; authorName: string }>;
   activity: Array<{
     id: string;
@@ -380,6 +384,8 @@ export function DetailPanel({
             <div className="scroll-thin min-h-[320px] flex-1 overflow-y-auto px-5 py-4">
               {tab === "trabalho" && (
                 <div className="flex flex-col gap-5">
+                  {item.request ? <BriefingCard request={item.request} /> : null}
+
                   <section>
                     <h3 className="label-mono mb-2">Briefing</h3>
                     <textarea

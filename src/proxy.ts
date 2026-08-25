@@ -6,20 +6,32 @@ import { NextResponse, type NextRequest } from "next/server";
  * sessao acontece no servidor, em `requireUser()`.
  */
 const SESSION_COOKIE = "mkt_session";
-const PUBLIC_PATHS = ["/login"];
+
+/** Aberto para qualquer um, logado ou nao. O formulario de pedido mora aqui. */
+const OPEN_PATHS = ["/solicitar"];
+
+/** Porta de entrada: quem ja entrou nao volta para ela. */
+const AUTH_PATHS = ["/login"];
+
+function matches(pathname: string, paths: string[]) {
+  return paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasCookie = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-  if (!hasCookie && !isPublic) {
+  if (matches(pathname, OPEN_PATHS)) return NextResponse.next();
+
+  const hasCookie = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+  const isAuthPage = matches(pathname, AUTH_PATHS);
+
+  if (!hasCookie && !isAuthPage) {
     const url = new URL("/login", request.url);
     if (pathname !== "/") url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (hasCookie && isPublic) {
+  if (hasCookie && isAuthPage) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

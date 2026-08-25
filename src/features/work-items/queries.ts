@@ -312,12 +312,57 @@ export async function getItemDetail(user: CurrentUser, id: string) {
     points: full?.points ?? null,
     skill: full?.skill ?? null,
     format: full?.format ?? null,
+    request: full ? requestOf(full) : null,
     checklist,
     subtasks,
     files,
     comments: commentRows,
     activity,
     stages,
+  };
+}
+
+export type RequestInfo = {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  type: string | null;
+  objective: string | null;
+  briefing: Array<[string, string]>;
+  references: string | null;
+  notes: string | null;
+};
+
+function str(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+/**
+ * O que veio do formulario publico. Fica em `meta` porque cada tipo de
+ * demanda pergunta uma coisa diferente e nada disso entra em calculo —
+ * virar coluna seria uma tabela larga e quase toda nula.
+ */
+function requestOf(row: { requesterName: string | null; requesterEmail: string | null; requesterPhone: string | null; meta: Record<string, unknown> }): RequestInfo | null {
+  if (!row.requesterName) return null;
+
+  const raw = row.meta.briefing;
+  const briefing =
+    raw && typeof raw === "object"
+      ? Object.entries(raw as Record<string, unknown>)
+          .map(([key, value]) => [key, str(value)] as const)
+          .filter((pair): pair is readonly [string, string] => pair[1] !== null)
+          .map(([key, value]) => [key, value] as [string, string])
+      : [];
+
+  return {
+    name: row.requesterName,
+    email: row.requesterEmail,
+    phone: row.requesterPhone,
+    type: str(row.meta.requestType),
+    objective: str(row.meta.objective),
+    briefing,
+    references: str(row.meta.references),
+    notes: str(row.meta.notes),
   };
 }
 

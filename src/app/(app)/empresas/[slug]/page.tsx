@@ -5,6 +5,7 @@ import { companies, projects, users } from "@/db/schema";
 import { canManage, canSeeCompany, requireUser } from "@/lib/auth";
 import { EmptyState, PageHeader } from "@/components/page-header";
 import { NewProject } from "./new-project";
+import { RequestLink } from "@/features/requests/request-link";
 
 function formatDate(value: Date | null) {
   if (!value) return null;
@@ -49,7 +50,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ slug: 
         actions={manage ? <NewProject companyId={company.id} /> : undefined}
       />
 
-      <div className="px-5 py-5 md:px-7">
+      <div className="flex flex-col gap-5 px-5 py-5 md:px-7">
+        <RequestLink slug={company.slug} />
+
         {rows.length === 0 ? (
           <EmptyState
             title="Nenhum projeto ativo"
