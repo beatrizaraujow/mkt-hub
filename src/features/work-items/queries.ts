@@ -208,11 +208,7 @@ export async function quickCreateOptions(user: CurrentUser) {
       .from(projects)
       .where(and(inArray(projects.companyId, user.companyIds), eq(projects.isArchived, false)))
       .orderBy(asc(projects.name)),
-    db
-      .select({ id: users.id, name: users.name })
-      .from(users)
-      .where(and(eq(users.orgId, user.orgId), eq(users.isActive, true)))
-      .orderBy(asc(users.name)),
+    peopleWithLoad(user),
     stagesFor(user.orgId, "task"),
   ]);
 

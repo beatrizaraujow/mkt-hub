@@ -37,15 +37,21 @@ function flatten(groups: OptionGroup[], emptyLabel: string): Flat[] {
 export function OptionField({
   value,
   groups,
+  options,
   emptyLabel = "—",
+  allowEmpty = true,
   searchable = false,
   searchPlaceholder = "Buscar…",
   onChange,
   disabled,
 }: {
   value: string;
-  groups: OptionGroup[];
+  /** Opcoes do catalogo, ja agrupadas. */
+  groups?: OptionGroup[];
+  /** Ou uma lista pronta, quando o valor nao e o proprio rotulo. */
+  options?: Flat[];
   emptyLabel?: string;
+  allowEmpty?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
   onChange: (value: string) => void;
@@ -56,7 +62,10 @@ export function OptionField({
   const [cursor, setCursor] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const all = useMemo(() => flatten(groups, emptyLabel), [groups, emptyLabel]);
+  const all = useMemo(() => {
+    if (options) return allowEmpty ? [{ value: "", label: emptyLabel, group: null }, ...options] : options;
+    return flatten(groups ?? [], emptyLabel);
+  }, [options, groups, emptyLabel, allowEmpty]);
 
   const shown = useMemo(() => {
     const term = fold(query);
@@ -547,3 +556,110 @@ export function DueDateField({
 }
 
 export { ymd };
+
+/* --------------------------------------------------------------- ponto MKT */
+
+/**
+ * Stepper em vez de campo numerico solto. A regua do board antigo e curta —
+ * peca simples 1 a 2, edicao 2 a 5, captacao 6 a 12, projeto 10 a 15 — entao
+ * ajustar de um em um resolve, e ninguem digita 700 sem querer.
+ */
+export function PointsField({
+  value,
+  onChange,
+  onStep,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  /**
+   * O passo vai por fora do onChange porque precisa somar sobre o valor mais
+   * recente. Clicar tres vezes rapido tem que virar tres, nao um.
+   */
+  onStep: (delta: number) => void;
+  disabled?: boolean;
+}) {
+  const current = value === "" ? 0 : Number(value);
+
+  function step(delta: number) {
+    onStep(delta);
+  }
+
+  return (
+    <div className="flex h-[34px] items-stretch overflow-hidden rounded-[var(--radius-control)] border border-line bg-surface">
+      <button
+        type="button"
+        disabled={disabled || current <= 0}
+        onClick={() => step(-1)}
+        aria-label="Um ponto a menos"
+        className="grid w-[30px] place-items-center text-muted transition-colors hover:bg-hover hover:text-ink disabled:opacity-40"
+      >
+        <Minus size={13} />
+      </button>
+
+      <input
+        type="number"
+        min={0}
+        max={100}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="—"
+        className="tnum min-w-0 flex-1 border-0 bg-transparent text-center text-[14px] font-semibold text-ink placeholder:font-normal placeholder:text-faint focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+
+      <button
+        type="button"
+        disabled={disabled || current >= 100}
+        onClick={() => step(1)}
+        aria-label="Um ponto a mais"
+        className="grid w-[30px] place-items-center text-muted transition-colors hover:bg-hover hover:text-ink disabled:opacity-40"
+      >
+        <Plus size={13} />
+      </button>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- prioridade */
+
+export const PRIORITY_OPTIONS = [
+  { value: "urgente", label: "Urgente", color: "var(--p-urgente)" },
+  { value: "alta", label: "Alta", color: "var(--p-alta)" },
+  { value: "media", label: "Média", color: "var(--p-media)" },
+  { value: "baixa", label: "Baixa", color: "var(--p-baixa)" },
+] as const;
+
+export function PriorityField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex gap-[2px] rounded-[var(--radius-control)] bg-sunk p-[3px]">
+      {PRIORITY_OPTIONS.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(option.value)}
+            aria-pressed={active}
+            style={active ? { color: option.color } : undefined}
+            className={cn(
+              "h-[26px] flex-1 rounded-[6px] text-[12.5px] transition-colors duration-150",
+              active ? "bg-surface font-medium" : "text-faint hover:text-muted",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

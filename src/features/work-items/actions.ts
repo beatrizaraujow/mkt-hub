@@ -71,6 +71,7 @@ const createSchema = z.object({
   type: z.enum(["task", "content", "capture"]).default("task"),
   skill: z.string().nullish(),
   format: z.string().nullish(),
+  points: z.coerce.number().int().min(0).max(100).nullish(),
   description: z.string().nullish(),
 });
 
@@ -97,6 +98,7 @@ export async function createWorkItem(
     type: value(formData, "type") ?? undefined,
     skill: value(formData, "skill"),
     format: value(formData, "format"),
+    points: value(formData, "points"),
     description: value(formData, "description"),
   });
 
@@ -145,6 +147,7 @@ export async function createWorkItem(
         dueDate: dueDateFromInput(data.dueDate),
         skill: data.skill ?? null,
         format: data.format ?? null,
+        points: data.points ?? null,
       })
       .returning({ id: workItems.id });
 

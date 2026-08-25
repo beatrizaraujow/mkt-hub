@@ -1,52 +1,101 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, X } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { FORMAT_GROUPS, SKILL_GROUPS } from "@/lib/catalog";
 import { createWorkItem, type ActionState } from "./actions";
+import {
+  AssigneeField,
+  DueDateField,
+  OptionField,
+  PointsField,
+  PriorityField,
+  type PersonOption,
+} from "./field-controls";
 
 export type QuickCreateOptions = {
   companies: Array<{ id: string; name: string; color: string; parentId: string | null }>;
   projects: Array<{ id: string; name: string; companyId: string }>;
-  people: Array<{ id: string; name: string }>;
+  people: PersonOption[];
 };
 
-const selectClass =
-  "h-8 rounded-[var(--radius-control)] border border-line bg-surface px-2 text-[13px] text-ink " +
-  "transition-colors duration-150 focus:border-accent focus:outline-none";
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <span className="label-mono">{label}</span>
+      {children}
+    </div>
+  );
+}
 
 function Submit() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="sm" disabled={pending}>
-      {pending ? "Criando…" : "Criar"}
+    <Button type="submit" size="md" disabled={pending}>
+      {pending ? "Criando…" : "Criar tarefa"}
     </Button>
   );
 }
 
-export function QuickCreate({ options }: { options: QuickCreateOptions }) {
+export function QuickCreate({
+  options,
+  meId,
+  today,
+}: {
+  options: QuickCreateOptions;
+  meId: string;
+  today: string;
+}) {
   const [open, setOpen] = useState(false);
-  // Comeca numa empresa-mae, nao na primeira do alfabeto.
-  const [companyId, setCompanyId] = useState(
-    (options.companies.find((c) => !c.parentId) ?? options.companies[0])?.id ?? "",
-  );
+  const [details, setDetails] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
+  const firstParent = useMemo(
+    () => (options.companies.find((c) => !c.parentId) ?? options.companies[0])?.id ?? "",
+    [options.companies],
+  );
+
+  const [companyId, setCompanyId] = useState(firstParent);
+  const [projectId, setProjectId] = useState("");
+  const [assigneeId, setAssigneeId] = useState<string | null>(meId);
+  const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState("media");
+  const [points, setPoints] = useState("");
+  const [skill, setSkill] = useState("");
+  const [format, setFormat] = useState("");
+
+  const close = useCallback(() => setOpen(false), []);
+
   const [state, action] = useActionState<ActionState, FormData>(async (prev, formData) => {
     const result = await createWorkItem(prev, formData);
-    if (result.ok) {
-      formRef.current?.reset();
-      // Fica aberto: quem cria uma tarefa quase sempre cria a proxima.
-      titleRef.current?.focus();
-    }
+    if (result.ok) close();
     return result;
   }, {});
 
-  const close = useCallback(() => setOpen(false), []);
+  const reset = useCallback(() => {
+    formRef.current?.reset();
+    setCompanyId(firstParent);
+    setProjectId("");
+    setAssigneeId(meId);
+    setDueDate("");
+    setPriority("media");
+    setPoints("");
+    setSkill("");
+    setFormat("");
+    setDetails(false);
+  }, [firstParent, meId]);
 
   // Atalho C de qualquer lugar, desde que o foco nao esteja num campo.
   useEffect(() => {
@@ -67,24 +116,37 @@ export function QuickCreate({ options }: { options: QuickCreateOptions }) {
       if (!open && document.querySelector('[aria-modal="true"]')) return;
       if (event.key === "c" || event.key === "C") {
         event.preventDefault();
+        reset();
         setOpen(true);
       }
     }
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, close]);
+  }, [open, close, reset]);
 
-  useEffect(() => {
-    if (open) titleRef.current?.focus();
-  }, [open]);
+  const projectsOfCompany = options.projects
+    .filter((p) => p.companyId === companyId)
+    .map((p) => ({ value: p.id, label: p.name, group: null }));
 
-  const visibleProjects = options.projects.filter((p) => p.companyId === companyId);
+  const companyOptions = options.companies.map((c) => ({
+    value: c.id,
+    label: c.parentId ? `— ${c.name}` : c.name,
+    group: null,
+  }));
+
   const noCompanies = options.companies.length === 0;
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)} disabled={noCompanies}>
+      <Button
+        size="sm"
+        disabled={noCompanies}
+        onClick={() => {
+          reset();
+          setOpen(true);
+        }}
+      >
         <Plus size={15} strokeWidth={2} />
         Nova tarefa
         <kbd className="ml-1 hidden rounded border border-current/25 px-1 text-[10px] opacity-70 sm:inline">
@@ -93,103 +155,167 @@ export function QuickCreate({ options }: { options: QuickCreateOptions }) {
       </Button>
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 px-4 pt-[12vh]"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) close();
-          }}
-        >
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-3 pt-[8vh] sm:p-6 sm:pt-[10vh]">
+          <div
+            aria-hidden
+            onMouseDown={close}
+            className="fixed inset-0 bg-black/40 backdrop-blur-[1px]"
+          />
+
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Nova tarefa"
-            className="w-full max-w-[560px] rounded-[var(--radius-card)] border border-line bg-surface shadow-[0_16px_48px_rgba(0,0,0,0.18)]"
+            className="relative z-10 w-full max-w-[580px] overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.32)]"
           >
-            <form ref={formRef} action={action} className="p-4">
-              <div className="mb-3 flex items-start gap-2">
-                <Input
+            <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-3.5">
+              <div>
+                <p className="text-[15px] font-semibold text-ink">Nova tarefa</p>
+                <p className="mt-0.5 text-[12px] text-faint">
+                  Entra em Pendente e na fila de quem for responsável.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Fechar"
+                className="text-faint transition-colors hover:text-ink"
+              >
+                <X size={17} />
+              </button>
+            </header>
+
+            <form ref={formRef} action={action} className="flex flex-col gap-4 px-5 py-4">
+              <input type="hidden" name="companyId" value={companyId} />
+              <input type="hidden" name="projectId" value={projectId} />
+              <input type="hidden" name="assigneeId" value={assigneeId ?? ""} />
+              <input type="hidden" name="dueDate" value={dueDate} />
+              <input type="hidden" name="priority" value={priority} />
+              <input type="hidden" name="points" value={points} />
+              <input type="hidden" name="skill" value={skill} />
+              <input type="hidden" name="format" value={format} />
+
+              <Field label="Tarefa">
+                <input
                   ref={titleRef}
                   name="title"
                   required
+                  autoFocus
                   autoComplete="off"
                   placeholder="O que precisa ser feito?"
-                  className="h-10 border-0 bg-transparent px-0 text-[16px] focus:border-0"
+                  className="h-[42px] w-full rounded-[var(--radius-control)] border border-accent bg-surface px-3 text-[14px] text-ink placeholder:text-faint focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={close}
-                  aria-label="Fechar"
-                  className="mt-2 shrink-0 text-faint transition-colors hover:text-ink"
-                >
-                  <X size={16} />
-                </button>
+              </Field>
+
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                <Field label="Empresa">
+                  <OptionField
+                    value={companyId}
+                    options={companyOptions}
+                    allowEmpty={false}
+                    onChange={(next) => {
+                      setCompanyId(next);
+                      setProjectId("");
+                    }}
+                  />
+                </Field>
+
+                <Field label="Projeto">
+                  <OptionField
+                    value={projectId}
+                    options={projectsOfCompany}
+                    emptyLabel="Sem projeto"
+                    onChange={setProjectId}
+                  />
+                </Field>
+
+                <Field label="Responsável">
+                  <AssigneeField
+                    value={assigneeId}
+                    people={options.people}
+                    meId={meId}
+                    onChange={setAssigneeId}
+                  />
+                </Field>
+
+                <Field label="Prazo">
+                  <DueDateField
+                    value={dueDate}
+                    today={today}
+                    onChange={(next) => setDueDate(next ?? "")}
+                  />
+                </Field>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  name="companyId"
-                  required
-                  value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value)}
-                  className={selectClass}
-                  aria-label="Empresa"
-                >
-                  {options.companies.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.parentId ? `— ${c.name}` : c.name}
-                    </option>
-                  ))}
-                </select>
-
-                {visibleProjects.length > 0 && (
-                  <select name="projectId" className={selectClass} aria-label="Projeto">
-                    <option value="">Sem projeto</option>
-                    {visibleProjects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                <select name="assigneeId" className={selectClass} aria-label="Responsável">
-                  <option value="">Para mim</option>
-                  {options.people.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  type="date"
-                  name="dueDate"
-                  aria-label="Prazo"
-                  className={cn(selectClass, "w-[142px]")}
+              <button
+                type="button"
+                onClick={() => setDetails((v) => !v)}
+                className="flex items-center gap-1 self-start text-[12.5px] text-faint transition-colors hover:text-ink"
+              >
+                <ChevronDown
+                  size={13}
+                  className={cn("transition-transform", details && "rotate-180")}
                 />
+                {details ? "menos detalhes" : "mais detalhes"}
+              </button>
 
-                <select
-                  name="priority"
-                  defaultValue="media"
-                  className={selectClass}
-                  aria-label="Prioridade"
-                >
-                  <option value="urgente">Urgente</option>
-                  <option value="alta">Alta</option>
-                  <option value="media">Média</option>
-                  <option value="baixa">Baixa</option>
-                </select>
+              {/* Ponto, tipo e formato existem, mas não travam a criação rápida. */}
+              {details && (
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-[104px_1fr_1fr]">
+                  <Field label="Ponto MKT">
+                    <PointsField
+                      value={points}
+                      onChange={setPoints}
+                      onStep={(delta) =>
+                        setPoints((prev) => {
+                          const base = prev === "" ? 0 : Number(prev);
+                          return String(Math.min(100, Math.max(0, base + delta)));
+                        })
+                      }
+                    />
+                  </Field>
 
-                <div className="ml-auto">
-                  <Submit />
+                  <Field label="Tipo">
+                    <OptionField
+                      value={skill}
+                      groups={SKILL_GROUPS}
+                      searchable
+                      searchPlaceholder="Buscar tipo…"
+                      onChange={setSkill}
+                    />
+                  </Field>
+
+                  <Field label="Formato">
+                    <OptionField
+                      value={format}
+                      groups={FORMAT_GROUPS}
+                      emptyLabel="Selecionar"
+                      onChange={setFormat}
+                    />
+                  </Field>
                 </div>
-              </div>
+              )}
+
+              <Field label="Prioridade">
+                <PriorityField value={priority} onChange={setPriority} />
+              </Field>
 
               {state.error ? (
-                <p role="alert" className="mt-3 text-[13px] text-danger">
+                <p role="alert" className="text-[13px] text-danger">
                   {state.error}
                 </p>
               ) : null}
+
+              <div className="-mx-5 -mb-4 mt-1 flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+                <button
+                  type="button"
+                  onClick={close}
+                  className="h-9 rounded-[var(--radius-control)] px-3 text-sm text-muted transition-colors hover:text-ink"
+                >
+                  Cancelar
+                </button>
+                <Submit />
+              </div>
             </form>
           </div>
         </div>

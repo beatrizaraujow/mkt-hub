@@ -74,12 +74,14 @@ export default async function TrabalhoPage({
               <ViewSwitch />
             </Suspense>
             <QuickCreate
-              options={{
-                companies: options.companies,
-                projects: options.projects,
-                people: options.people,
-              }}
-            />
+            options={{
+              companies: options.companies,
+              projects: options.projects,
+              people: options.people,
+            }}
+            meId={user.id}
+            today={today}
+          />
           </>
         }
       />

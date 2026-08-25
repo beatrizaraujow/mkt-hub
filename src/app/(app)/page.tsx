@@ -113,6 +113,8 @@ export default async function HojePage({
               projects: options.projects,
               people: options.people,
             }}
+            meId={user.id}
+            today={today}
           />
         }
       />
