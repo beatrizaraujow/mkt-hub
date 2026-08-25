@@ -27,12 +27,21 @@ os projetos das filhas.
 **Tarefas.** Criação rápida com atalho `C` de qualquer tela, lista com filtros por empresa,
 responsável e concluídas, quadro com arrastar entre as seis etapas, e o detalhe em modal.
 
+**O popup de Nova tarefa**, desenhado a partir dos mockups: título em destaque, empresa, projeto,
+responsável e prazo em duas colunas, `mais detalhes` abrindo Ponto MKT, tipo e formato, e
+prioridade em segmentos. Fecha depois de criar — o rodapé Cancelar / Criar tarefa promete isso, e
+`C` reabre numa tecla.
+
 **O modal**, desenhado a partir dos mockups: cabeçalho com cronômetro ao vivo e Concluir, trilha
 de etapas clicável, quatro abas (Trabalho · Conversa · Tempo · Histórico) e trilho lateral com
 tempo, responsável, prazo, prioridade, Ponto MKT, tipo e formato.
 
 Dentro dele: subtarefas com cronômetro próprio, checklist, arquivos e links, comentários, e o
 histórico mostrando `de → para` em toda mudança.
+
+**Os seletores são nossos**, não do sistema operacional: popover ancorado por `position: fixed`
+para escapar do `overflow` do trilho, busca que ignora acento (`edicao` acha "Edição de vídeo"),
+grupos, navegação por teclado e calendário com semana começando na segunda.
 
 **Cronômetro.** Play direto na linha, widget na barra lateral com o relógio andando, lançamento
 manual, e o corte automático na virada do dia com o aviso de confirmar, ajustar ou descartar no
@@ -71,6 +80,9 @@ parece defeito. O certo é retorno otimista mais uma barra fina de progresso.
 
 **Confirmar que a edição do schema pegou** antes de acreditar no `db:generate`. Sem diferença no
 schema, ele não gera nada — e o silêncio parece bug da ferramenta.
+
+**Contador que soma sobre o próprio valor** precisa de `setState` funcional. Lendo a prop, cinco
+cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualizar.
 
 ## Pendências
 
