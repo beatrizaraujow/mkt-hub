@@ -66,7 +66,11 @@ npm run db:push    # aplica o schema no Supabase (usa DIRECT_URL, porta 5432)
 npm run seed       # organização, 4 empresas, pipelines e o primeiro admin
 ```
 
-`.env.local` precisa de `DATABASE_URL` (pooler 6543), `DIRECT_URL` (pooler 5432) e `SESSION_SECRET` (32+ caracteres).
+`.env.local` precisa de `DATABASE_URL` (pooler 6543), `DIRECT_URL` (pooler 5432) e
+`SESSION_SECRET` (32+ caracteres). Para anexos, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`.
+Para o revisor, `CRON_SECRET` e `ANTHROPIC_API_KEY` — sem a chave do modelo ele falha
+explicitamente, que é o comportamento certo: **falha técnica nunca vira veredito**.
+`REVIEW_MODEL` troca o modelo sem mexer em código.
 
 **O `.env.local` aponta para o banco de desenvolvimento** (`mkt-hub-dev`, ref `hqohquknxgiywpokmndp`),
 nunca para produção — as variáveis de produção vivem na Vercel e não passam por este arquivo.

@@ -43,6 +43,13 @@
       "when": 1787675571007,
       "tag": "0005_mushy_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787680218111,
+      "tag": "0006_woozy_namor",
+      "breakpoints": true
     }
   ]
 }

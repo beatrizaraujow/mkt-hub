@@ -7,6 +7,7 @@ import {
   projects,
   reviewChecklistItems,
   reviewCycles,
+  reviewFindings,
   reviewRuns,
   workItemStages,
   workItems,
@@ -55,6 +56,20 @@ export type Diagnosis = {
     createdAt: Date;
     attempts: number;
     lastError: string | null;
+    model: string | null;
+    /** Os códigos que este parecer conferiu, congelados. */
+    applied: string[];
+    /** O que se aplicava e não deu para conferir. Fica na tela de propósito. */
+    notVerified: Array<{ code: string; reason: string }>;
+    findings: Array<{
+      id: string;
+      ruleCode: string;
+      ruleText: string;
+      detail: string;
+      isBlocking: boolean;
+      file: string | null;
+      excerpt: string | null;
+    }>;
   }>;
 };
 
@@ -161,6 +176,23 @@ export async function diagnose(user: CurrentUser, workItemId: string): Promise<D
         .orderBy(desc(reviewRuns.attempt))
     : [];
 
+  /**
+   * Os achados vêm junto: um parecer sem o problema escrito ao lado da regra
+   * que o originou é opinião de robô, e opinião de robô não se contesta.
+   */
+  const findings = cycles.length
+    ? await db
+        .select()
+        .from(reviewFindings)
+        .where(
+          inArray(
+            reviewFindings.cycleId,
+            cycles.map((c) => c.id),
+          ),
+        )
+        .orderBy(desc(reviewFindings.isBlocking), asc(reviewFindings.createdAt))
+    : [];
+
   return {
     item: {
       id: row.id,
@@ -188,6 +220,20 @@ export async function diagnose(user: CurrentUser, workItemId: string): Promise<D
         createdAt: cycle.createdAt,
         attempts: own.length,
         lastError: own.find((run) => run.error)?.error ?? null,
+        model: own.find((run) => run.model)?.model ?? null,
+        applied: cycle.appliedRules,
+        notVerified: cycle.notVerified,
+        findings: findings
+          .filter((finding) => finding.cycleId === cycle.id)
+          .map((finding) => ({
+            id: finding.id,
+            ruleCode: finding.ruleCode,
+            ruleText: finding.ruleText,
+            detail: finding.detail,
+            isBlocking: finding.isBlocking,
+            file: (finding.evidence.arquivo as string | null) ?? null,
+            excerpt: (finding.evidence.trecho as string | null) ?? null,
+          })),
       };
     }),
   };

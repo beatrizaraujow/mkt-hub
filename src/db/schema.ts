@@ -554,6 +554,24 @@ export const reviewCycles = pgTable(
     gateMissing: jsonb("gate_missing").$type<string[]>().notNull().default([]),
 
     /**
+     * O que este parecer conferiu, congelado no momento em que rodou. Sem
+     * isso ninguem sabe a cobertura de uma rodada depois que as regras
+     * mudarem — e "o robo olhou tudo" e a suposicao que quebra a confianca no
+     * dia em que ele nao olhou.
+     */
+    appliedRules: jsonb("applied_rules").$type<string[]>().notNull().default([]),
+
+    /**
+     * Regra que se aplicava e o revisor **nao teve como conferir**, com o
+     * motivo. Fica visivel na tela de proposito: prometer cobertura que nao
+     * existe faz cada lado achar que o outro esta olhando.
+     */
+    notVerified: jsonb("not_verified")
+      .$type<Array<{ code: string; reason: string }>>()
+      .notNull()
+      .default([]),
+
+    /**
      * Modo silencioso: o sistema emite parecer e nao move nada. Antes de
      * deixar decidir, roda um periodo assim para calibrar contra o que uma
      * pessoa acharia — e a unica calibragem honesta.

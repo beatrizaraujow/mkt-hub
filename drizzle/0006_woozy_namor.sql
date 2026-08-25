@@ -1,0 +1,2 @@
+ALTER TABLE "review_cycles" ADD COLUMN "applied_rules" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "review_cycles" ADD COLUMN "not_verified" jsonb DEFAULT '[]'::jsonb NOT NULL;

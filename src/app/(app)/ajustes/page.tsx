@@ -47,9 +47,9 @@ export default async function AjustesPage() {
         <ChangePassword />
 
         {/*
-          O revisor nao ganhou item de menu: ele nao emite parecer ainda, e
-          entrada fixa na navegacao para ferramenta que nao faz nada e ruido
-          para quem usa o sistema todo dia.
+          O revisor nao ganhou item de menu: enquanto ele estiver em modo
+          silencioso, so quem calibra abre — entrada fixa na navegacao para
+          ferramenta que o time todo nao usa e ruido.
         */}
         {canManage(user) && (
           <Link
@@ -59,7 +59,7 @@ export default async function AjustesPage() {
             <span>
               <span className="block text-[13px] font-medium text-ink">Revisor de entregas</span>
               <span className="block text-[12px] text-faint">
-                Aponte para uma entrega e veja o recorte, as regras e o que o porteiro barraria.
+                Cadastre as regras, aponte para uma entrega e veja o parecer antes de ele valer.
               </span>
             </span>
             <span className="text-[12.5px] text-accent">abrir</span>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Check, FileText, Link2, X } from "lucide-react";
+import { AlertTriangle, Check, FileText, Link2, SlidersHorizontal, X } from "lucide-react";
 import { assertCanManage, requireUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { EmptyState, PageHeader } from "@/components/page-header";
@@ -14,6 +14,16 @@ const VERIFIER_LABEL = {
   maquina: "Máquina",
   pessoa: "Pessoa",
   fora: "Fora de escopo",
+} as const;
+
+/**
+ * O veredito e binario e nomeavel. A cor separa o que barra do que ajusta —
+ * e nao existe nota nenhuma para colorir, de proposito.
+ */
+const VERDICT = {
+  aprovado: { label: "aprovado", className: "text-success" },
+  ajustar: { label: "ajustar", className: "text-warning" },
+  reprovado: { label: "reprovado", className: "text-danger" },
 } as const;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -68,6 +78,15 @@ export default async function RevisorPage({
       <PageHeader
         title="Revisor"
         description="Aponte para uma entrega real e veja o que o sistema entendeu."
+        actions={
+          <Link
+            href="/revisor/regras"
+            className="flex h-9 items-center gap-1.5 rounded-[var(--radius-control)] border border-line px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+          >
+            <SlidersHorizontal size={14} />
+            Regras
+          </Link>
+        }
       />
 
       <div className="flex max-w-[820px] flex-col gap-4 px-5 py-5 md:px-7">
@@ -237,7 +256,7 @@ export default async function RevisorPage({
               ) : (
                 <div className="flex flex-col">
                   {data.cycles.map((cycle) => (
-                    <div key={cycle.id} className="border-b border-line py-2 last:border-b-0">
+                    <div key={cycle.id} className="border-b border-line py-2.5 last:border-b-0">
                       <div className="flex flex-wrap items-center gap-2 text-[13px]">
                         <span className="tnum text-faint">rodada {cycle.round}</span>
                         <span className="text-ink">{STATUS_LABEL[cycle.status] ?? cycle.status}</span>
@@ -245,16 +264,94 @@ export default async function RevisorPage({
                           · {cycle.attempts} tentativa{cycle.attempts === 1 ? "" : "s"}
                         </span>
                         {cycle.verdict && (
-                          <span className="font-medium text-ink">· {cycle.verdict}</span>
+                          <span
+                            className={cn(
+                              "font-medium",
+                              VERDICT[cycle.verdict as keyof typeof VERDICT]?.className,
+                            )}
+                          >
+                            · {VERDICT[cycle.verdict as keyof typeof VERDICT]?.label ?? cycle.verdict}
+                          </span>
+                        )}
+                        {cycle.model && (
+                          <span className="ml-auto font-mono text-[11px] text-faint">
+                            {cycle.model}
+                          </span>
                         )}
                       </div>
+
                       {cycle.gateMissing.map((reason) => (
                         <p key={reason} className="mt-0.5 text-[12px] text-muted">
                           {reason}
                         </p>
                       ))}
+
+                      {/* Falha tecnica nunca virou veredito: ela aparece como falha. */}
                       {cycle.lastError && (
                         <p className="mt-0.5 text-[12px] text-danger">{cycle.lastError}</p>
+                      )}
+
+                      {cycle.findings.length > 0 && (
+                        <ul className="mt-2 flex flex-col gap-1.5">
+                          {cycle.findings.map((finding) => (
+                            <li
+                              key={finding.id}
+                              className="rounded-[var(--radius-control)] border border-line px-3 py-2"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <code className="rounded-[5px] bg-sunk px-1.5 py-0.5 font-mono text-[11.5px] text-muted">
+                                  {finding.ruleCode}
+                                </code>
+                                {finding.isBlocking && (
+                                  <span className="rounded-[5px] border border-danger/40 px-1.5 py-0.5 text-[11px] text-danger">
+                                    inegociável
+                                  </span>
+                                )}
+                                {finding.file && (
+                                  <span className="text-[11.5px] text-faint">{finding.file}</span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-[13px] leading-relaxed text-ink">
+                                {finding.detail}
+                              </p>
+                              {finding.excerpt && (
+                                <p className="mt-0.5 text-[12px] text-muted">
+                                  “{finding.excerpt}”
+                                </p>
+                              )}
+                              <p className="mt-1 text-[11.5px] text-faint">{finding.ruleText}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {cycle.status === "emitido" && cycle.findings.length === 0 && (
+                        <p className="mt-1 text-[12.5px] text-success">
+                          Nenhuma regra conferiúvel foi violada.
+                        </p>
+                      )}
+
+                      {/*
+                        Cobertura na tela, sempre. Quando o sistema entra no ar
+                        todo mundo assume que ele cuida de tudo, e as regras que
+                        continuaram humanas param de ser conferidas por qualquer
+                        um: cada lado achando que o outro esta olhando.
+                      */}
+                      {cycle.applied.length > 0 && (
+                        <p className="mt-1.5 text-[11.5px] text-faint">
+                          Conferiu {cycle.applied.length} regra
+                          {cycle.applied.length === 1 ? "" : "s"}: {cycle.applied.join(", ")}.
+                        </p>
+                      )}
+
+                      {cycle.notVerified.length > 0 && (
+                        <div className="mt-1 flex gap-2 text-[11.5px] text-warning">
+                          <AlertTriangle size={13} className="mt-[2px] shrink-0" />
+                          <span>
+                            Não conseguiu conferir:{" "}
+                            {cycle.notVerified.map((row) => `${row.code} (${row.reason})`).join("; ")}
+                          </span>
+                        </div>
                       )}
                     </div>
                   ))}

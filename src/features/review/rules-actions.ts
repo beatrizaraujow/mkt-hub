@@ -1,0 +1,234 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "@/db";
+import { reviewChecklistItems, reviewRules } from "@/db/schema";
+import { assertCanManage, requireUserAction } from "@/lib/auth";
+import { isFormat, isSkill } from "@/lib/catalog";
+import { describeError, errorMentions } from "@/lib/errors";
+
+/**
+ * A área de negócio muda regra sem abrir chamado de desenvolvimento.
+ *
+ * É o princípio que sustenta o resto: quem sabe a regra é quem convive com o
+ * erro, não quem escreve o código. Regra escrita à mão dentro do programa
+ * envelhece na primeira mudança de manual e ninguém percebe.
+ *
+ * Nada aqui inventa critério: o sistema só aplica o que está na tabela. Se a
+ * regra não foi cadastrada, ela não é conferida — e isso é garantia, não
+ * limitação.
+ */
+
+export type RulesState = { error?: string; ok?: boolean };
+
+/** `""` no formulário significa "vale para qualquer um" — vira nulo no banco. */
+const optional = z
+  .string()
+  .trim()
+  .transform((value) => (value === "" ? null : value));
+
+const ruleSchema = z.object({
+  id: optional,
+  code: z
+    .string()
+    .trim()
+    .min(2, "O código precisa de pelo menos 2 caracteres.")
+    .max(40)
+    // É o que aparece no parecer e o que a pessoa contesta: precisa ser curto,
+    // estável e digitável.
+    .regex(/^[A-Za-z0-9._-]+$/, "Use só letras, números, ponto, hífen ou sublinhado."),
+  text: z.string().trim().min(8, "Escreva a regra por extenso.").max(600),
+  rationale: optional,
+  verifier: z.enum(["maquina", "pessoa", "fora"]),
+  isBlocking: z.coerce.boolean(),
+  machineHint: optional,
+  companyId: optional,
+  skill: optional,
+  format: optional,
+});
+
+function readForm(form: FormData) {
+  return {
+    id: String(form.get("id") ?? ""),
+    code: String(form.get("code") ?? ""),
+    text: String(form.get("text") ?? ""),
+    rationale: String(form.get("rationale") ?? ""),
+    verifier: String(form.get("verifier") ?? ""),
+    isBlocking: form.get("isBlocking") === "on",
+    machineHint: String(form.get("machineHint") ?? ""),
+    companyId: String(form.get("companyId") ?? ""),
+    skill: String(form.get("skill") ?? ""),
+    format: String(form.get("format") ?? ""),
+  };
+}
+
+function refresh() {
+  revalidatePath("/revisor");
+  revalidatePath("/revisor/regras");
+}
+
+export async function saveRule(_prev: RulesState, form: FormData): Promise<RulesState> {
+  try {
+    const user = await requireUserAction();
+    assertCanManage(user);
+
+    const parsed = ruleSchema.safeParse(readForm(form));
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Confira os campos." };
+    }
+
+    const data = parsed.data;
+
+    // Recorte que não existe no catálogo nunca casaria com entrega nenhuma: a
+    // regra ficaria cadastrada, invisível e sem nunca ser aplicada.
+    if (data.skill && !isSkill(data.skill)) return { error: "Tipo de peça fora do catálogo." };
+    if (data.format && !isFormat(data.format)) return { error: "Formato fora do catálogo." };
+
+    /**
+     * Pista de verificação só faz sentido para quem a máquina confere. Guardar
+     * pista numa regra de balde humano confunde quem lê a tela depois.
+     */
+    const machineHint = data.verifier === "maquina" ? data.machineHint : null;
+
+    const values = {
+      orgId: user.orgId,
+      companyId: data.companyId,
+      skill: data.skill,
+      format: data.format,
+      code: data.code,
+      text: data.text,
+      rationale: data.rationale,
+      verifier: data.verifier,
+      isBlocking: data.isBlocking,
+      machineHint,
+      updatedAt: new Date(),
+    };
+
+    if (data.id) {
+      await db
+        .update(reviewRules)
+        .set(values)
+        .where(and(eq(reviewRules.id, data.id), eq(reviewRules.orgId, user.orgId)));
+    } else {
+      await db.insert(reviewRules).values(values);
+    }
+
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    /**
+     * O índice único é por (organização, código), e o nome da constraint vem
+     * embrulhado dentro de `cause` — a mensagem de fora só diz "Failed query"
+     * com o SQL colado. Sem desembrulhar, quem cadastra um código repetido
+     * recebia o `insert into` inteiro na tela.
+     */
+    if (errorMentions(error, "review_rules_org_code_unique")) {
+      return { error: "Já existe uma regra com esse código." };
+    }
+
+    // O detalhe fica no log do servidor: SQL na tela não ajuda ninguém a
+    // consertar o cadastro.
+    console.error("saveRule:", describeError(error));
+    return { error: "Não foi possível salvar a regra." };
+  }
+}
+
+/**
+ * Desativa em vez de apagar. Um parecer antigo cita a regra que valia na
+ * época; apagar a linha apagaria o porquê daquela reprovação.
+ */
+export async function setRuleActive(id: string, active: boolean): Promise<RulesState> {
+  try {
+    const user = await requireUserAction();
+    assertCanManage(user);
+
+    await db
+      .update(reviewRules)
+      .set({ isActive: active, updatedAt: new Date() })
+      .where(and(eq(reviewRules.id, id), eq(reviewRules.orgId, user.orgId)));
+
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    console.error("setRuleActive:", describeError(error));
+    return { error: "Não foi possível mudar a regra." };
+  }
+}
+
+/* --------------------------------------------------------------- checklist */
+
+const checklistSchema = z.object({
+  id: optional,
+  text: z.string().trim().min(8, "Escreva o item por extenso.").max(300),
+  companyId: optional,
+  skill: optional,
+  isReliabilityProbe: z.coerce.boolean(),
+});
+
+export async function saveChecklistItem(
+  _prev: RulesState,
+  form: FormData,
+): Promise<RulesState> {
+  try {
+    const user = await requireUserAction();
+    assertCanManage(user);
+
+    const parsed = checklistSchema.safeParse({
+      id: String(form.get("id") ?? ""),
+      text: String(form.get("text") ?? ""),
+      companyId: String(form.get("companyId") ?? ""),
+      skill: String(form.get("skill") ?? ""),
+      isReliabilityProbe: form.get("isReliabilityProbe") === "on",
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Confira os campos." };
+    }
+
+    const data = parsed.data;
+    if (data.skill && !isSkill(data.skill)) return { error: "Tipo de peça fora do catálogo." };
+
+    const values = {
+      orgId: user.orgId,
+      companyId: data.companyId,
+      skill: data.skill,
+      text: data.text,
+      isReliabilityProbe: data.isReliabilityProbe,
+    };
+
+    if (data.id) {
+      await db
+        .update(reviewChecklistItems)
+        .set(values)
+        .where(and(eq(reviewChecklistItems.id, data.id), eq(reviewChecklistItems.orgId, user.orgId)));
+    } else {
+      await db.insert(reviewChecklistItems).values(values);
+    }
+
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    console.error("saveChecklistItem:", describeError(error));
+    return { error: "Não foi possível salvar o item." };
+  }
+}
+
+export async function setChecklistActive(id: string, active: boolean): Promise<RulesState> {
+  try {
+    const user = await requireUserAction();
+    assertCanManage(user);
+
+    await db
+      .update(reviewChecklistItems)
+      .set({ isActive: active })
+      .where(and(eq(reviewChecklistItems.id, id), eq(reviewChecklistItems.orgId, user.orgId)));
+
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    console.error("setChecklistActive:", describeError(error));
+    return { error: "Não foi possível mudar o item." };
+  }
+}

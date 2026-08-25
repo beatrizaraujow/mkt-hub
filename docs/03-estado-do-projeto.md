@@ -142,6 +142,10 @@ cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualiz
 - Limpar os dados de teste antes de o time começar
 - `npx vercel login` uma vez; o token do CLI expirou
 - `CRON_SECRET` nas variáveis de ambiente da Vercel — sem ela a fila do revisor responde 503
+- `ANTHROPIC_API_KEY` no ambiente — sem ela o revisor enfileira, roda o porteiro e para na
+  hora de julgar, com o motivo escrito
+- Classificar as regras em máquina / pessoa / fora de escopo, na tela **Revisor → Regras**.
+  Enquanto não houver regra cadastrada, o revisor não emite parecer — de propósito
 
 **Conhecidas, do lado técnico:**
 
@@ -164,7 +168,8 @@ rodando durante a migração. Decisão pendente.
 
 **V2:** esteira de conteúdo, captações, capacidade da semana, templates de projeto.
 
-**V3:** revisor automático de entregas. As tabelas e a fila já existem — ver
-[04-revisor.md](04-revisor.md). O julgamento está parado por decisão: sem as regras da Carbone
-classificadas em máquina / pessoa / fora de escopo, seria chute. Hoje o porteiro barra e diz
-exatamente isso, em vez de inventar parecer.
+**V3:** revisor automático de entregas. O caminho inteiro existe e foi provado ponta a ponta —
+tabelas, fila, porteiro, julgamento, parecer e a tela onde a área de negócio cadastra as
+regras. Ver [04-revisor.md](04-revisor.md). O que falta não é código: é a chave do modelo e as
+regras classificadas em máquina / pessoa / fora de escopo. Sem regra cadastrada o porteiro
+barra e diz exatamente isso, em vez de inventar parecer.

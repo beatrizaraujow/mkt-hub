@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { reviewCycles } from "@/db/schema";
 import { runGate } from "./gate";
+import { judgeCycle } from "./judge";
+import { ModelError } from "./model";
 import {
   BATCH_SIZE,
   claimRuns,
@@ -17,6 +19,11 @@ export type DrainReport = {
   expiradas: number;
   processadas: number;
   incompletas: number;
+  /** Ciclos que terminaram com parecer emitido. */
+  pareceres: number;
+  achados: number;
+  /** Achados que citaram regra inexistente e foram jogados fora. */
+  descartados: number;
   falhas: number;
 };
 
@@ -31,7 +38,15 @@ export type DrainReport = {
  * sistema não aprova por otimismo nem reprova por precaução.
  */
 export async function drainReviewQueue(limit = BATCH_SIZE): Promise<DrainReport> {
-  const report: DrainReport = { expiradas: 0, processadas: 0, incompletas: 0, falhas: 0 };
+  const report: DrainReport = {
+    expiradas: 0,
+    processadas: 0,
+    incompletas: 0,
+    pareceres: 0,
+    achados: 0,
+    descartados: 0,
+    falhas: 0,
+  };
 
   for (const expired of await reclaimExpired()) {
     report.expiradas += 1;
@@ -68,21 +83,32 @@ export async function drainReviewQueue(limit = BATCH_SIZE): Promise<DrainReport>
       }
 
       /**
-       * Daqui em diante entra o julgamento, que ainda não existe: as regras da
-       * Carbone precisam ser classificadas em máquina / pessoa / fora de
-       * escopo antes, senão o parecer seria chute.
-       *
-       * Falha sem repetir de propósito. Tentar três vezes o que não está
-       * escrito só enche o log e atrasa a fila. E o ciclo termina em `falhou`,
-       * nunca em veredito — que é a regra que não se quebra.
+       * A partir daqui gasta IA. Tudo que dá errado sobe como erro e vira
+       * ciclo `falhou` — nunca veredito. Aprovar por otimismo depois de uma
+       * falha de rede é a coisa mais perigosa que este sistema poderia fazer,
+       * porque é invisível: ninguém investiga o que passou, só o que barrou.
        */
-      await failRun(run, "Julgamento ainda não implementado: faltam as regras classificadas.", {
-        retry: false,
+      const result = await judgeCycle(cycle.id);
+
+      await finishRun(run.id, {
+        model: result.model,
+        tokensIn: result.tokensIn,
+        tokensOut: result.tokensOut,
       });
-      report.falhas += 1;
+
+      report.pareceres += 1;
+      report.achados += result.findings;
+      report.descartados += result.discarded;
+      continue;
     } catch (error) {
+      /**
+       * `ModelError` sabe se repetir adianta: chave ausente e pedido
+       * malformado não melhoram na terceira tentativa, limite de uso e queda
+       * de rede melhoram. O resto é erro nosso e repete.
+       */
+      const retry = error instanceof ModelError ? error.retry : true;
       const message = error instanceof Error ? error.message : "Erro desconhecido.";
-      const { retried } = await failRun(run, message);
+      const { retried } = await failRun(run, message, { retry });
       if (!retried) report.falhas += 1;
     }
   }
