@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { reviewChecklistItems, reviewRules } from "@/db/schema";
@@ -212,6 +212,86 @@ export async function saveChecklistItem(
   } catch (error) {
     console.error("saveChecklistItem:", describeError(error));
     return { error: "Não foi possível salvar o item." };
+  }
+}
+
+/**
+ * Fecha um checklist inteiro de uma vez, uma linha por item.
+ *
+ * Sem isto, montar um checklist de seis itens para cinco combinações são trinta
+ * idas e voltas de janelinha — e o custo de escrever o checklist passa a ser
+ * maior que o de conferir na mão, que é o começo do fim da ferramenta. Quem
+ * define o checklist escreve numa lista corrida; a tela aceita a lista.
+ */
+export async function addChecklistBatch(_prev: RulesState, form: FormData): Promise<RulesState> {
+  try {
+    const user = await requireUserAction();
+    assertCanManage(user);
+
+    const companyId = String(form.get("companyId") ?? "").trim() || null;
+    const skill = String(form.get("skill") ?? "").trim() || null;
+    if (skill && !isSkill(skill)) return { error: "Tipo de peça fora do catálogo." };
+
+    const linhas = String(form.get("bulk") ?? "")
+      .split("\n")
+      // Lista colada de outro lugar costuma vir com marcador na frente.
+      .map((linha) => linha.replace(/^\s*(?:[-*\u2022\u00b7]|\d+[.)])\s*/, "").trim())
+      .filter((linha) => linha.length > 0);
+
+    if (linhas.length === 0) return { error: "Cole ao menos um item, um por linha." };
+
+    const curtas = linhas.filter((linha) => linha.length < 8);
+    if (curtas.length > 0) {
+      return { error: `Item curto demais para significar alguma coisa: “${curtas[0]}”` };
+    }
+
+    /**
+     * Entre quatro e oito por combinação. O teto não é capricho: checklist
+     * longo vira marcação automática, e aí ele deixa de valer justamente para
+     * os poucos itens em que era a única defesa.
+     */
+    if (linhas.length > 12) {
+      return { error: "São 12 itens no máximo por vez. Checklist longo ninguém lê." };
+    }
+
+    const existentes = await db
+      .select({ text: reviewChecklistItems.text, position: reviewChecklistItems.position })
+      .from(reviewChecklistItems)
+      .where(
+        and(
+          eq(reviewChecklistItems.orgId, user.orgId),
+          companyId
+            ? eq(reviewChecklistItems.companyId, companyId)
+            : isNull(reviewChecklistItems.companyId),
+          skill ? eq(reviewChecklistItems.skill, skill) : isNull(reviewChecklistItems.skill),
+        ),
+      )
+      .orderBy(asc(reviewChecklistItems.position));
+
+    const jaTem = new Set(existentes.map((item) => item.text.toLowerCase()));
+    const novos = linhas.filter((linha) => !jaTem.has(linha.toLowerCase()));
+
+    if (novos.length === 0) return { error: "Todos esses itens já estão na lista." };
+
+    // A ordem colada é a ordem que a pessoa vai ler. Sem posição crescente,
+    // todos empatam em 1000 e o banco devolve na ordem que quiser.
+    const ultima = existentes.at(-1)?.position ?? 0;
+
+    await db.insert(reviewChecklistItems).values(
+      novos.map((text, indice) => ({
+        orgId: user.orgId,
+        companyId,
+        skill,
+        text,
+        position: ultima + (indice + 1) * 10,
+      })),
+    );
+
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    console.error("addChecklistBatch:", describeError(error));
+    return { error: "Não foi possível gravar a lista." };
   }
 }
 

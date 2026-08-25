@@ -3,12 +3,13 @@
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { Pencil, Plus } from "lucide-react";
+import { ClipboardList, Pencil, Plus } from "lucide-react";
 import { FORMAT_GROUPS, SKILL_GROUPS } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Modal, ModalFooter } from "@/components/ui/modal";
 import {
+  addChecklistBatch,
   saveChecklistItem,
   saveRule,
   setChecklistActive,
@@ -318,6 +319,71 @@ function ChecklistForm({
   );
 }
 
+/**
+ * O checklist inteiro de uma combinação, de uma vez.
+ *
+ * Quem define o checklist é quem convive com o erro, e essa pessoa escreve
+ * numa lista corrida — não em seis janelinhas seguidas. Se escrever custar
+ * mais que conferir na mão, o checklist não nasce.
+ */
+function BatchForm({ companies, onClose }: { companies: CompanyOption[]; onClose: () => void }) {
+  const router = useRouter();
+  const [state, action] = useActionState<RulesState, FormData>(async (prev, form) => {
+    const result = await addChecklistBatch(prev, form);
+    if (result.ok) {
+      router.refresh();
+      onClose();
+    }
+    return result;
+  }, {});
+
+  return (
+    <Modal
+      label="Colar checklist"
+      title="Colar checklist"
+      subtitle="Um item por linha. Marcador na frente é ignorado."
+      width={580}
+      onClose={onClose}
+    >
+      <form action={action} className="flex flex-col gap-3.5 px-5 py-4">
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <ScopeSelects companies={companies} company="" skill="" format={null} />
+        </div>
+
+        <Field
+          label="Os itens"
+          hint="Entre quatro e oito. Só o que a máquina não confere — item repetido vira marcação automática."
+        >
+          <textarea
+            name="bulk"
+            required
+            rows={8}
+            className={area}
+            placeholder={"As fotos são do nosso acervo\nO nome do evento confere com o convite\nA oferta bate com o que foi combinado"}
+          />
+        </Field>
+
+        {state.error ? (
+          <p role="alert" className="text-[13px] text-danger">
+            {state.error}
+          </p>
+        ) : null}
+
+        <ModalFooter>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 rounded-[var(--radius-control)] px-3 text-sm text-muted transition-colors hover:text-ink"
+          >
+            Cancelar
+          </button>
+          <Submit label="Gravar lista" />
+        </ModalFooter>
+      </form>
+    </Modal>
+  );
+}
+
 /* ------------------------------------------------------------------ lista */
 
 function Toggle({ active, onToggle }: { active: boolean; onToggle: () => void }) {
@@ -351,6 +417,7 @@ export function RulesEditor({ data }: { data: RulesData }) {
     open: false,
     item: null,
   });
+  const [batchOpen, setBatchOpen] = useState(false);
 
   const total = data.counts.maquina + data.counts.pessoa + data.counts.fora;
 
@@ -445,10 +512,16 @@ export function RulesEditor({ data }: { data: RulesData }) {
               pessoa marcar tudo no automático em duas semanas.
             </p>
           </div>
-          <Button size="sm" variant="subtle" onClick={() => setItemForm({ open: true, item: null })}>
-            <Plus size={14} strokeWidth={2.5} />
-            Novo item
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="subtle" onClick={() => setBatchOpen(true)}>
+              <ClipboardList size={14} strokeWidth={2.5} />
+              Colar lista
+            </Button>
+            <Button size="sm" variant="subtle" onClick={() => setItemForm({ open: true, item: null })}>
+              <Plus size={14} strokeWidth={2.5} />
+              Novo item
+            </Button>
+          </div>
         </div>
 
         {data.checklist.length === 0 ? (
@@ -510,6 +583,8 @@ export function RulesEditor({ data }: { data: RulesData }) {
           onClose={() => setItemForm({ open: false, item: null })}
         />
       )}
+
+      {batchOpen && <BatchForm companies={data.companies} onClose={() => setBatchOpen(false)} />}
     </div>
   );
 }
