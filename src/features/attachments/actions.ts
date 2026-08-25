@@ -5,16 +5,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { attachments, workItems } from "@/db/schema";
 import { assertCompanyAccess, requireUserAction, type CurrentUser } from "@/lib/auth";
-import {
-  MAX_UPLOAD_BYTES,
-  deleteFile,
-  ensureBucket,
-  extensionOf,
-  isAllowedFile,
-  signedUrl,
-  storageConfigured,
-  uploadFile,
-} from "@/lib/storage";
+import { deleteFile, ensureBucket, signedUrl, storageConfigured, uploadFile } from "@/lib/storage";
+import { checkFile, mimeFor } from "@/lib/upload-rules";
 
 export type AttachState = { error?: string; ok?: boolean };
 
@@ -97,17 +89,11 @@ export async function uploadAttachment(
     }
 
     const file = formData.get("file");
-    if (!(file instanceof File) || file.size === 0) return fail("Escolha um arquivo.");
+    if (!(file instanceof File)) return fail("Escolha um arquivo.");
 
-    if (file.size > MAX_UPLOAD_BYTES) {
-      return fail(
-        `Arquivo acima de ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB. Suba no Drive e cole o link aqui.`,
-      );
-    }
-
-    if (!isAllowedFile(file.name)) {
-      return fail("Tipo de arquivo não aceito. Imagem, documento, planilha, texto, md ou zip.");
-    }
+    // Mesma checagem que o formulário já fez no navegador. Aqui é a que vale.
+    const problem = checkFile(file);
+    if (problem) return fail(problem);
 
     await ensureBucket();
 
@@ -127,7 +113,7 @@ export async function uploadAttachment(
       uploadedById: user.id,
       kind: "file",
       filename: file.name,
-      mimeType: file.type || `application/${extensionOf(file.name)}`,
+      mimeType: mimeFor(file.name, file.type),
       sizeBytes: file.size,
       storageKey: path,
     });

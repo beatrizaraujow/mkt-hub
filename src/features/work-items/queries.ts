@@ -16,6 +16,8 @@ import {
 } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth";
 import { addDays, brtToday, endOfBrtDay, startOfBrtDay } from "@/lib/date";
+import { PREVIEW_TTL_SECONDS, signedUrl, storageConfigured } from "@/lib/storage";
+import { isImage } from "@/lib/upload-rules";
 
 export type WorkItemRow = {
   id: string;
@@ -298,6 +300,7 @@ export async function getItemDetail(user: CurrentUser, id: string) {
         mimeType: attachments.mimeType,
         sizeBytes: attachments.sizeBytes,
         url: attachments.url,
+        storageKey: attachments.storageKey,
         uploadedByName: users.name,
       })
       .from(attachments)
@@ -305,6 +308,8 @@ export async function getItemDetail(user: CurrentUser, id: string) {
       .where(eq(attachments.workItemId, id))
       .orderBy(asc(attachments.createdAt)),
   ]);
+
+  const filesWithPreview = await withPreviews(files);
 
   return {
     ...item,
@@ -315,11 +320,50 @@ export async function getItemDetail(user: CurrentUser, id: string) {
     request: full ? requestOf(full) : null,
     checklist,
     subtasks,
-    files,
+    files: filesWithPreview,
     comments: commentRows,
     activity,
     stages,
   };
+}
+
+type AttachmentQueryRow = {
+  id: string;
+  kind: "file" | "link";
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  url: string | null;
+  storageKey: string;
+  uploadedByName: string | null;
+};
+
+/**
+ * Miniatura de imagem.
+ *
+ * O bucket é privado, então a imagem só aparece com URL assinada. Assinar no
+ * clique serve para baixar, não para mostrar: o card precisa da imagem já
+ * pronta ao abrir. Uma assinatura por imagem, em paralelo, e o `storageKey`
+ * não vai junto para o navegador — ele não serve para nada lá.
+ */
+async function withPreviews(rows: AttachmentQueryRow[]) {
+  const configured = storageConfigured();
+
+  return Promise.all(
+    rows.map(async (row) => ({
+      id: row.id,
+      kind: row.kind,
+      filename: row.filename,
+      mimeType: row.mimeType,
+      sizeBytes: row.sizeBytes,
+      url: row.url,
+      uploadedByName: row.uploadedByName,
+      previewUrl:
+        configured && row.kind === "file" && row.storageKey && isImage(row.filename)
+          ? await signedUrl(row.storageKey, PREVIEW_TTL_SECONDS)
+          : null,
+    })),
+  );
 }
 
 export type RequestInfo = {
