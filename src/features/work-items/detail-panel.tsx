@@ -378,8 +378,21 @@ export function DetailPanel({
         ) : null}
 
         {/* ----------------------------------------------------------- corpo */}
-        <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1fr)_264px]">
-          <div className="flex min-w-0 flex-col border-line md:border-r">
+        {/*
+          A linha do grid precisa ser `minmax(0,1fr)`: com `auto`, ela cresce
+          junto com o conteudo, o filho nunca ganha altura limitada e o
+          `overflow-y-auto` de dentro nao tem o que rolar.
+
+          No celular quem rola e este bloco inteiro — duas areas de rolagem
+          empilhadas numa tela estreita nao se controlam com o dedo.
+        */}
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto",
+            "md:grid md:grid-cols-[minmax(0,1fr)_264px] md:grid-rows-[minmax(0,1fr)] md:overflow-hidden",
+          )}
+        >
+          <div className="flex min-w-0 flex-col border-line md:min-h-0 md:border-r">
             <div className="flex gap-4 border-b border-line px-5 pt-3">
               {TABS.map((t) => (
                 <button
@@ -400,7 +413,7 @@ export function DetailPanel({
               ))}
             </div>
 
-            <div className="scroll-thin min-h-[320px] flex-1 overflow-y-auto px-5 py-4">
+            <div className="scroll-thin min-h-[320px] flex-1 px-5 py-4 md:min-h-0 md:overflow-y-auto">
               {tab === "trabalho" && (
                 <div className="flex flex-col gap-5">
                   {reworkReason ? (
@@ -767,7 +780,7 @@ export function DetailPanel({
           </div>
 
           {/* ---------------------------------------------------------- trilho */}
-          <aside className="scroll-thin flex flex-col gap-4 overflow-y-auto border-t border-line bg-sunk p-4 md:border-t-0">
+          <aside className="scroll-thin flex flex-col gap-4 border-t border-line bg-sunk p-4 md:min-h-0 md:overflow-y-auto md:border-t-0">
             <div className="rounded-[var(--radius-control)] bg-accent-soft p-2.5">
               <div className="label-mono mb-1.5 !text-accent opacity-80">Tempo</div>
               <div className="flex items-center gap-2.5">

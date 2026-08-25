@@ -94,6 +94,10 @@ React porque são chamados no layout, na página e no painel.
 
 **`revalidatePath` já atualiza a árvore.** Chamar `router.refresh()` depois dobra o trabalho.
 
+**Linha de grid precisa ser `minmax(0,1fr)` para o filho rolar.** Com `auto` — o padrão — a linha
+cresce junto com o conteúdo, o filho nunca ganha altura limitada, e o `overflow-y-auto` de dentro
+não tem o que rolar. Vale o mesmo para item de flex, que precisa de `min-h-0`.
+
 **Nunca apagar a tela durante uma ação.** Opacidade em modal deixa o fundo escuro atravessar e
 parece defeito. O certo é retorno otimista mais uma barra fina de progresso.
 
