@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Onde o MKT Hub 2 está. Atualizado em **24/08/2026**.
+Onde o MKT Hub 2 está. Atualizado em **26/08/2026**.
 
 Para o porquê de cada decisão, veja [01-analise-e-arquitetura.md](01-analise-e-arquitetura.md).
 Para o board que estamos substituindo, [02-clickup-house-quatro5.md](02-clickup-house-quatro5.md).
@@ -26,17 +26,20 @@ Onevo Energia, Onevo Investimentos e Cássio Maia P2P automaticamente.
 **Empresas e projetos.** As quatro empresas com as cinco sub-marcas aninhadas na lista, somando
 os projetos das filhas.
 
-**Tarefas.** Criação rápida com atalho `C` de qualquer tela, lista com filtros por empresa,
-responsável e concluídas, quadro com arrastar entre as seis etapas, e o detalhe em modal.
+**Tarefas.** Criação rápida com atalho `C` de qualquer tela, lista agrupada por etapa com grupos
+recolhíveis, quadro com arrastar entre as **onze** etapas do fluxo de tarefa, e o detalhe em modal.
+Sair de `APROVAÇÃO LÍDER` exige papel de gestor ou acima, validado no servidor.
 
 **O popup de Nova tarefa**, desenhado a partir dos mockups: título em destaque, empresa, projeto,
 responsável e prazo em duas colunas, `mais detalhes` abrindo Ponto MKT, tipo e formato, e
 prioridade em segmentos. Fecha depois de criar — o rodapé Cancelar / Criar tarefa promete isso, e
 `C` reabre numa tecla.
 
-**O modal**, desenhado a partir dos mockups: cabeçalho com cronômetro ao vivo e Concluir, trilha
-de etapas clicável, quatro abas (Trabalho · Conversa · Tempo · Histórico) e trilho lateral com
-tempo, responsável, prazo, prioridade, Ponto MKT, tipo e formato.
+**O modal**, desenhado a partir dos mockups: cabeçalho com cronômetro ao vivo e Concluir, quatro
+abas (Trabalho · Conversa · Tempo · Histórico) e trilho lateral com tempo, responsável, prazo,
+prioridade, Ponto MKT, tipo, formato e **etapa** — esta última com o mesmo pill colorido da lista
+e do quadro. A trilha horizontal de etapas saiu em 26/08/2026: com onze etapas ela mostrava que
+existem muitas colunas, não onde a peça está.
 
 Dentro dele: subtarefas com cronômetro próprio, checklist, arquivos e links, comentários, e o
 histórico mostrando `de → para` em toda mudança.
@@ -145,18 +148,18 @@ apontado para produção **antes** do push — código novo com banco velho queb
 
 **Que dependem da usuária:**
 
-- `SUPABASE_URL` e a chave `service_role` — sem elas o upload de arquivo fica desligado
-- Desativar a conta `teste@mkthub.test`: é admin master, com senha que já passou por chat, e agora
-  existem contas reais no sistema
-- Limpar os dados de teste antes de o time começar
-- `npx vercel login` uma vez; o token do CLI expirou
-- `CRON_SECRET` nas variáveis de ambiente da Vercel — sem ela a fila do revisor responde 503
-- `ANTHROPIC_API_KEY` no ambiente — sem ela o revisor enfileira, roda o porteiro e para na
-  hora de julgar, com o motivo escrito
-- Classificar as regras em máquina / pessoa / fora de escopo, na tela **Revisor → Regras**.
-  Enquanto não houver regra cadastrada, o revisor não emite parecer — de propósito
-- Rodar a Revisão IA em **silencioso** por um período antes de virar a chave, comparando o
-  parecer com o que o time decidiu na tela **Revisor → Medição**
+- **Desativar a conta `teste@mkthub.test`.** É admin master com senha que circulou em chat, e o
+  time real já está no sistema. Desativar corta o acesso na requisição seguinte — o `requireUser`
+  filtra por `is_active` a cada requisição, o cookie de 12h não sobrevive. É o item mais sério
+  desta lista inteira.
+- **Decidir como o board do ClickUp atravessa.** Não existe importação, e não há nenhuma prevista:
+  hoje toda tarefa nasce à mão. Ou se escreve um importador, ou se marca uma data de corte e o que
+  está em andamento termina no ClickUp. Enquanto isso não for decidido, os dois sistemas divergem
+  todo dia.
+- **Rodar a Revisão IA em silencioso por uma semana** e ler a taxa de reversão em
+  **Revisor → Medição**. É o número que decide se a ferramenta fica.
+- **As 27 regras de pessoa e os três critérios difusos** da Carbone, na segunda leva
+  (ver 04-revisor.md). As três de máquina e o checklist entraram em 26/08/2026.
 
 **Conhecidas, do lado técnico:**
 
@@ -165,18 +168,33 @@ apontado para produção **antes** do push — código novo com banco velho queb
   isolados. A trava do `npm run dev:setup` impede rodar o seed no lugar errado.
 - Variáveis do escopo Preview não configuradas (o CLI da Vercel exige prompt)
 - Não existe número sequencial de tarefa; referir tarefa por número em conversa seria útil
-- Dados de teste no banco: duas tarefas, uma subtarefa, um link e alguns registros de tempo
+- ~~Dados de teste no banco.~~ O cartão "tal tal" e as horas fabricadas da conta de teste foram
+  apagados em 26/08/2026. Falta conferir "Criativo de teste"
+- O filtro "Mostrar concluídas" na tela de Trabalho não muda mais nada: a lista agrupada inclui
+  tudo, porque grupo marcando zero por causa de filtro mente sobre o que existe. O controle
+  continua na tela sem efeito — some ou vira "recolher os terminados"
+- `resendInvite` gera token novo mas não invalida a senha vigente. Como não existe (por decisão
+  aprovada) ação de admin para trocar senha de terceiro, o convite é o único caminho e hoje ele
+  não fecha a porta
 - No banco de **desenvolvimento** ficaram quatro regras de exemplo (SB-01 a SB-04), três itens de
   checklist e a entrega "Peça de teste do revisor", com três rodadas de parecer. Servem para
   conhecer a tela; apagar quando as regras reais entrarem
 
 ## O que falta
 
-**O V1.0 está fechado.** A tela de Time entrou em 25/08/2026 e o time foi cadastrado por convite.
+**O V1.0 está construído.** A tela de Time entrou em 25/08/2026, o time foi cadastrado por
+convite, e a Revisão IA entrou em 26/08/2026. O que separa "construído" de "fechado" não é
+feature: é a virada de chave.
 
-A ponte de leitura para o MKT Hub atual está listada como item do MVP no doc de arquitetura e como
-V1.5 aqui. Os dois não podem estar certos: depende de a pontuação semanal precisar ou não continuar
-rodando durante a migração. Decisão pendente.
+Duas decisões travam essa virada, e são a mesma decisão vista de dois lados:
+
+1. **Como o board do ClickUp atravessa** — importador ou data de corte.
+2. **A ponte de leitura para o MKT Hub 1.** Ela aparece como item do MVP no doc de arquitetura e
+   como V1.5 aqui, e os dois não podem estar certos. Depende de a pontuação semanal precisar
+   continuar rodando durante a migração — e ela lê o ClickUp. Se as tarefas novas pararem de
+   nascer lá, a pontuação fica cega.
+
+Decisão pendente desde 24/08/2026.
 
 **V1.5:** rotinas, metas, motor de pontuação, coins, ranking e snapshot semanal.
 
