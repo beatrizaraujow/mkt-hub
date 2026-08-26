@@ -13,6 +13,8 @@ import {
   saveChecklistItem,
   saveRule,
   setChecklistActive,
+  setCompanyReview,
+  setMode,
   setRuleActive,
   type RulesState,
 } from "./rules-actions";
@@ -117,10 +119,13 @@ function ScopeSelects({
 function RuleForm({
   rule,
   companies,
+  siblings,
   onClose,
 }: {
   rule: RuleRow | null;
   companies: CompanyOption[];
+  /** As outras regras, para declarar qual esta substitui. */
+  siblings: RuleRow[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -201,6 +206,27 @@ function RuleForm({
             format={rule?.format ?? ""}
           />
         </div>
+
+        <Field
+          label="Substitui a regra"
+          hint="Só quando esta regra é a versão mais específica de outra. Conflito silencioso é bug: a substituição aparece no diagnóstico."
+        >
+          <select
+            name="overridesRuleId"
+            defaultValue={rule?.overridesRuleId ?? ""}
+            className={cn(field, "cursor-pointer")}
+          >
+            <option value="">Não substitui nenhuma</option>
+            {siblings
+              .filter((other) => other.id !== rule?.id && other.isActive)
+              .map((other) => (
+                <option key={other.id} value={other.id}>
+                  {other.code} — {other.text.slice(0, 60)}
+                  {other.text.length > 60 ? "…" : ""}
+                </option>
+              ))}
+          </select>
+        </Field>
 
         <label className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-line px-3 py-2.5">
           <input
@@ -407,6 +433,76 @@ function scopeOf(row: { companyName: string | null; skill: string | null; format
   return parts.join(" · ");
 }
 
+/**
+ * O que muda sem deploy: o modo e o botao de desligar por marca.
+ *
+ * Fica no topo porque e a primeira pergunta de quem abre esta tela quando algo
+ * deu errado — "isso esta ligado?" —, e porque uma revisao automatica que so
+ * se desliga com deploy fica ligada errada por um dia inteiro.
+ */
+function OperationPanel({ data }: { data: RulesData }) {
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const silent = data.mode === "silencioso";
+
+  return (
+    <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="label-mono">Operação</h2>
+          <p className="mt-1 max-w-[52ch] text-[12px] text-faint">
+            {silent
+              ? "Silencioso: o revisor emite parecer e não move nada. É a fase de comparar o que ele acha com o que o time decide."
+              : "Ativo: só a reprovação anda sozinha, para Ajustar. Aprovado continua esperando alguém clicar."}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            start(async () => {
+              await setMode(silent ? "ativo" : "silencioso");
+              router.refresh();
+            })
+          }
+          className="h-8 rounded-[var(--radius-control)] border border-line px-3 text-[12.5px] text-ink transition-colors hover:bg-hover disabled:opacity-50"
+        >
+          {silent ? "Deixar o revisor mover reprovados" : "Voltar para silencioso"}
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {data.companies.map((company) => {
+          const off = data.disabled.includes(company.id);
+          return (
+            <button
+              key={company.id}
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                start(async () => {
+                  await setCompanyReview(company.id, off);
+                  router.refresh();
+                })
+              }
+              className={cn(
+                "rounded-[var(--radius-control)] border px-2.5 py-1 text-[12.5px] transition-colors disabled:opacity-50",
+                off
+                  ? "border-line bg-sunk text-faint line-through"
+                  : "border-accent/40 bg-accent-soft text-accent",
+              )}
+              title={off ? "Ligar o revisor nesta marca" : "Desligar o revisor nesta marca"}
+            >
+              {company.name}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export function RulesEditor({ data }: { data: RulesData }) {
   const router = useRouter();
   const [ruleForm, setRuleForm] = useState<{ open: boolean; rule: RuleRow | null }>({
@@ -423,6 +519,38 @@ export function RulesEditor({ data }: { data: RulesData }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <OperationPanel data={data} />
+
+      {data.gaps.length > 0 && (
+        <section className="rounded-[var(--radius-card)] border border-warning/40 bg-warning-soft p-4">
+          <h2 className="label-mono text-warning">Recortes sem regra</h2>
+          <p className="mb-2.5 mt-1 text-[12px] text-ink">
+            Combinações que o time entrega e que o revisor não tem como conferir. Onde não há
+            regra, o sistema não inventa uma: o buraco fica visível e quem decide é você.
+          </p>
+          <div className="flex flex-col">
+            {data.gaps.map((gap) => (
+              <div
+                key={`${gap.companyId}-${gap.skill}`}
+                className="flex flex-wrap items-baseline gap-2 border-b border-warning/20 py-1.5 text-[13px] last:border-b-0"
+              >
+                <span className="text-ink">{gap.companyName}</span>
+                <span className="text-faint">·</span>
+                <span className="text-ink">{gap.skill}</span>
+                <span className="tnum text-[11.5px] text-faint">
+                  {gap.items} entrega{gap.items === 1 ? "" : "s"}
+                </span>
+                {gap.hasChecklist ? (
+                  <span className="ml-auto text-[11.5px] text-faint">
+                    tem checklist humano
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -473,6 +601,11 @@ export function RulesEditor({ data }: { data: RulesData }) {
                     </span>
                   )}
                   <span className="text-[11.5px] text-faint">{scopeOf(rule)}</span>
+                  {rule.version > 1 && (
+                    <span className="text-[11px] text-faint" title="Quantas vezes o texto mudou.">
+                      v{rule.version}
+                    </span>
+                  )}
 
                   <span className="ml-auto flex items-center gap-3">
                     <Toggle
@@ -572,6 +705,7 @@ export function RulesEditor({ data }: { data: RulesData }) {
         <RuleForm
           rule={ruleForm.rule}
           companies={data.companies}
+          siblings={data.rules}
           onClose={() => setRuleForm({ open: false, rule: null })}
         />
       )}

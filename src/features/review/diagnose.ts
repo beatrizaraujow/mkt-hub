@@ -1,11 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   attachments,
   companies,
   projects,
-  reviewChecklistItems,
   reviewCycles,
   reviewFindings,
   reviewRuns,
@@ -15,8 +14,11 @@ import {
   type ReviewRule,
 } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth";
+import { checklistFor } from "./checklist";
 import { runGate, type GateResult } from "./gate";
-import { rulesFor } from "./rules";
+import { assemble } from "./judge";
+import { applicableRules } from "./rules";
+import type { Overlap } from "./resolve";
 
 /**
  * O que o revisor entendeu de uma entrega real, **antes** de ele poder fazer
@@ -42,10 +44,19 @@ export type Diagnosis = {
     skill: string | null;
     format: string | null;
     done: boolean;
+    /** O texto entregue: e a unica entrada desta versao do revisor. */
+    copy: string | null;
   };
   files: Array<{ id: string; filename: string; kind: string; sizeBytes: number }>;
   gate: GateResult;
   rules: ScopedRule[];
+  /** Onde uma camada substituiu a outra, e onde a substituicao nao foi aceita. */
+  overlaps: Overlap[];
+  /**
+   * O pedido exato que iria para o modelo, montado pela mesma funcao que o
+   * julgamento usa. Nao e simulacao parecida: divergiriam com o tempo.
+   */
+  prompt: { system: string; briefing: string } | { error: string };
   checklist: ReviewChecklistItem[];
   cycles: Array<{
     id: string;
@@ -105,7 +116,7 @@ export async function diagnose(user: CurrentUser, workItemId: string): Promise<D
 
   if (!row || !user.companyIds.includes(row.companyId)) return null;
 
-  const [files, rules, checklist, cycles] = await Promise.all([
+  const [files, applicable, checklist, cycles] = await Promise.all([
     db
       .select({
         id: attachments.id,
@@ -117,31 +128,14 @@ export async function diagnose(user: CurrentUser, workItemId: string): Promise<D
       .where(eq(attachments.workItemId, row.id))
       .orderBy(asc(attachments.createdAt)),
 
-    rulesFor({
+    applicableRules({
       orgId: row.orgId,
       companyId: row.companyId,
       skill: row.skill,
       format: row.format,
     }),
 
-    db
-      .select()
-      .from(reviewChecklistItems)
-      .where(
-        and(
-          eq(reviewChecklistItems.orgId, row.orgId),
-          eq(reviewChecklistItems.isActive, true),
-          or(
-            isNull(reviewChecklistItems.companyId),
-            eq(reviewChecklistItems.companyId, row.companyId),
-          ),
-          or(
-            isNull(reviewChecklistItems.skill),
-            row.skill ? eq(reviewChecklistItems.skill, row.skill) : undefined,
-          ),
-        ),
-      )
-      .orderBy(asc(reviewChecklistItems.position)),
+    checklistFor({ orgId: row.orgId, companyId: row.companyId, skill: row.skill }),
 
     db
       .select()
@@ -150,9 +144,23 @@ export async function diagnose(user: CurrentUser, workItemId: string): Promise<D
       .orderBy(desc(reviewCycles.round)),
   ]);
 
+  const { rules, overlaps } = applicable;
+
   // O porteiro roda de verdade: a tela mostra o que o cron veria, não uma
   // simulação parecida que diverge com o tempo.
   const gate = await runGate(row.id);
+
+  /**
+   * O pedido montado, sem chamar ninguém. Ver o texto exato que vai para o
+   * modelo paga o custo desta tela na primeira semana: recorte errado e regra
+   * mal escrita aparecem aqui, antes de virarem parecer absurdo.
+   */
+  const [full] = await db.select().from(workItems).where(eq(workItems.id, row.id)).limit(1);
+  const assembled = full ? await assemble(full, row.companyName) : { error: "Entrega sumiu." };
+  const prompt =
+    "error" in assembled
+      ? { error: assembled.error }
+      : { system: assembled.system, briefing: assembled.briefing };
 
   const companyNames = new Map(
     (
@@ -204,9 +212,12 @@ export async function diagnose(user: CurrentUser, workItemId: string): Promise<D
       skill: row.skill,
       format: row.format,
       done: Boolean(row.completedAt),
+      copy: full?.copy ?? null,
     },
     files,
     gate,
+    overlaps,
+    prompt,
     rules: rules.map((rule) => ({ ...rule, scopeLabel: scopeLabel(rule, companyNames) })),
     checklist,
     cycles: cycles.map((cycle) => {

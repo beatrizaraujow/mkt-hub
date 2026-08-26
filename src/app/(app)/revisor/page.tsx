@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Check, FileText, Link2, SlidersHorizontal, X } from "lucide-react";
+import { AlertTriangle, BarChart3, Check, FileText, Link2, SlidersHorizontal, X } from "lucide-react";
 import { assertCanManage, requireUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { EmptyState, PageHeader } from "@/components/page-header";
 import { diagnosableItems, diagnose } from "@/features/review/diagnose";
 import { RequestReview } from "@/features/review/request-review";
+import { PromptPreview } from "@/features/review/prompt-preview";
 
 export const metadata: Metadata = { title: "Revisor · MKT Hub" };
 export const dynamic = "force-dynamic";
@@ -79,13 +80,22 @@ export default async function RevisorPage({
         title="Revisor"
         description="Aponte para uma entrega real e veja o que o sistema entendeu."
         actions={
-          <Link
-            href="/revisor/regras"
-            className="flex h-9 items-center gap-1.5 rounded-[var(--radius-control)] border border-line px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink"
-          >
-            <SlidersHorizontal size={14} />
-            Regras
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/revisor/medicao"
+              className="flex h-9 items-center gap-1.5 rounded-[var(--radius-control)] border border-line px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+            >
+              <BarChart3 size={14} />
+              Medição
+            </Link>
+            <Link
+              href="/revisor/regras"
+              className="flex h-9 items-center gap-1.5 rounded-[var(--radius-control)] border border-line px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+            >
+              <SlidersHorizontal size={14} />
+              Regras
+            </Link>
+          </div>
         }
       />
 
@@ -134,6 +144,14 @@ export default async function RevisorPage({
                 <Fact label="Etapa" value={data.item.stageName} />
                 <Fact label="Tipo" value={data.item.skill} />
                 <Fact label="Formato" value={data.item.format} />
+                <Fact
+                  label="Copy"
+                  value={
+                    data.item.copy
+                      ? `${data.item.copy.trim().length} caracteres`
+                      : null
+                  }
+                />
                 <Fact
                   label="Arquivos"
                   value={
@@ -224,6 +242,48 @@ export default async function RevisorPage({
                     </div>
                   ))}
                 </div>
+              )}
+            </Section>
+
+            {data.overlaps.length > 0 && (
+              <Section
+                title="Sobreposição entre camadas"
+                hint="Conflito silencioso é bug: quando uma regra substitui outra, isso aparece."
+              >
+                <ul className="flex flex-col gap-2">
+                  {data.overlaps.map((overlap) => (
+                    <li key={`${overlap.winner}-${overlap.loser}`} className="text-[13px]">
+                      <span className="text-ink">
+                        {overlap.applied ? (
+                          <>
+                            <code className="font-mono text-[12px]">{overlap.winner}</code>{" "}
+                            substituiu{" "}
+                            <code className="font-mono text-[12px]">{overlap.loser}</code>
+                          </>
+                        ) : (
+                          <>
+                            <code className="font-mono text-[12px]">{overlap.loser}</code> diz
+                            substituir{" "}
+                            <code className="font-mono text-[12px]">{overlap.winner}</code>, e o
+                            sistema não aceitou
+                          </>
+                        )}
+                      </span>
+                      <p className="text-[12px] text-faint">{overlap.why}</p>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
+
+            <Section
+              title="O pedido que iria para o modelo"
+              hint="Montado pela mesma função que o julgamento usa, sem gastar chamada."
+            >
+              {"error" in data.prompt ? (
+                <p className="text-[13px] text-faint">{data.prompt.error}</p>
+              ) : (
+                <PromptPreview system={data.prompt.system} briefing={data.prompt.briefing} />
               )}
             </Section>
 

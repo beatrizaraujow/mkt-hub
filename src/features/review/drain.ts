@@ -22,9 +22,23 @@ export type DrainReport = {
   /** Ciclos que terminaram com parecer emitido. */
   pareceres: number;
   achados: number;
-  /** Achados que citaram regra inexistente e foram jogados fora. */
-  descartados: number;
+  /** Correções de português — não reprovam nada, por isso contam à parte. */
+  portugues: number;
+  /** Pareceres repetidos de uma rodada anterior com a mesma entrada. */
+  reaproveitados: number;
+  /** Terceira reprovação seguida: parou de decidir e chamou gente. */
+  escalonados: number;
+  /**
+   * Achados jogados fora. Separados: regra inexistente é pedido confuso,
+   * trecho inventado é modelo alucinando citação.
+   */
+  descartados: { regra: number; trecho: number };
   falhas: number;
+  /**
+   * Os ciclos que emitiram parecer nesta passada. Quem move o cartão é o
+   * transporte, que lê isto — a fila julga e não mexe em etapa.
+   */
+  emitidos: string[];
 };
 
 /**
@@ -44,8 +58,12 @@ export async function drainReviewQueue(limit = BATCH_SIZE): Promise<DrainReport>
     incompletas: 0,
     pareceres: 0,
     achados: 0,
-    descartados: 0,
+    portugues: 0,
+    reaproveitados: 0,
+    escalonados: 0,
+    descartados: { regra: 0, trecho: 0 },
     falhas: 0,
+    emitidos: [],
   };
 
   for (const expired of await reclaimExpired()) {
@@ -98,7 +116,12 @@ export async function drainReviewQueue(limit = BATCH_SIZE): Promise<DrainReport>
 
       report.pareceres += 1;
       report.achados += result.findings;
-      report.descartados += result.discarded;
+      report.portugues += result.language;
+      report.descartados.regra += result.discarded.regra;
+      report.descartados.trecho += result.discarded.trecho;
+      if (result.reused) report.reaproveitados += 1;
+      if (result.escalated) report.escalonados += 1;
+      report.emitidos.push(cycle.id);
       continue;
     } catch (error) {
       /**

@@ -1,212 +1,236 @@
-# Revisor automático de entregas
+# Revisão IA
 
-Estado da construção. O padrão de arquitetura completo está em
-`D:\revisorautomaticodeentregas.md` — este arquivo registra o que foi decidido
-e construído **aqui**, e o que ainda falta.
+O que o revisor faz, o que ele deliberadamente não faz, e o que ainda falta.
+O padrão de arquitetura que originou tudo isto está em
+`D:\revisorautomaticodeentregas.md`; este arquivo registra o que foi decidido
+e construído **aqui**.
 
-## O que existe
+## O escopo desta versão
 
-**Seis tabelas**, aplicadas no banco pela migration `0004_simple_darkhawk`.
+**Entrada: só texto.** O revisor lê a **copy da entrega** — legenda, roteiro,
+títulos de carrossel, CTA. Não olha arte nem vídeo.
 
-| Tabela | Metade | Para quê |
-|---|---|---|
-| `review_rules` | aprovado | O texto da regra, o escopo, se é inegociável e quem consegue verificar |
-| `review_checklist_items` | aprovado | O que a pessoa responde, por escopo e tipo de peça |
-| `review_cycles` | operação | Cada rodada de revisão de uma entrega |
-| `review_runs` | operação | O log técnico: estado, tentativa, erro, modelo e custo |
-| `review_findings` | operação | Cada problema, sempre citando a regra que o originou |
-| `review_settings` | operação | O que muda sem deploy |
+A copy tem campo próprio (`work_items.copy`), separado do briefing. Não é
+detalhe: `description` é o pedido de quem abriu a tarefa, e revisar o pedido
+apontaria erro de português em texto que ninguém vai publicar, enquanto a peça
+de verdade passaria sem ser lida.
 
-**A fila**, em `src/features/review/`. Pedido é aceito na hora e devolve o
-identificador do ciclo; o processamento acontece depois, pelo cron em
-`/api/cron/review`.
+**Autonomia: a IA só move o que reprova, e só depois da calibragem.** Aprovado
+fica parado esperando um humano clicar. A IA nunca carimba aprovação sozinha.
 
-O cron roda **uma vez por dia**, às 8h de Brasília. Não é escolha de produto: o
-plano Hobby da Vercel recusa qualquer agenda mais frequente que diária — e
-recusa o **deploy inteiro**, antes de criar o build, sem aparecer como falha em
-lugar nenhum. Foi o que deixou seis commits fora do ar entre 25 e 26/08/2026.
-Enquanto o revisor não tiver regras nem chave de modelo, a frequência não muda
-nada. Quando tiver, ou o plano vira Pro, ou a fila passa a ser drenada por
-outro gatilho.
+**Regra é dado, nunca código.** Nenhum critério escrito em `if`. O que não
+está na tabela não é conferido — e isso é garantia, não limitação.
 
-**O porteiro**, em `gate.ts`. Roda antes de gastar IA e devolve o que falta:
-tipo da peça, arquivo anexado, regra cadastrada para aquele recorte.
+## A fronteira
 
-**O julgamento**, em `judge.ts` e `model.ts`. Monta o pedido com as regras de
-máquina daquele recorte e os arquivos legíveis, pergunta ao modelo por `fetch`
-— sem SDK — e grava os achados. `model.ts` leva e traz; `judge.ts` decide. A
-fronteira existe para trocar de modelo um dia não obrigar a reescrever o
-raciocínio.
+**Decisão** (`src/features/review/`) monta o conjunto de regras, roda o
+porteiro, chama o modelo, valida a evidência, calcula o veredito e grava.
+**Não move nada**: não conhece coluna de quadro, não faz `update` em
+`stage_id`.
 
-**A tela de regras**, em `/revisor/regras`. É onde a área de negócio cadastra e
-classifica sem abrir chamado de desenvolvimento — regra é dado, nunca código.
-Desativa em vez de apagar: parecer antigo cita a regra que valia na época.
+**Transporte** (`src/features/work-items/review-bridge.ts`) detecta a entrada
+na etapa, chama o serviço, move o cartão depois e registra a decisão humana.
+**Não julga nada.**
 
-## Duas tabelas do padrão que não existem aqui
+Se um dia o julgamento virar serviço separado, é o transporte que muda, e
+nenhuma linha do raciocínio precisa ser reescrita.
 
-**`entregas`** — lá era espelho do que estava sendo julgado, porque a origem
-era outro sistema. Aqui a entrega é o próprio `work_items`: espelhar seria
-copiar dado que já é nosso.
+## O caminho, do começo ao fim
 
-**`recortes`** — lá guardava as dimensões que escolhem as regras. Aqui as
-dimensões já existem como dado de primeira classe: empresa, com herança de
-sub-marca, e tipo/formato do catálogo. Criar a tabela seria duplicá-las.
-
-## Uma etapa do padrão que virou outra coisa
-
-A sequência do padrão pede **carga das regras a partir de um arquivo**, com
-teste provando que o que entrou no banco é o que estava no arquivo. Aqui a
-carga virou tela.
-
-O motivo: as regras da Carbone não estão num arquivo. Estão em conversa de
-grupo e em correção repetida, e quem as conhece é quem convive com o erro.
-Um arquivo de origem mais a tela dariam duas fontes de verdade para o mesmo
-dado — e no dia em que divergissem, ninguém saberia qual vale. A tela é a
-fonte. Se um manual aprovado aparecer depois, a carga é um script de uma
-tarde, alimentando a mesma tabela.
-
-## O que o sistema faz hoje quando você pede uma revisão
-
-Depende do que existe cadastrado:
-
-**Sem regra para o recorte** — o porteiro barra antes de gastar IA e o ciclo
-termina em `incompleto`, com o motivo escrito:
-
-> Nenhuma regra de máquina cadastrada para "Arte de post" nesta empresa.
-> Enquanto não houver, o revisor não emite parecer.
-
-Onde o manual não define nada, a tentação é preencher com boa prática de
-mercado. Regra ruim aplicada em escala e com autoridade é pior que regra
-ausente. O buraco fica visível e a área de negócio decide.
-
-**Sem `ANTHROPIC_API_KEY`** — o ciclo termina em `falhou`, com o motivo, **sem
-repetir a tentativa**: chave ausente não melhora na terceira vez.
-
-**Com regra e com chave** — sai parecer: os achados citando o código da regra,
-o veredito calculado em código, e a cobertura na tela.
+1. **O gatilho é a etapa.** Entrar em `REVISÃO IA` enfileira o ciclo, dentro
+   do mesmo `setStage` que valida papel e motivo de retrabalho. Não existe uma
+   segunda porta — segunda porta é sempre a que esquece de validar alguma
+   coisa.
+2. **O processamento acontece depois da resposta** (`after()` do Next), não
+   dentro dela: quem arrastou o cartão não fica olhando para uma tela travada.
+   O cron diário continua sendo a rede: se o processamento morrer no meio, a
+   reserva expira e a execução volta para a fila.
+3. **O porteiro** (`gate.ts`) roda antes de gastar IA: empresa ligada, tipo da
+   peça, copy presente com tamanho plausível para o tipo, e regra de máquina
+   cadastrada para o recorte. Falhou algo, o ciclo termina em `incompleto`
+   com a lista do que falta — não é reprovação.
+4. **O julgamento** (`judge.ts`) manda só as regras de máquina daquele recorte
+   e a copy. Saída estruturada obrigatória, sem texto livre para interpretar.
+5. **A validação da evidência** acontece no servidor: achado citando regra que
+   não foi enviada é descartado, e achado citando trecho que não está na copy
+   também. O modelo não tem a palavra final sobre o que sobrevive.
+6. **O veredito** sai de `verdict.ts`, função pura, com teste.
+7. **O transporte** move o cartão — ou não, se o modo for silencioso.
 
 ## As propriedades que não se quebram
 
 **O sistema nunca inventa critério.** O modelo recebe só as regras da tabela e
-só pode citar o código de uma delas. Achado que cita regra inexistente é
-descartado, e o descarte é contado — descarte que sobe de repente é sinal de
-que o pedido ficou confuso ou de que alguém apagou uma regra no meio.
+só pode citar o código de uma delas. Descarte por regra inexistente é contado
+à parte de descarte por trecho inventado: o primeiro é pedido confuso, o
+segundo é modelo alucinando citação — e é o número que decide trocar de
+modelo.
 
 **A regra violada decide, a nota não.** Não existe coluna de nota e o modelo
-não dá nenhuma. Violou inegociável, reprova; achou algo que não é inegociável,
-ajusta; nada, passa. O cálculo é em código, não no parecer.
+não dá nenhuma. Violou inegociável, reprova; achou algo negociável, ajusta;
+nada, passa. Número gerado por modelo oscila entre execuções e ninguém
+consegue defender por que foi 6,8 e não 7,1 — mas todo mundo passa a decidir
+por ele.
 
-**Falha técnica nunca vira veredito.** Reserva vencida, erro de rede,
-tentativas esgotadas, resposta cortada no meio: o ciclo termina em `falhou` e
-alguém precisa olhar. O sistema não aprova por otimismo nem reprova por
-precaução. Aprovação silenciosa por erro de rede é a falha mais perigosa,
-porque é invisível — ninguém investiga o que passou, só o que barrou.
+**Português é lista separada e nunca reprova.** Vira correção de trinta
+segundos, não veredito.
 
-**Cobertura na tela, sempre.** O ciclo guarda quais regras conferiu
-(`applied_rules`) e quais se aplicavam mas não deu para conferir
-(`not_verified`, com o motivo). Quando o sistema entra no ar, todo mundo assume
-que ele cuida de tudo, e as regras que continuaram humanas param de ser
+**Falha técnica nunca vira veredito.** Erro de rede, tentativas esgotadas,
+resposta cortada: o ciclo termina em `falhou` e alguém precisa olhar. O
+sistema não aprova por otimismo nem reprova por precaução. Aprovação
+silenciosa por erro de rede é a falha mais perigosa, porque é invisível —
+ninguém investiga o que passou, só o que barrou.
+
+**Cobertura na tela, sempre.** O ciclo guarda o que conferiu
+(`applied_rules`), o que se aplicava e não deu para conferir (`not_verified`,
+com motivo) e onde uma camada substituiu outra (`overlaps`). No detalhe da
+entrega há um bloco fixo: *"A revisão automática não confere isto"*, com as
+regras de pessoa e de fora de escopo. Quando um sistema desses entra no ar,
+todo mundo assume que ele cuida de tudo, e as regras humanas param de ser
 conferidas por qualquer um — cada lado achando que o outro está olhando.
 
-**Arquivo não lido nunca vira "sem problemas".** O revisor lê imagem e PDF. O
-que ele não lê entra na lista de ignorados, que vai junto no pedido e no
-parecer, com o motivo.
+**Mesma entrada, mesmo parecer.** O ciclo guarda a impressão digital da copy
+mais a versão das regras. Repetiu, reaproveita sem chamar a API. Não é só
+economia: um revisor que muda de opinião sem nada ter mudado é um revisor que
+ninguém consegue defender numa reunião.
 
-**Modo silencioso é o padrão.** `is_silent` nasce `true`. Antes de deixar o
-sistema mover qualquer coisa, ele emite parecer e não decide nada, para
-comparar com o que uma pessoa acharia.
+**Terceira reprovação seguida para de decidir.** O parecer sai, o cartão não
+anda, e a entrega vai para uma pessoa com as rodadas lado a lado. Ciclo
+infinito de robô reprovando e designer ajustando é pior que não ter revisão.
+
+**Conflito entre camadas é declarado, nunca adivinhado.** A regra mais
+específica aponta qual ela substitui (`overrides_rule_id`), a mais específica
+vence, e a substituição aparece no diagnóstico e no parecer. Duas regras sobre
+o mesmo assunto não têm como ser reconhecidas por comparação de texto: um
+sistema que tenta acerta na demonstração e cala a regra errada em produção.
+
+**Nasce em silencioso.** `modo = silencioso` até alguém virar a chave na tela.
+
+## As telas
+
+| Onde | Para quem | O que resolve |
+|---|---|---|
+| Detalhe da entrega | todo mundo | O parecer, o trecho, a correção pronta, o checklist da aprovação e o que o robô não confere |
+| `/revisor` | gestor e admin | O que o sistema entendeu de uma entrega real: recorte, regras por camada, sobreposições, porteiro rodando de verdade e **o pedido exato que iria para o modelo**, copiável, sem gastar chamada |
+| `/revisor/regras` | gestor e admin | Cadastrar e classificar; o modo; o botão de desligar por marca; e os **recortes sem regra** |
+| `/revisor/medicao` | gestor e admin | Taxa de reversão, regras que mais reprovam, medidores, custo e falhas |
+
+O caminho para as três é **Ajustes → Revisor de entregas**. Nenhuma ganhou
+item de menu: entrada fixa na navegação para ferramenta que o time todo não
+usa é ruído.
+
+## O checklist humano
+
+Gerado das regras `verificador: pessoa` do recorte, aparece na etapa
+`APROVAÇÃO` e **trava a saída para frente** enquanto faltar item. Voltar para
+ajuste não exige checklist: quem devolveu já viu o que estava errado, e exigir
+ali só ensinaria a marcar tudo para conseguir devolver.
+
+Entre quatro e oito itens por recorte, e **nunca repetindo o que a máquina
+confere** — se a pessoa confere o que o robô confere, em duas semanas ela
+marca tudo no automático, e o checklist deixa de valer justamente nos itens em
+que era a única defesa. A exceção são um ou dois **medidores**, que a máquina
+também confere, para comparar. A divergência aparece na medição.
+
+## A taxa de reversão
+
+Das reprovações da IA, quantas uma pessoa derrubou. É o número que decide se a
+ferramenta fica.
+
+A concordância é **inferida do movimento**: parecer pedindo trabalho e a
+pessoa mandando a peça adiante conta como discordância; mandando refazer,
+concordância. Ninguém responde questionário sobre parecer de robô — uma
+caixinha depois de cada revisão seria ignorada em uma semana. A tela diz que é
+inferência.
+
+## O que virou outra coisa em relação ao padrão
+
+**A carga das regras a partir de arquivo virou tela.** As regras da Carbone não
+estão num arquivo: estão em conversa de grupo e em correção repetida. Arquivo
+mais tela dariam duas fontes de verdade, e no dia em que divergissem ninguém
+saberia qual vale. A tela é a fonte. Se um manual aprovado aparecer, a carga é
+um script de uma tarde alimentando a mesma tabela. (Reconfirmado em 26/08/2026.)
+
+**`entregas` e `recortes` não existem.** A entrega é o próprio `work_items`, e
+as dimensões do recorte já são dado de primeira classe: empresa, com herança
+de sub-marca, e `skill`/`format` do catálogo. Criar as tabelas seria copiar o
+que já é nosso.
+
+**`achado.regra_id` é anulável, e não `NOT NULL`.** O padrão pedia a
+constraint; aqui `rule_code` e `rule_text` são obrigatórios e ficam
+**congelados** no achado. Achado sem regra continua impossível, e o parecer de
+março sobrevive à regra apagada em julho.
+
+**O veredito tem três saídas, não duas.** `aprovado · ajustar · reprovado`,
+porque existe uma etapa AJUSTAR no fluxo. No binário, achado negociável viraria
+"aprovado" e seguiria para a aprovação humana carregando o problema junto.
+
+**Não existe termômetro.** Nota que ninguém usa, num parecer com autoridade, é
+lida como veredito pelo time em duas semanas.
+
+## A leitura de arquivo, guardada
+
+`files.ts` baixa anexo e manda imagem e PDF ao modelo. Funciona, está testado,
+e fica atrás de `REVIEW_READ_FILES=1`, desligado. Quando a revisão de peça
+visual entrar, é religar e ajustar o prompt — não reescrever download, teto de
+bytes e tratamento do que não dá para ler. Ligado sem regra escrita sobre
+imagem, ele só encareceria o parecer sem mudar nenhuma conclusão.
 
 ## Testado
 
-Fila completa, com o cron local:
+**Automático** (`npm test`, 24 casos): o veredito nas quatro combinações e a
+independência da quantidade de achados; o escalonamento e o que zera a
+sequência; a resolução de camadas, a substituição declarada, a substituição
+recusada por não ser mais específica, e a corrente de três regras; o mínimo de
+copy por tipo e a conferência de trecho literal, com acento, aspas e
+reticências.
 
-- Rota recusa sem segredo e com segredo errado (401 nos dois)
-- Porteiro barra por tipo faltando, por arquivo faltando e por regra ausente
-- Reserva vencida vira falha explícita e conta a tentativa
-- Tentativa 3 esgotada leva o ciclo a `falhou` e **não** cria a tentativa 4
-- Passada com a fila vazia não faz nada
+**Ponta a ponta, no banco de desenvolvimento, com um servidor de mentira no
+lugar da API** — quatro achados mandados, um sobreviveu:
 
-Julgamento, com uma entrega real no banco de desenvolvimento — tarefa com tipo
-"Arte de post", um PNG anexado, uma regra de máquina inegociável e uma regra de
-balde humano:
+| O que o modelo mandou | O que aconteceu |
+|---|---|
+| regra real + trecho literal | **gravado**, com o trecho e a sugestão |
+| regra que não existe (`XX-99`) | descartado |
+| regra real + trecho que a copy não tem | descartado |
+| regra de balde humano, nunca enviada | descartado |
+| português com trecho real | gravado na lista separada |
+| português com trecho inventado | descartado |
 
-- **Sem a chave do modelo:** ciclo `falhou`, motivo escrito, uma tentativa só,
-  sem veredito e sem achado gravado
-- **Com um servidor de mentira no lugar da API**, para provar o caminho sem
-  gastar chamada real:
-  - o PNG foi baixado do storage e mandado como imagem
-  - só a regra de máquina entrou no pedido; a de balde humano ficou de fora
-  - achado citando código inventado: **descartado**
-  - achado citando a regra humana: **descartado** (não estava no pedido)
-  - achado citando a regra de máquina inegociável: gravado, com arquivo e
-    trecho, ligado ao anexo
-  - veredito `reprovado`, calculado pela regra violada
-  - cobertura e não-conferidas gravadas; custo em tokens separado por entrada e
-    saída
+Veredito `reprovado` pela regra inegociável, com as duas regras conferidas e a
+não-conferida escritas no parecer, e as duas humanas no bloco do que o robô
+não confere.
 
-Tela de regras, pelo navegador: regra criada pelo formulário, contagem por
-balde subindo de 1 para 2, a regra nova aparecendo no recorte certo da entrega,
-e código repetido devolvendo *"Já existe uma regra com esse código."*
-
-Os dados de teste foram removidos do banco e do bucket depois.
-
-## Duas armadilhas que custaram tempo aqui
-
-**O erro do Postgres vem embrulhado.** A mensagem de fora só diz `Failed query`
-com o SQL colado; o nome da constraint fica em `cause`. Sem desembrulhar, quem
-cadastrava um código repetido recebia o `insert into` inteiro na tela. Mora em
-`src/lib/errors.ts` agora, usado pela tela e pelo cron.
-
-**`server-only` bloqueia script de linha de comando.** `storage.ts` e `queue.ts`
-não podem ser importados por um `tsx` avulso. Script de apoio fala com o banco e
-com o storage direto.
-
-## A tela de diagnóstico
-
-Em `/revisor`, para gestor e admin. Não ganhou item de menu — entrada fixa na
-navegação para uma ferramenta que o time todo não usa é ruído. O caminho é
-**Ajustes → Revisor de entregas**.
-
-Você escolhe uma entrega real e ela mostra, em ordem:
-
-1. **O que o sistema vê** — empresa, projeto, etapa, tipo, formato e arquivos.
-   É daqui que sai o recorte.
-2. **O porteiro**, rodando de verdade. Não é simulação parecida: é a mesma
-   função que o cron chama, senão as duas divergem com o tempo.
-3. **As regras que se aplicam**, cada uma com a camada em que entrou e quem
-   consegue verificar. É o que revela recorte errado de longe.
-4. **O checklist da pessoa** para aquela combinação.
-5. **As revisões da entrega** — tentativa, erro, veredito, cada achado com a
-   regra que o originou, o que foi conferido e o que não deu para conferir.
-
-Conferido com cinco regras de exemplo, depois removidas:
-
-| Regra | Camada | Apareceu? |
-|---|---|---|
-| universal, sem tipo | todas as empresas | sim |
-| empresa Onevo | mãe da sub-marca | **sim** — herança funciona |
-| tipo "Arte de post" | todas as empresas · tipo | sim |
-| tipo "Edição de vídeo" | outro tipo | não |
-| empresa Carbone | outra empresa | não |
-
-O porteiro contou 2 regras de máquina e ignorou a de balde humano, como deve.
+Depois disso, em sequência: em **silencioso** o cartão não se moveu; em
+**ativo** a segunda rodada **reaproveitou** o parecer (o servidor de mentira
+recebeu **um** pedido no total) e o cartão foi sozinho para AJUSTAR; a decisão
+humana foi gravada nos dois sentidos (`concordou` ao devolver, `discordou` ao
+mandar adiante); o checklist barrou a saída de APROVAÇÃO com *"Faltam 3 itens"*
+e liberou depois de respondido; a terceira reprovação **escalonou** e o cartão
+parou mesmo em modo ativo; e uma entrega sem tipo e sem copy foi barrada pelo
+porteiro, com os dois motivos escritos e sem gastar chamada.
 
 ## O que falta, em ordem
 
-1. **Classificar as regras** em máquina / pessoa / fora de escopo, pela tela
-   **Revisor → Regras**. Depende da usuária, e é o passo sem o qual todo o
-   resto é chute. As regras existem na skill `auditoria-carbone`, que é o
-   checklist extraído dos feedbacks reais — o que falta é a separação.
-2. **Fechar o checklist humano** — entre quatro e oito itens por combinação, na
-   mesma tela. Só o que a máquina não pega, mais um ou dois medidores.
-3. **`ANTHROPIC_API_KEY` no ambiente**, mais `CRON_SECRET` na Vercel.
-4. **Modo silencioso por um período**, comparando parecer com parecer humano.
-   Só a tela de diagnóstico mostra o resultado nessa fase: o parecer não aparece
-   para o time enquanto não estiver calibrado.
-5. **Autonomia**, só então — e é quando o parecer passa a aparecer na tarefa.
+1. **Escrever as regras reais** em `/revisor/regras`, classificadas em
+   máquina / pessoa / fora de escopo. É o passo sem o qual todo o resto é
+   chute. As correções que se repetem são o melhor ponto de partida.
+2. **Fechar o checklist humano** — quatro a oito itens por recorte, mais um ou
+   dois medidores.
+3. **`ANTHROPIC_API_KEY` e `CRON_SECRET` na Vercel.**
+4. **Rodar em silencioso por um período**, comparando o parecer com o que o
+   time decidiu, pela tela de medição.
+5. **Virar a chave para ativo**, só então.
 
-## Pendências de ambiente
+## Armadilhas que já custaram tempo
 
-- `CRON_SECRET` está no `.env.local` e **falta na Vercel**. Sem ela a rota
-  responde 503 e a fila não anda em produção.
-- Nenhuma chave de modelo configurada, em lugar nenhum.
+**O erro do Postgres vem embrulhado.** A mensagem de fora diz `Failed query`
+com o SQL colado; o nome da constraint fica em `cause`. Mora em
+`src/lib/errors.ts`.
+
+**`server-only` bloqueia script de linha de comando.** Nada de
+`src/features/review/*` pode ser importado por um `tsx` avulso; script de
+apoio fala com o banco direto.
+
+**Cron mais frequente que diário faz a Vercel recusar o deploy inteiro** no
+plano Hobby, sem log. Por isso o cron é diário — e por isso o gatilho de
+verdade é o `after()` na mudança de etapa.

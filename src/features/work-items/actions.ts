@@ -16,7 +16,14 @@ import { assertCompanyAccess, requireUserAction, type CurrentUser } from "@/lib/
 import { dueDateFromInput } from "@/lib/date";
 import { isFormat, isSkill } from "@/lib/catalog";
 import { canLeaveStage, leaveDeniedMessage, presentationFor } from "@/lib/stages";
+import { pendingChecklist } from "@/features/review/checklist";
 import { REASON_MAX, REASON_MIN, needsReason } from "./rework";
+import {
+  FIX_STAGE,
+  onEnterReviewStage,
+  recordHumanDecision,
+  REVIEW_STAGE,
+} from "./review-bridge";
 
 export type ActionState = { error?: string; ok?: boolean; id?: string };
 
@@ -198,6 +205,26 @@ export async function setStage(
       if (clean.length > REASON_MAX) return fail("Motivo muito longo.");
     }
 
+    const forward = from ? target.position > from.position : true;
+
+    /**
+     * O checklist da aprovacao trava a saida para frente, e so para frente.
+     *
+     * Mandar a peca de volta para ajuste nao precisa de checklist respondido —
+     * quem devolveu ja viu o que estava errado. Exigir ali so ensinaria o time
+     * a marcar tudo para conseguir devolver.
+     */
+    if (from?.slug === "aprovacao" && forward) {
+      const faltam = await pendingChecklist(item);
+      if (faltam > 0) {
+        return fail(
+          faltam === 1
+            ? "Falta 1 item do checklist de aprovação."
+            : `Faltam ${faltam} itens do checklist de aprovação.`,
+        );
+      }
+    }
+
     await db
       .update(workItems)
       .set({
@@ -213,6 +240,21 @@ export async function setStage(
       para: target.name,
       ...(needsReason(from, target) ? { motivo: clean } : {}),
     });
+
+    /**
+     * O revisor entra aqui, e so aqui: a etapa e o gatilho.
+     *
+     * Chamar do cliente daria duas portas para a mesma coisa, e a segunda
+     * porta e sempre a que esquece de validar alguma coisa.
+     */
+    if (target.slug === REVIEW_STAGE) {
+      await onEnterReviewStage(item, user.id);
+    }
+
+    // Saiu da revisao ou do ajuste pela mao de alguem: e a resposta ao parecer.
+    if (from?.slug === REVIEW_STAGE || from?.slug === FIX_STAGE) {
+      await recordHumanDecision(id, user.id, forward);
+    }
 
     refresh();
     return { ok: true };
@@ -362,6 +404,32 @@ export async function setTitle(id: string, title: string): Promise<ActionState> 
     return { ok: true };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Não foi possível renomear.");
+  }
+}
+
+/**
+ * A copy entregue — o texto que vai ser publicado.
+ *
+ * Separada do briefing de proposito: e a unica coisa que a revisao automatica
+ * le. Colar a peca no campo de descricao faria o revisor apontar erro no
+ * pedido de quem abriu a tarefa, e nenhuma correcao chegaria a peca.
+ */
+export async function setCopy(id: string, copy: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    await loadItem(user, id);
+
+    const clean = copy.trim();
+    await db
+      .update(workItems)
+      .set({ copy: clean || null, updatedAt: new Date() })
+      .where(eq(workItems.id, id));
+
+    await log(user.orgId, id, user.id, "item.copy_changed");
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Nao foi possivel salvar a copy.");
   }
 }
 

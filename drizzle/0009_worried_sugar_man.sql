@@ -1,0 +1,1 @@
+ALTER TABLE "review_cycles" ADD COLUMN "overlaps" jsonb DEFAULT '[]'::jsonb NOT NULL;

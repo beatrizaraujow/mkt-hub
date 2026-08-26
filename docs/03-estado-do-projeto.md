@@ -155,6 +155,8 @@ apontado para produção **antes** do push — código novo com banco velho queb
   hora de julgar, com o motivo escrito
 - Classificar as regras em máquina / pessoa / fora de escopo, na tela **Revisor → Regras**.
   Enquanto não houver regra cadastrada, o revisor não emite parecer — de propósito
+- Rodar a Revisão IA em **silencioso** por um período antes de virar a chave, comparando o
+  parecer com o que o time decidiu na tela **Revisor → Medição**
 
 **Conhecidas, do lado técnico:**
 
@@ -164,6 +166,9 @@ apontado para produção **antes** do push — código novo com banco velho queb
 - Variáveis do escopo Preview não configuradas (o CLI da Vercel exige prompt)
 - Não existe número sequencial de tarefa; referir tarefa por número em conversa seria útil
 - Dados de teste no banco: duas tarefas, uma subtarefa, um link e alguns registros de tempo
+- No banco de **desenvolvimento** ficaram quatro regras de exemplo (SB-01 a SB-04), três itens de
+  checklist e a entrega "Peça de teste do revisor", com três rodadas de parecer. Servem para
+  conhecer a tela; apagar quando as regras reais entrarem
 
 ## O que falta
 
@@ -177,8 +182,13 @@ rodando durante a migração. Decisão pendente.
 
 **V2:** esteira de conteúdo, captações, capacidade da semana, templates de projeto.
 
-**V3:** revisor automático de entregas. O caminho inteiro existe e foi provado ponta a ponta —
-tabelas, fila, porteiro, julgamento, parecer e a tela onde a área de negócio cadastra as
-regras. Ver [04-revisor.md](04-revisor.md). O que falta não é código: é a chave do modelo e as
-regras classificadas em máquina / pessoa / fora de escopo. Sem regra cadastrada o porteiro
-barra e diz exatamente isso, em vez de inventar parecer.
+**Revisão IA — pronta, em silencioso.** Entregue em 26/08/2026 e provada ponta a ponta: a etapa
+`REVISÃO IA` é o gatilho, o porteiro barra entrada incompleta antes de gastar chamada, o
+julgamento lê **a copy da entrega** (campo próprio, separado do briefing), o parecer cita a regra
+e um trecho literal — achado que inventa regra ou inventa citação é descartado no servidor —, o
+veredito sai de função pura com teste, o checklist humano trava a saída de `APROVAÇÃO`, e a
+medição mostra a taxa de reversão. Nasce em silencioso: emite parecer e não move nada.
+Ver [04-revisor.md](04-revisor.md).
+
+O que falta não é código: é a chave do modelo e as regras escritas e classificadas. Sem regra
+cadastrada o porteiro barra e diz exatamente isso, em vez de inventar parecer.

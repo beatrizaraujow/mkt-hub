@@ -23,6 +23,7 @@ import {
   setDueDate,
   setFormat,
   setPoints,
+  setCopy,
   setPriority,
   setSkill,
   setStage,
@@ -41,6 +42,8 @@ import {
   type PersonOption,
 } from "./field-controls";
 import { AttachmentList, type AttachmentRow } from "@/features/attachments/attachment-list";
+import { ReviewCard } from "@/features/review/review-card";
+import type { ReviewPanel } from "@/features/review/panel-data";
 import { BriefingCard } from "@/features/requests/briefing-card";
 import type { RequestInfo } from "./queries";
 
@@ -48,6 +51,9 @@ export type DetailData = {
   id: string;
   title: string;
   description: string | null;
+  /** O texto entregue. E o unico que a revisao automatica le. */
+  copy: string | null;
+  review: ReviewPanel | null;
   priority: "urgente" | "alta" | "media" | "baixa";
   dueDate: Date | null;
   completedAt: Date | null;
@@ -178,6 +184,7 @@ export function DetailPanel({
   const [tab, setTab] = useState<Tab>("trabalho");
   const [draftTitle, setDraftTitle] = useState(item.title);
   const [draftDesc, setDraftDesc] = useState(item.description ?? "");
+  const [draftCopy, setDraftCopy] = useState(item.copy ?? "");
   const [newCheck, setNewCheck] = useState("");
   const [subOpen, setSubOpen] = useState(false);
   /** Etapa escolhida que ainda espera o motivo da volta. */
@@ -189,6 +196,8 @@ export function DetailPanel({
 
   // A etapa muda na hora. Se o servidor recusar, volta sozinha.
   const [shownStageId, setShownStage] = useOptimistic(item.stageId);
+
+  const currentStage = item.stages.find((s) => s.id === shownStageId);
 
   const anyTimer = timerRunning || Boolean(runningSubtaskId);
   const now = useNowSeconds(anyTimer);
@@ -447,6 +456,33 @@ export function DetailPanel({
                       className="w-full resize-y rounded-[var(--radius-control)] border border-line bg-surface p-2.5 text-[13.5px] leading-relaxed text-ink placeholder:text-faint focus:border-accent focus:outline-none"
                     />
                   </section>
+
+                  <section>
+                    <h3 className="label-mono mb-2">Copy da entrega</h3>
+                    <textarea
+                      value={draftCopy}
+                      onChange={(e) => setDraftCopy(e.target.value)}
+                      onBlur={() => {
+                        if (draftCopy !== (item.copy ?? "")) {
+                          run(() => setCopy(item.id, draftCopy));
+                        }
+                      }}
+                      rows={4}
+                      placeholder="Legenda, roteiro, títulos do carrossel, CTA…"
+                      className="w-full resize-y rounded-[var(--radius-control)] border border-line bg-surface p-2.5 text-[13.5px] leading-relaxed text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+                    />
+                    <p className="mt-1 text-[11.5px] text-faint">
+                      É este texto que a revisão automática lê — o briefing acima ela ignora.
+                    </p>
+                  </section>
+
+                  {item.review ? (
+                    <ReviewCard
+                      workItemId={item.id}
+                      panel={item.review}
+                      stageSlug={currentStage?.slug ?? ""}
+                    />
+                  ) : null}
 
                   <section>
                     <h3 className="label-mono mb-2 flex items-center gap-2">

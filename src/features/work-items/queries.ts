@@ -17,6 +17,7 @@ import {
 import type { CurrentUser } from "@/lib/auth";
 import { addDays, brtToday, endOfBrtDay, startOfBrtDay } from "@/lib/date";
 import { PREVIEW_TTL_SECONDS, signedUrl, storageConfigured } from "@/lib/storage";
+import { reviewPanelFor } from "@/features/review/panel-data";
 import { isImage } from "@/lib/upload-rules";
 
 export type WorkItemRow = {
@@ -381,9 +382,13 @@ export async function getItemDetail(user: CurrentUser, id: string) {
 
   const filesWithPreview = await withPreviews(files);
 
+  const review = await reviewPanelFor(full);
+
   return {
     ...item,
     description: full?.description ?? null,
+    copy: full?.copy ?? null,
+    review,
     points: full?.points ?? null,
     skill: full?.skill ?? null,
     format: full?.format ?? null,

@@ -1,60 +1,66 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
-  attachments,
   companies,
   reviewCycles,
   reviewFindings,
   workItems,
-  type Attachment,
   type ReviewRule,
+  type WorkItem,
 } from "@/db/schema";
-import { signedUrl } from "@/lib/storage";
-import { extensionOf, isImage, mimeFor } from "@/lib/upload-rules";
-import { askModel, ModelError, type Block } from "./model";
-import { machineRules, rulesFor } from "./rules";
+import { quotesTheCopy } from "./copy";
+import { filesOf, loadFiles } from "./files";
+import { askModel, ModelError } from "./model";
+import type { Overlap } from "./resolve";
+import { applicableRules, machineRules } from "./rules";
+import { shouldEscalate, verdictFrom, type Verdict } from "./verdict";
 
 /**
  * O julgamento.
  *
- * Três coisas não se quebram aqui, e cada uma existe por um jeito específico
- * de esse tipo de sistema morrer:
+ * Quatro coisas não se quebram aqui, e cada uma existe por um jeito
+ * específico de esse tipo de sistema morrer:
  *
  * 1. **O sistema nunca inventa critério.** O modelo recebe as regras da tabela
  *    e só pode citar o código de uma delas. Achado que cita regra inexistente
  *    é descartado — porque é exatamente assim que um revisor automático
  *    reprova uma entrega boa e perde o time para sempre.
  *
- * 2. **A regra violada decide, a nota não.** Não existe nota. O veredito é
- *    calculado **aqui**, em código: violou inegociável, reprova. Pedir a nota
- *    ao modelo daria um número que oscila entre execuções e que ninguém
- *    consegue explicar.
+ * 2. **O modelo não tem a palavra final sobre o que sobrevive.** Todo achado
+ *    cita um trecho, e o trecho precisa estar na peça. Citação que a peça não
+ *    tem é descartada aqui, no servidor.
  *
- * 3. **Falha técnica nunca vira veredito.** Qualquer erro sobe como
+ * 3. **A regra violada decide, a nota não.** Não existe nota em lugar nenhum.
+ *    O veredito sai de uma função pura, em `verdict.ts`.
+ *
+ * 4. **Falha técnica nunca vira veredito.** Qualquer erro sobe como
  *    `ModelError` e vira ciclo `falhou`. Nunca "aprovado por não ter achado
  *    nada".
  */
 
-/** Teto de arquivos por parecer. Acima disso o custo cresce e a atenção cai. */
-const MAX_FILES = 6;
-
-/**
- * Teto de bytes mandados ao modelo por rodada. O upload já para em 4MB por
- * arquivo; isto aqui é o teto da soma, para seis anexos não virarem um pedido
- * de 24MB que estoura no meio.
- */
-const MAX_TOTAL_BYTES = 12 * 1024 * 1024;
+/** Ver `files.ts`: o julgamento de arte fica guardado, desligado, atrás disto. */
+export const READS_FILES = process.env.REVIEW_READ_FILES === "1";
 
 const answerSchema = z.object({
   achados: z
     .array(
       z.object({
         regra: z.string(),
-        detalhe: z.string().min(1).max(1200),
-        arquivo: z.string().nullish(),
-        evidencia: z.string().max(600).nullish(),
+        trecho: z.string().min(1).max(600),
+        problema: z.string().min(1).max(800),
+        sugestao: z.string().max(800).nullish(),
+      }),
+    )
+    .default([]),
+  portugues: z
+    .array(
+      z.object({
+        trecho: z.string().min(1).max(300),
+        correcao: z.string().min(1).max(300),
+        tipo: z.string().max(40).nullish(),
       }),
     )
     .default([]),
@@ -67,14 +73,15 @@ const TOOL = {
   name: "registrar_parecer",
   description:
     "Registra o resultado da revisão: os problemas encontrados, cada um citando o código " +
-    "de uma regra recebida, e as regras que não deu para conferir.",
+    "de uma regra recebida e um trecho literal da copy, as correções de português e as " +
+    "regras que não deu para conferir.",
   schema: {
     type: "object",
     properties: {
       achados: {
         type: "array",
         description:
-          "Um item por problema encontrado. Vazio quando a peça cumpre todas as regras conferíveis.",
+          "Um item por problema encontrado. Vazio quando a copy cumpre todas as regras conferíveis.",
         items: {
           type: "object",
           properties: {
@@ -82,17 +89,36 @@ const TOOL = {
               type: "string",
               description: "O código exato de uma regra recebida. Nunca um código inventado.",
             },
-            detalhe: {
+            trecho: {
               type: "string",
-              description: "O que foi visto, em uma ou duas frases, na peça concreta.",
+              description:
+                "Texto copiado literalmente da copy, palavra por palavra. Se o problema for a " +
+                "ausência de algo, cite o trecho onde a falta aparece.",
             },
-            arquivo: { type: "string", description: "Nome do arquivo em que apareceu." },
-            evidencia: {
+            problema: { type: "string", description: "O que está errado, em uma frase." },
+            sugestao: {
               type: "string",
-              description: "Onde exatamente: trecho citado, posição, elemento.",
+              description: "Texto pronto para substituir o trecho.",
             },
           },
-          required: ["regra", "detalhe"],
+          required: ["regra", "trecho", "problema"],
+        },
+      },
+      portugues: {
+        type: "array",
+        description:
+          "Erros de português, separados dos achados. Não são violação de regra e não reprovam nada.",
+        items: {
+          type: "object",
+          properties: {
+            trecho: { type: "string" },
+            correcao: { type: "string" },
+            tipo: {
+              type: "string",
+              description: "ortografia, gramatica, pontuacao ou concordancia.",
+            },
+          },
+          required: ["trecho", "correcao"],
         },
       },
       nao_verificadas: {
@@ -102,119 +128,114 @@ const TOOL = {
           "isto é obrigatório quando for o caso: silêncio aqui vira promessa falsa de cobertura.",
         items: {
           type: "object",
-          properties: {
-            regra: { type: "string" },
-            motivo: { type: "string" },
-          },
+          properties: { regra: { type: "string" }, motivo: { type: "string" } },
           required: ["regra", "motivo"],
         },
       },
     },
-    required: ["achados", "nao_verificadas"],
+    required: ["achados", "portugues", "nao_verificadas"],
   },
 } as const;
 
 const SYSTEM = [
-  "Você revisa peças de marketing contra uma lista de regras, e só contra ela.",
+  "Você revisa o texto de peças de marketing contra uma lista de regras, e só contra ela.",
   "",
-  "O que você recebe: a descrição da entrega, as regras que se aplicam a ela e os arquivos entregues.",
+  "O que você recebe: o contexto da entrega, as regras que se aplicam e a copy entregue.",
   "",
   "Como trabalhar:",
   "- Confira apenas as regras recebidas. Não existe boa prática de mercado aqui: critério que não está na lista não é aplicado, ponto.",
-  "- Todo achado cita o código exato de uma regra recebida. Se o problema que você viu não corresponde a nenhuma regra, não registre.",
-  "- Um achado por problema concreto e observável. Diga o que está na peça, não o que poderia ficar melhor.",
+  "- Todo achado cita o código exato de uma regra recebida e um trecho copiado literalmente da copy. Trecho que não estiver na copy é descartado.",
+  "- Se o problema que você viu não corresponde a nenhuma regra recebida, não registre. Não é falha sua: é o limite do que foi combinado.",
+  "- Um achado por problema concreto e observável. Diga o que está no texto, não o que poderia ficar melhor.",
+  "- Não elogie. Não escreva 'gancho forte' nem 'boa copy'. Se não há problema, a lista vem vazia.",
+  "- Erro de português vai na lista de português, nunca em achados: ele se conserta em segundos e não reprova entrega nenhuma.",
   "- Se não deu para conferir uma regra com o que foi enviado, diga em nao_verificadas, com o motivo. Isso não é falha: é honestidade sobre a cobertura. Chutar seria pior.",
   "- Não dê nota, não classifique gravidade e não diga se aprova. Quem decide isso é o sistema, pela regra violada.",
-  "- Escreva em português do Brasil, direto, sem elogio e sem rodeio. Quem lê precisa saber o que corrigir.",
+  "- Não reescreva a peça e não opine sobre estratégia, formato ou emoji.",
+  "- Escreva em português do Brasil, direto. Quem lê precisa saber o que corrigir.",
 ].join("\n");
 
-/* ------------------------------------------------------------- os arquivos */
+/* ------------------------------------------------------- o pedido montado */
 
-type Loaded = { blocks: Block[]; sent: string[]; skipped: Array<{ name: string; why: string }> };
+export type Assembled = {
+  system: string;
+  briefing: string;
+  rules: ReviewRule[];
+  overlaps: Overlap[];
+  copy: string;
+  /** Impressão digital da entrada: copy mais as regras e as versões delas. */
+  hash: string;
+};
 
-/**
- * Baixa os anexos e transforma no que o modelo consegue ler.
- *
- * O que ele não consegue ler não vira problema nem é escondido: entra na lista
- * de ignorados, que aparece no parecer. Peça não lida virando "nenhum problema
- * encontrado" é a falha invisível deste sistema.
- */
-async function loadFiles(files: Attachment[]): Promise<Loaded> {
-  const blocks: Block[] = [];
-  const sent: string[] = [];
-  const skipped: Array<{ name: string; why: string }> = [];
-  let total = 0;
-
-  for (const file of files) {
-    if (sent.length >= MAX_FILES) {
-      skipped.push({ name: file.filename, why: `acima do limite de ${MAX_FILES} arquivos` });
-      continue;
-    }
-
-    const extension = extensionOf(file.filename);
-    const readable = isImage(file.filename) || extension === "pdf";
-
-    if (!readable) {
-      skipped.push({ name: file.filename, why: `o revisor não lê arquivo .${extension || "?"}` });
-      continue;
-    }
-
-    const url = await signedUrl(file.storageKey, 300);
-    if (!url) {
-      skipped.push({ name: file.filename, why: "não foi possível gerar o link do arquivo" });
-      continue;
-    }
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      skipped.push({ name: file.filename, why: `download falhou (${response.status})` });
-      continue;
-    }
-
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (total + bytes.length > MAX_TOTAL_BYTES) {
-      skipped.push({ name: file.filename, why: "a soma dos arquivos passou do teto da rodada" });
-      continue;
-    }
-    total += bytes.length;
-
-    const data = bytes.toString("base64");
-    const mime = file.mimeType || mimeFor(file.filename);
-
-    blocks.push({ type: "text", text: `Arquivo: ${file.filename}` });
-    blocks.push(
-      extension === "pdf"
-        ? { type: "document", source: { type: "base64", media_type: "application/pdf", data } }
-        : { type: "image", source: { type: "base64", media_type: mime, data } },
-    );
-    sent.push(file.filename);
-  }
-
-  return { blocks, sent, skipped };
+/** Uma regra como o modelo a recebe. O código vem primeiro: é o que se cita. */
+function ruleLine(rule: ReviewRule) {
+  const parts = [`- [${rule.code}] ${rule.text}`];
+  if (rule.machineHint) parts.push(`  Como conferir: ${rule.machineHint}`);
+  if (rule.rationale) parts.push(`  Por que existe: ${rule.rationale}`);
+  return parts.join("\n");
 }
 
-/* -------------------------------------------------------------- o veredito */
-
 /**
- * Binário e nomeável, calculado em código.
+ * Monta exatamente o que vai para o modelo, sem chamar ninguém.
  *
- * Violou regra inegociável, reprova. Achou algo que não é inegociável, ajusta.
- * Nada, passa. Quem recebe lê o nome da regra e sabe o que fazer — que é a
- * diferença entre um parecer que se discute e um que se ignora.
+ * Existe separado para a tela de diagnóstico poder mostrar o pedido inteiro,
+ * copiável, sem gastar uma chamada — e para que o que a tela mostra seja o
+ * mesmo texto que o julgamento manda, não uma simulação parecida que diverge
+ * com o tempo.
  */
-function verdictFrom(findings: Array<{ isBlocking: boolean }>) {
-  if (findings.some((finding) => finding.isBlocking)) return "reprovado" as const;
-  return findings.length > 0 ? ("ajustar" as const) : ("aprovado" as const);
+export async function assemble(
+  item: WorkItem,
+  companyName: string | null,
+): Promise<Assembled | { error: string }> {
+  const { rules: all, overlaps } = await applicableRules({
+    orgId: item.orgId,
+    companyId: item.companyId,
+    skill: item.skill,
+    format: item.format,
+  });
+
+  const rules = machineRules(all);
+  if (rules.length === 0) return { error: "Nenhuma regra de máquina para este recorte." };
+
+  const copy = item.copy?.trim() ?? "";
+  if (!copy) return { error: "A entrega não tem copy." };
+
+  const briefing = [
+    `Entrega: ${item.title}`,
+    `Empresa: ${companyName ?? "—"}`,
+    `Tipo de peça: ${item.skill ?? "—"}`,
+    item.format ? `Formato: ${item.format}` : null,
+    item.description ? `Contexto do pedido (não é a peça, não revise este texto):\n${item.description}` : null,
+    "",
+    "Regras a conferir:",
+    ...rules.map(ruleLine),
+    "",
+    "Copy entregue, entre as marcas:",
+    "<<<COPY",
+    copy,
+    "COPY",
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+
+  const signature = rules.map((rule) => `${rule.code}@${rule.version}`).join(",");
+  const hash = createHash("sha256").update(`${copy}\n--\n${signature}`).digest("hex");
+
+  return { system: SYSTEM, briefing, rules, overlaps, copy, hash };
 }
 
 /* ----------------------------------------------------------------- julgar */
 
 export type JudgeResult = {
-  verdict: "aprovado" | "ajustar" | "reprovado";
+  verdict: Verdict;
   findings: number;
   applied: string[];
   notVerified: Array<{ code: string; reason: string }>;
-  discarded: number;
+  language: number;
+  /** Achados jogados fora, por motivo. Contar importa: ver abaixo. */
+  discarded: { regra: number; trecho: number };
+  escalated: boolean;
+  reused: boolean;
   model: string;
   tokensIn: number | null;
   tokensOut: number | null;
@@ -237,57 +258,39 @@ export async function judgeCycle(cycleId: string): Promise<JudgeResult> {
     .where(eq(companies.id, item.companyId))
     .limit(1);
 
-  const rules = machineRules(
-    await rulesFor({
-      orgId: item.orgId,
-      companyId: item.companyId,
-      skill: item.skill,
-      format: item.format,
-    }),
-  );
+  const pedido = await assemble(item, company?.name ?? null);
 
-  // O porteiro já garantiu que existe regra. Se sumiu entre uma coisa e outra,
-  // para: parecer sem regra é opinião de robô.
-  if (rules.length === 0) {
-    throw new ModelError("Nenhuma regra de máquina para este recorte.", { retry: false });
-  }
+  // O porteiro já garantiu isto. Se mudou entre uma coisa e outra, para:
+  // parecer sem regra é opinião de robô, e copy vazia é julgar o nada.
+  if ("error" in pedido) throw new ModelError(pedido.error, { retry: false });
 
-  const files = await db
-    .select()
-    .from(attachments)
-    .where(and(eq(attachments.workItemId, item.id), eq(attachments.kind, "file")));
+  const history = await verdictHistory(cycle.workItemId, cycle.round);
 
-  const loaded = await loadFiles(files);
+  /**
+   * Mesma copy e mesmas regras: reaproveita o parecer.
+   *
+   * Não é só economia. Chamar de novo devolveria uma resposta ligeiramente
+   * diferente para a mesma entrada, e um revisor que muda de opinião sem nada
+   * ter mudado é um revisor que ninguém consegue defender numa reunião.
+   */
+  const reused = await reusePrevious(cycle.id, cycle.workItemId, pedido.hash, history);
+  if (reused) return reused;
 
-  if (loaded.sent.length === 0) {
-    throw new ModelError(
-      "Nenhum arquivo legível chegou ao revisor: " +
-        (loaded.skipped.map((row) => `${row.name} (${row.why})`).join("; ") || "sem anexos"),
-      { retry: false },
-    );
-  }
-
-  const briefing = [
-    `Entrega: ${item.title}`,
-    `Empresa: ${company?.name ?? "—"}`,
-    `Tipo de peça: ${item.skill ?? "—"}`,
-    item.format ? `Formato: ${item.format}` : null,
-    item.description ? `Descrição de quem pediu:\n${item.description}` : null,
-    "",
-    "Regras a conferir:",
-    ...rules.map(ruleLine),
-    loaded.skipped.length
-      ? "\nArquivos que não chegaram até você: " +
-        loaded.skipped.map((row) => `${row.name} (${row.why})`).join("; ") +
-        ". Não julgue o que não recebeu."
-      : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  /**
+   * Desligado, esta versão manda só o texto. Ligado, os anexos legíveis vão
+   * junto — e os que não deram para ler vão escritos, porque arquivo não lido
+   * virando "nenhum problema encontrado" é a falha invisível deste sistema.
+   */
+  const extra = READS_FILES ? await loadFiles(await filesOf(item.id)) : null;
+  const ignored = extra?.skipped.length
+    ? "\n\nArquivos que não chegaram até você: " +
+      extra.skipped.map((row) => `${row.name} (${row.why})`).join("; ") +
+      ". Não julgue o que não recebeu."
+    : "";
 
   const answer = await askModel({
-    system: SYSTEM,
-    content: [{ type: "text", text: briefing }, ...loaded.blocks],
+    system: pedido.system,
+    content: [{ type: "text", text: pedido.briefing + ignored }, ...(extra?.blocks ?? [])],
     tool: { name: TOOL.name, description: TOOL.description, schema: TOOL.schema },
   });
 
@@ -300,20 +303,27 @@ export async function judgeCycle(cycleId: string): Promise<JudgeResult> {
     });
   }
 
-  const byCode = new Map(rules.map((rule) => [rule.code.toLowerCase(), rule]));
-  const fileByName = new Map(files.map((file) => [file.filename, file.id]));
+  const byCode = new Map(pedido.rules.map((rule) => [rule.code.trim().toLowerCase(), rule]));
 
   /**
-   * Achado que cita regra inexistente é descartado, e o descarte é contado.
-   * Contar importa: descarte que sobe de repente é sinal de que o pedido ficou
-   * confuso, ou de que alguém apagou uma regra no meio do caminho.
+   * Os dois descartes são contados separados de propósito.
+   *
+   * Descarte por regra inexistente que sobe de repente é sinal de que o pedido
+   * ficou confuso, ou de que alguém apagou uma regra no meio. Descarte por
+   * trecho inventado é sinal de que o modelo está alucinando citação — e esse
+   * é o número que decide trocar de modelo.
    */
-  let discarded = 0;
+  const discarded = { regra: 0, trecho: 0 };
 
   const rows = parsed.data.achados.flatMap((found) => {
     const rule = byCode.get(found.regra.trim().toLowerCase());
     if (!rule) {
-      discarded += 1;
+      discarded.regra += 1;
+      return [];
+    }
+
+    if (!quotesTheCopy(pedido.copy, found.trecho)) {
+      discarded.trecho += 1;
       return [];
     }
 
@@ -325,13 +335,14 @@ export async function judgeCycle(cycleId: string): Promise<JudgeResult> {
         // Texto congelado: apagar a regra não pode apagar a história de
         // quando ela foi aplicada.
         ruleText: rule.text,
-        detail: found.detalhe,
+        detail: found.problema,
         evidence: {
-          arquivo: found.arquivo ?? null,
-          trecho: found.evidencia ?? null,
+          trecho: found.trecho,
+          sugestao: found.sugestao ?? null,
+          versao: rule.version,
         } as Record<string, unknown>,
         isBlocking: rule.isBlocking,
-        attachmentId: found.arquivo ? (fileByName.get(found.arquivo) ?? null) : null,
+        attachmentId: null,
       },
     ];
   });
@@ -341,7 +352,17 @@ export async function judgeCycle(cycleId: string): Promise<JudgeResult> {
     return rule ? [{ code: rule.code, reason: row.motivo }] : [];
   });
 
+  /** Correção que não aparece no texto também não entra: o mesmo critério. */
+  const language = parsed.data.portugues
+    .filter((note) => quotesTheCopy(pedido.copy, note.trecho))
+    .map((note) => ({
+      trecho: note.trecho,
+      correcao: note.correcao,
+      tipo: note.tipo ?? "revisão",
+    }));
+
   const verdict = verdictFrom(rows);
+  const escalated = shouldEscalate(history, verdict);
 
   if (rows.length > 0) await db.insert(reviewFindings).values(rows);
 
@@ -350,8 +371,12 @@ export async function judgeCycle(cycleId: string): Promise<JudgeResult> {
     .set({
       status: "emitido",
       verdict,
-      appliedRules: rules.map((rule) => rule.code),
+      appliedRules: pedido.rules.map((rule) => rule.code),
       notVerified,
+      languageNotes: language,
+      overlaps: pedido.overlaps,
+      inputHash: pedido.hash,
+      escalated,
       finishedAt: new Date(),
     })
     .where(eq(reviewCycles.id, cycle.id));
@@ -359,19 +384,118 @@ export async function judgeCycle(cycleId: string): Promise<JudgeResult> {
   return {
     verdict,
     findings: rows.length,
-    applied: rules.map((rule) => rule.code),
+    applied: pedido.rules.map((rule) => rule.code),
     notVerified,
+    language: language.length,
     discarded,
+    escalated,
+    reused: false,
     model: answer.model,
     tokensIn: answer.tokensIn,
     tokensOut: answer.tokensOut,
   };
 }
 
-/** Uma regra como o modelo a recebe. O código vem primeiro: é o que se cita. */
-function ruleLine(rule: ReviewRule) {
-  const parts = [`- [${rule.code}] ${rule.text}`];
-  if (rule.machineHint) parts.push(`  Como conferir: ${rule.machineHint}`);
-  if (rule.rationale) parts.push(`  Por que existe: ${rule.rationale}`);
-  return parts.join("\n");
+/* --------------------------------------------------------------- apoio */
+
+/** Os vereditos anteriores da mesma entrega, do mais antigo para o mais novo. */
+async function verdictHistory(workItemId: string, round: number): Promise<Array<Verdict | null>> {
+  const rows = await db
+    .select({ verdict: reviewCycles.verdict, round: reviewCycles.round })
+    .from(reviewCycles)
+    .where(eq(reviewCycles.workItemId, workItemId))
+    .orderBy(asc(reviewCycles.round));
+
+  return rows.filter((row) => row.round < round).map((row) => row.verdict);
+}
+
+/**
+ * Procura um parecer anterior para a mesma entrada e o repete neste ciclo.
+ *
+ * Copia os achados em vez de apontar para os antigos: o achado pertence ao
+ * ciclo em que apareceu, e um parecer que some porque o ciclo velho foi
+ * apagado é pior que um achado duplicado.
+ */
+async function reusePrevious(
+  cycleId: string,
+  workItemId: string,
+  hash: string,
+  history: Array<Verdict | null>,
+): Promise<JudgeResult | null> {
+  const [previous] = await db
+    .select()
+    .from(reviewCycles)
+    .where(
+      and(
+        eq(reviewCycles.workItemId, workItemId),
+        eq(reviewCycles.status, "emitido"),
+        eq(reviewCycles.inputHash, hash),
+        isNotNull(reviewCycles.verdict),
+      ),
+    )
+    .orderBy(asc(reviewCycles.round))
+    .limit(1);
+
+  if (!previous || previous.id === cycleId) return null;
+
+  /**
+   * O escalonamento e recalculado, nunca copiado.
+   *
+   * O parecer se repete porque a entrada nao mudou; a **contagem de
+   * reprovacoes seguidas** mudou, e e ela que decide chamar gente. Copiar o
+   * `escalated` do ciclo anterior faria a trava de pingue-pongue nunca
+   * disparar justamente no caso em que ela mais importa: a peca voltando
+   * igual pela terceira vez.
+   */
+  const escalated = shouldEscalate(history, previous.verdict as Verdict);
+
+  const old = await db
+    .select()
+    .from(reviewFindings)
+    .where(eq(reviewFindings.cycleId, previous.id));
+
+  if (old.length > 0) {
+    await db.insert(reviewFindings).values(
+      old.map((finding) => ({
+        cycleId,
+        ruleId: finding.ruleId,
+        ruleCode: finding.ruleCode,
+        ruleText: finding.ruleText,
+        detail: finding.detail,
+        evidence: finding.evidence,
+        isBlocking: finding.isBlocking,
+        attachmentId: finding.attachmentId,
+      })),
+    );
+  }
+
+  await db
+    .update(reviewCycles)
+    .set({
+      status: "emitido",
+      verdict: previous.verdict,
+      appliedRules: previous.appliedRules,
+      notVerified: previous.notVerified,
+      languageNotes: previous.languageNotes,
+      overlaps: previous.overlaps,
+      inputHash: hash,
+      reusedFromId: previous.id,
+      escalated,
+      finishedAt: new Date(),
+    })
+    .where(eq(reviewCycles.id, cycleId));
+
+  return {
+    verdict: previous.verdict as Verdict,
+    findings: old.length,
+    applied: previous.appliedRules,
+    notVerified: previous.notVerified,
+    language: previous.languageNotes.length,
+    discarded: { regra: 0, trecho: 0 },
+    escalated,
+    reused: true,
+    model: "(parecer reaproveitado)",
+    tokensIn: 0,
+    tokensOut: 0,
+  };
 }

@@ -62,6 +62,7 @@ permanente — antes de sugerir biblioteca, escreva a função.
 ```bash
 npm run dev        # http://localhost:3010 (via preview mkt-hub)
 npm run typecheck
+npm run test       # funcoes puras do revisor (veredito, camadas, copy)
 npm run db:push    # aplica o schema no Supabase (usa DIRECT_URL, porta 5432)
 npm run seed       # organização, 4 empresas, pipelines e o primeiro admin
 ```
@@ -70,7 +71,8 @@ npm run seed       # organização, 4 empresas, pipelines e o primeiro admin
 `SESSION_SECRET` (32+ caracteres). Para anexos, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`.
 Para o revisor, `CRON_SECRET` e `ANTHROPIC_API_KEY` — sem a chave do modelo ele falha
 explicitamente, que é o comportamento certo: **falha técnica nunca vira veredito**.
-`REVIEW_MODEL` troca o modelo sem mexer em código.
+`REVIEW_MODEL` troca o modelo sem mexer em código, e `REVIEW_READ_FILES=1` religa a leitura de
+imagem e PDF, guardada desligada (esta versão revisa texto).
 
 **O `.env.local` aponta para o banco de desenvolvimento** (`mkt-hub-dev`, ref `hqohquknxgiywpokmndp`),
 nunca para produção — as variáveis de produção vivem na Vercel e não passam por este arquivo.

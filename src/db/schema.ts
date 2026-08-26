@@ -69,6 +69,13 @@ export const cycleVerdict = pgEnum("review_verdict", ["aprovado", "ajustar", "re
 /** Estado tecnico de uma execucao. Separado do veredito de proposito. */
 export const runState = pgEnum("review_run_state", ["na_fila", "rodando", "concluida", "falhou"]);
 
+/**
+ * O que a pessoa achou do parecer depois. Sem registrar isso nao existe taxa
+ * de reversao — e a taxa de reversao e a metrica que decide se a ferramenta
+ * fica ou sai.
+ */
+export const humanVerdict = pgEnum("review_human_verdict", ["concordou", "discordou"]);
+
 /* ---------------------------------------------------------- organizacoes */
 
 export const organizations = pgTable("organizations", {
@@ -250,6 +257,16 @@ export const workItems = pgTable(
     type: workItemType("type").notNull().default("task"),
     title: text("title").notNull(),
     description: text("description"),
+
+    /**
+     * O texto **entregue** — legenda, roteiro, titulos do carrossel, CTA.
+     *
+     * Separado de `description` de proposito: aquela e o pedido de quem abriu
+     * a tarefa. Julgar o briefing achando que e a peca faria o revisor apontar
+     * erro de portugues no texto de quem pediu, e nenhuma correcao chegaria a
+     * peca de verdade.
+     */
+    copy: text("copy"),
 
     stageId: uuid("stage_id")
       .notNull()
@@ -497,6 +514,22 @@ export const reviewRules = pgTable(
     /** O que a maquina procura. So faz sentido com `verifier = maquina`. */
     machineHint: text("machine_hint"),
 
+    /**
+     * A regra de camada mais generica que esta aqui substitui.
+     *
+     * O conflito entre camadas e **declarado**, nunca adivinhado: duas regras
+     * sobre o mesmo assunto nao tem como ser detectadas por texto, e um
+     * sistema que tenta adivinhar acerta na demonstracao e erra em producao.
+     * Declarada a sobreposicao, a mais especifica vence e o parecer registra
+     * qual perdeu — conflito silencioso e bug.
+     */
+    overridesRuleId: uuid("overrides_rule_id").references((): AnyPgColumn => reviewRules.id, {
+      onDelete: "set null",
+    }),
+
+    /** Sobe a cada edicao do texto. E o que o parecer cita como versao. */
+    version: integer("version").notNull().default(1),
+
     isActive: boolean("is_active").notNull().default(true),
     position: doublePrecision("position").notNull().default(1000),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -598,6 +631,55 @@ export const reviewCycles = pgTable(
      */
     isSilent: boolean("is_silent").notNull().default(true),
 
+    /**
+     * Correcoes de portugues. Lista separada dos achados, e de proposito:
+     * erro de virgula nao reprova entrega nenhuma. Vira conserto de trinta
+     * segundos, nao veredito.
+     */
+    languageNotes: jsonb("language_notes")
+      .$type<Array<{ trecho: string; correcao: string; tipo: string }>>()
+      .notNull()
+      .default([]),
+
+    /**
+     * Onde uma camada substituiu a outra neste parecer.
+     *
+     * Sem isto, a regra substituida simplesmente nao aparece na cobertura, e
+     * quem le o parecer seis meses depois nao tem como saber se ela foi
+     * trocada ou se nunca existiu. Conflito silencioso e bug.
+     */
+    overlaps: jsonb("overlaps")
+      .$type<Array<{ winner: string; loser: string; applied: boolean; why: string }>>()
+      .notNull()
+      .default([]),
+
+    /**
+     * Impressao digital da entrada: a copy mais a versao das regras que se
+     * aplicavam. Mesma entrada, mesmo parecer — reaproveita em vez de pagar a
+     * chamada de novo e receber uma resposta ligeiramente diferente.
+     */
+    inputHash: text("input_hash"),
+    reusedFromId: uuid("reused_from_id").references((): AnyPgColumn => reviewCycles.id, {
+      onDelete: "set null",
+    }),
+
+    /**
+     * Terceira reprovacao seguida: o sistema para de decidir e chama gente.
+     * Ciclo infinito de IA reprovando e designer ajustando e pior que nao ter
+     * revisao — cansa o time e o parecer vira ruido que se aprende a pular.
+     */
+    escalated: boolean("escalated").notNull().default(false),
+
+    /**
+     * O que a pessoa decidiu depois de ler o parecer. Preenchido quando alguem
+     * tira o item de `ajustar` ou de `revisao_ia`.
+     */
+    humanVerdict: humanVerdict("human_verdict"),
+    humanDecidedById: uuid("human_decided_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    humanDecidedAt: timestamp("human_decided_at", { withTimezone: true }),
+
     /** Quem pediu. Nulo quando veio de gatilho automatico. */
     requestedById: uuid("requested_by_id").references(() => users.id, { onDelete: "set null" }),
 
@@ -692,6 +774,30 @@ export const reviewFindings = pgTable(
   (t) => [index("review_findings_cycle_idx").on(t.cycleId)],
 );
 
+/**
+ * O que a pessoa respondeu no checklist, por entrega.
+ *
+ * Guardado por item e nao por ciclo: o checklist e da etapa de aprovacao, nao
+ * da rodada de IA — a peca pode chegar la sem nunca ter passado pelo robo.
+ */
+export const reviewChecklistAnswers = pgTable(
+  "review_checklist_answers",
+  {
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => workItems.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => reviewChecklistItems.id, { onDelete: "cascade" }),
+
+    checked: boolean("checked").notNull().default(false),
+
+    answeredById: uuid("answered_by_id").references(() => users.id, { onDelete: "set null" }),
+    answeredAt: timestamp("answered_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workItemId, t.itemId] })],
+);
+
 /** O que muda sem deploy: datas de corte, limites, chaves de comportamento. */
 export const reviewSettings = pgTable(
   "review_settings",
@@ -727,6 +833,8 @@ export type ReviewChecklistItem = typeof reviewChecklistItems.$inferSelect;
 export type ReviewCycle = typeof reviewCycles.$inferSelect;
 export type ReviewRun = typeof reviewRuns.$inferSelect;
 export type ReviewFinding = typeof reviewFindings.$inferSelect;
+export type ReviewChecklistAnswer = typeof reviewChecklistAnswers.$inferSelect;
+export type HumanVerdict = (typeof humanVerdict.enumValues)[number];
 export type RuleVerifier = (typeof ruleVerifier.enumValues)[number];
 export type CycleStatus = (typeof cycleStatus.enumValues)[number];
 export type CycleVerdict = (typeof cycleVerdict.enumValues)[number];

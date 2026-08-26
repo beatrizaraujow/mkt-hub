@@ -1,11 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { reviewCycles, reviewRuns, workItems } from "@/db/schema";
+import { reviewChecklistAnswers, reviewCycles, reviewRuns, workItems } from "@/db/schema";
 import { assertCompanyAccess, requireUserAction } from "@/lib/auth";
+import { applyVerdicts } from "@/features/work-items/review-bridge";
+import { drainReviewQueue } from "./drain";
 import { enqueueReview } from "./queue";
+import { reviewMode } from "./settings";
 
 export type ReviewState = { error?: string; ok?: boolean; cycleId?: string; round?: number };
 
@@ -48,6 +52,18 @@ export async function requestReview(workItemId: string): Promise<ReviewState> {
       orgId: item.orgId,
       workItemId: item.id,
       requestedById: user.id,
+      isSilent: (await reviewMode(item.orgId)) === "silencioso",
+    });
+
+    /**
+     * Processa depois de responder, nao dentro da resposta: quem clicou nao
+     * fica olhando para uma tela travada. O cron continua sendo a rede — se
+     * este processamento morrer no meio, a reserva expira e a execucao volta
+     * a ser pega.
+     */
+    after(async () => {
+      const report = await drainReviewQueue();
+      await applyVerdicts(report.emitidos);
     });
 
     revalidatePath("/trabalho");
@@ -115,4 +131,42 @@ export async function cyclesFor(workItemId: string): Promise<CycleSummary[]> {
       lastError: own.find((run) => run.error)?.error ?? null,
     };
   });
+}
+
+/**
+ * Marca ou desmarca um item do checklist humano.
+ *
+ * Guardado por entrega e nao por rodada de IA: o checklist e da etapa de
+ * aprovacao, e a peca pode chegar la sem nunca ter passado pelo robo.
+ */
+export async function answerChecklist(
+  workItemId: string,
+  itemId: string,
+  checked: boolean,
+): Promise<ReviewState> {
+  try {
+    const user = await requireUserAction();
+
+    const [item] = await db
+      .select({ companyId: workItems.companyId })
+      .from(workItems)
+      .where(eq(workItems.id, workItemId))
+      .limit(1);
+
+    if (!item) return { error: "Tarefa nao encontrada." };
+    assertCompanyAccess(user, item.companyId);
+
+    await db
+      .insert(reviewChecklistAnswers)
+      .values({ workItemId, itemId, checked, answeredById: user.id })
+      .onConflictDoUpdate({
+        target: [reviewChecklistAnswers.workItemId, reviewChecklistAnswers.itemId],
+        set: { checked, answeredById: user.id, answeredAt: new Date() },
+      });
+
+    revalidatePath("/trabalho");
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Nao foi possivel responder." };
+  }
 }

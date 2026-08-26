@@ -8,6 +8,7 @@ import { reviewChecklistItems, reviewRules } from "@/db/schema";
 import { assertCanManage, requireUserAction } from "@/lib/auth";
 import { isFormat, isSkill } from "@/lib/catalog";
 import { describeError, errorMentions } from "@/lib/errors";
+import { setCompanyEnabled, setReviewMode } from "./settings";
 
 /**
  * A área de negócio muda regra sem abrir chamado de desenvolvimento.
@@ -47,6 +48,7 @@ const ruleSchema = z.object({
   companyId: optional,
   skill: optional,
   format: optional,
+  overridesRuleId: optional,
 });
 
 function readForm(form: FormData) {
@@ -61,6 +63,7 @@ function readForm(form: FormData) {
     companyId: String(form.get("companyId") ?? ""),
     skill: String(form.get("skill") ?? ""),
     format: String(form.get("format") ?? ""),
+    overridesRuleId: String(form.get("overridesRuleId") ?? ""),
   };
 }
 
@@ -92,6 +95,9 @@ export async function saveRule(_prev: RulesState, form: FormData): Promise<Rules
      */
     const machineHint = data.verifier === "maquina" ? data.machineHint : null;
 
+    // Uma regra substituindo a si mesma se apagaria do proprio recorte.
+    const overrides = data.overridesRuleId === data.id ? null : data.overridesRuleId;
+
     const values = {
       orgId: user.orgId,
       companyId: data.companyId,
@@ -103,13 +109,30 @@ export async function saveRule(_prev: RulesState, form: FormData): Promise<Rules
       verifier: data.verifier,
       isBlocking: data.isBlocking,
       machineHint,
+      overridesRuleId: overrides,
       updatedAt: new Date(),
     };
 
     if (data.id) {
+      /**
+       * A versao sobe quando o **texto** muda, nao a cada salvamento.
+       *
+       * E o que a impressao digital do parecer usa: corrigir uma virgula do
+       * "por que existe" nao pode invalidar o reaproveitamento de todos os
+       * pareceres emitidos com aquela regra.
+       */
+      const [before] = await db
+        .select({ text: reviewRules.text, version: reviewRules.version })
+        .from(reviewRules)
+        .where(and(eq(reviewRules.id, data.id), eq(reviewRules.orgId, user.orgId)))
+        .limit(1);
+
+      const version =
+        before && before.text !== data.text ? before.version + 1 : (before?.version ?? 1);
+
       await db
         .update(reviewRules)
-        .set(values)
+        .set({ ...values, version })
         .where(and(eq(reviewRules.id, data.id), eq(reviewRules.orgId, user.orgId)));
     } else {
       await db.insert(reviewRules).values(values);
@@ -310,5 +333,42 @@ export async function setChecklistActive(id: string, active: boolean): Promise<R
   } catch (error) {
     console.error("setChecklistActive:", describeError(error));
     return { error: "Não foi possível mudar o item." };
+  }
+}
+
+/* ------------------------------------------------------- o que muda sem deploy */
+
+/**
+ * Sai do silencioso, ou volta para ele.
+ *
+ * Em ativo, so a reprovacao anda sozinha. Aprovado continua esperando clique
+ * humano — carimbar aprovacao sem ninguem olhar e a autonomia que ninguem
+ * pediu e que so se descobre errada depois de publicada.
+ */
+export async function setMode(mode: "silencioso" | "ativo"): Promise<RulesState> {
+  try {
+    const user = await requireUserAction();
+    assertCanManage(user);
+    await setReviewMode(user.orgId, mode);
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return { error: describeError(error) };
+  }
+}
+
+/** O botao de desligar por marca. Vale nos dois modos e para as chamadas na hora. */
+export async function setCompanyReview(
+  companyId: string,
+  enabled: boolean,
+): Promise<RulesState> {
+  try {
+    const user = await requireUserAction();
+    assertCanManage(user);
+    await setCompanyEnabled(user.orgId, companyId, enabled);
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return { error: describeError(error) };
   }
 }

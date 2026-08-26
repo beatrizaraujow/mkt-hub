@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, reviewRules, type ReviewRule } from "@/db/schema";
+import { resolveRules, type Overlap } from "./resolve";
 
 /**
  * Quais regras se aplicam a uma entrega.
@@ -17,7 +18,7 @@ import { companies, reviewRules, type ReviewRule } from "@/db/schema";
  */
 
 /** A empresa e a linha de mães dela, para a regra da mãe valer na sub-marca. */
-async function companyChain(companyId: string): Promise<string[]> {
+export async function companyChain(companyId: string): Promise<string[]> {
   const chain: string[] = [];
   let current: string | null = companyId;
 
@@ -63,6 +64,23 @@ export async function rulesFor(input: {
     .orderBy(asc(reviewRules.position), asc(reviewRules.code));
 }
 
+/**
+ * O conjunto que vale para a entrega, com as sobreposições já resolvidas.
+ *
+ * É por aqui que o resto do sistema pergunta — `rulesFor` sozinho devolve a
+ * união crua das camadas, e usar a união crua faria a regra que a empresa
+ * substituiu continuar valendo junto com a que a substituiu.
+ */
+export async function applicableRules(input: {
+  orgId: string;
+  companyId: string;
+  skill: string | null;
+  format: string | null;
+}): Promise<{ rules: ReviewRule[]; overlaps: Overlap[] }> {
+  const { applied, overlaps } = resolveRules(await rulesFor(input));
+  return { rules: applied, overlaps };
+}
+
 /** Só o que a máquina consegue conferir olhando a entrega. */
 export function machineRules(rules: ReviewRule[]) {
   return rules.filter((rule) => rule.verifier === "maquina");
@@ -71,4 +89,9 @@ export function machineRules(rules: ReviewRule[]) {
 /** O que continua sendo responsabilidade de uma pessoa. */
 export function humanRules(rules: ReviewRule[]) {
   return rules.filter((rule) => rule.verifier === "pessoa");
+}
+
+/** O que não é sobre a peça: cadência, processo, configuração de conta. */
+export function outOfScopeRules(rules: ReviewRule[]) {
+  return rules.filter((rule) => rule.verifier === "fora");
 }
