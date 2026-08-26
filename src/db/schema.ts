@@ -206,10 +206,30 @@ export const workItemStages = pgTable(
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     type: workItemType("type").notNull(),
     name: text("name").notNull(),
+
+    /**
+     * Identificador estavel da etapa. O `name` e livre e sera customizavel por
+     * empresa; o slug nao muda, e e por ele que a cor, o icone e a regra de
+     * papel sao encontrados em `lib/stages`. Slug desconhecido cai num cinza
+     * neutro — falha visivel, nunca silenciosa.
+     */
+    slug: text("slug").notNull().default(""),
+
     kind: stageKind("kind").notNull(),
     position: integer("position").notNull(),
   },
-  (t) => [index("stages_scope_idx").on(t.orgId, t.type, t.companyId)],
+  (t) => [
+    index("stages_scope_idx").on(t.orgId, t.type, t.companyId),
+    /**
+     * Duas etapas com o mesmo slug no mesmo pipeline padrao deixariam a cor e
+     * a regra de papel ambiguas. O banco recusa em vez de o sistema escolher
+     * uma em silencio. Parcial porque `company_id` nulo e o pipeline padrao —
+     * em Postgres, nulos nao colidem entre si num indice unico comum.
+     */
+    uniqueIndex("stages_default_slug_unique")
+      .on(t.orgId, t.type, t.slug)
+      .where(sql`${t.companyId} is null`),
+  ],
 );
 
 /* ------------------------------------------------------------ work items */

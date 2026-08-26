@@ -1,15 +1,19 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDueDate, startOfBrtDay } from "@/lib/date";
+import { canLeaveStage } from "@/lib/stages";
 import { setStage } from "./actions";
+import { StagePill } from "./stage-pill";
 import { ReasonPrompt } from "./reason-prompt";
 import { needsReason } from "./rework";
 import { useOpenItem } from "./use-open-item";
+import type { UserRole } from "@/db/schema";
 import type { RowItem } from "./item-row";
 
-export type BoardStage = { id: string; name: string; kind: string };
+export type BoardStage = { id: string; name: string; slug: string; kind: string; position: number };
 export type BoardItem = RowItem & { stageId: string };
 
 const PRIORITY_COLOR: Record<RowItem["priority"], string> = {
@@ -91,10 +95,13 @@ export function Board({
   stages,
   items,
   today,
+  role,
 }: {
   stages: BoardStage[];
   items: BoardItem[];
   today: string;
+  /** Só para avisar antes; quem recusa de verdade é o servidor. */
+  role: UserRole;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +164,7 @@ export function Board({
           role="alert"
           className="mb-3 rounded-[var(--radius-control)] border border-danger/30 bg-danger-soft px-3 py-2 text-[13px] text-danger"
         >
-          {error}
+          {error} O cartão voltou para a etapa de origem.
         </p>
       ) : null}
 
@@ -186,9 +193,20 @@ export function Board({
                 over === stage.id ? "border-accent" : "border-line",
               )}
             >
-              <header className="mb-2 flex items-center gap-2 px-1">
-                <h3 className="label-mono flex-1">{stage.name}</h3>
+              {/*
+                Grudado no topo: com onze colunas a rolagem vertical e longa, e
+                sem isto a pessoa perde de vista em que etapa esta olhando.
+              */}
+              <header className="sticky top-0 z-10 -mx-2 -mt-2 mb-2 flex items-center gap-2 rounded-t-[var(--radius-card)] bg-sunk px-3 py-2">
+                <StagePill name={stage.name} slug={stage.slug} size="sm" />
                 <span className="tnum text-[11.5px] text-faint">{list.length}</span>
+                {!canLeaveStage(role, stage.slug) && (
+                  <Lock
+                    size={12}
+                    aria-label="Só a liderança tira item desta etapa"
+                    className="ml-auto text-faint"
+                  />
+                )}
               </header>
 
               <div className="flex flex-col gap-2">

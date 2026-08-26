@@ -29,6 +29,7 @@ export type WorkItemRow = {
   estimateMinutes: number | null;
   stageId: string;
   stageName: string;
+  stageSlug: string;
   stageKind: string;
   companyId: string;
   companyName: string;
@@ -49,6 +50,7 @@ const SELECTION = {
   estimateMinutes: workItems.estimateMinutes,
   stageId: workItems.stageId,
   stageName: workItemStages.name,
+  stageSlug: workItemStages.slug,
   stageKind: workItemStages.kind,
   companyId: workItems.companyId,
   companyName: companies.name,
@@ -232,6 +234,28 @@ export async function stagesFor(orgId: string, type: WorkItemType, companyId?: s
 
   const doCompany = rows.filter((s) => s.companyId === companyId);
   return doCompany.length ? doCompany : rows.filter((s) => s.companyId === null);
+}
+
+/**
+ * Todas as etapas padrão da organização, na ordem dos pipelines.
+ *
+ * A lista agrupada precisa das três: tarefa aparece sempre, e conteúdo e
+ * captação aparecem quando têm item. Sem elas, um item de captação ficaria
+ * fora de todos os grupos e sumiria da tela sem aviso.
+ */
+export async function allDefaultStages(orgId: string) {
+  return db
+    .select({
+      id: workItemStages.id,
+      name: workItemStages.name,
+      slug: workItemStages.slug,
+      type: workItemStages.type,
+      kind: workItemStages.kind,
+      position: workItemStages.position,
+    })
+    .from(workItemStages)
+    .where(and(eq(workItemStages.orgId, orgId), isNull(workItemStages.companyId)))
+    .orderBy(asc(workItemStages.type), asc(workItemStages.position));
 }
 
 /** Dados que a criação rápida precisa: empresas, projetos, pessoas e estágios. */

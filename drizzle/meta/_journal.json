@@ -50,6 +50,13 @@
       "when": 1787680218111,
       "tag": "0006_woozy_namor",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787752926474,
+      "tag": "0007_mighty_nekra",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,7 @@
  */
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { TASK_STAGES } from "@/lib/stages";
 import { client, db } from "./index";
 import {
   companies,
@@ -65,32 +66,33 @@ const TREE: Array<{
  *
  * O nome e livre; `kind` e o que o sistema usa para calcular.
  */
-const STAGES: Record<WorkItemType, Array<[string, StageKind]>> = {
+/**
+ * Os pipelines padrão, como trincas [nome, slug, kind].
+ *
+ * O de tarefa vem de `lib/stages`, que é a fonte da ordem, da cor e da regra
+ * de papel — duplicar a lista aqui faria as duas divergirem no dia em que uma
+ * mudasse. Conteúdo e captação ainda não têm apresentação própria e vivem só
+ * nesta tabela.
+ */
+const STAGES: Record<WorkItemType, Array<[string, string, StageKind]>> = {
   // Demanda de trabalho: arte, copy, tráfego, landing page, apresentação.
-  task: [
-    ["Solicitado", "backlog"],
-    ["Pendente", "todo"],
-    ["Em andamento", "doing"],
-    ["Ajustar", "doing"],
-    ["Aprovação", "review"],
-    ["Concluído", "done"],
-  ],
+  task: TASK_STAGES.map((stage) => [stage.label, stage.slug, stage.kind]),
   // Peça de conteúdo, do briefing ao ar.
   content: [
-    ["Briefing", "backlog"],
-    ["Roteiro", "todo"],
-    ["Gravação", "doing"],
-    ["Edição", "doing"],
-    ["Aprovação", "review"],
-    ["Publicado", "done"],
+    ["Briefing", "briefing", "backlog"],
+    ["Roteiro", "roteiro", "todo"],
+    ["Gravação", "gravacao", "doing"],
+    ["Edição", "edicao", "doing"],
+    ["Aprovação", "aprovacao", "review"],
+    ["Publicado", "publicado", "done"],
   ],
   // Captação de vídeo e foto.
   capture: [
-    ["Solicitado", "backlog"],
-    ["Agendado", "todo"],
-    ["Captado", "doing"],
-    ["Enviado", "review"],
-    ["Finalizado", "done"],
+    ["Solicitado", "solicitado", "backlog"],
+    ["Agendado", "agendado", "todo"],
+    ["Captado", "captado", "doing"],
+    ["Enviado", "enviado", "review"],
+    ["Finalizado", "finalizado", "done"],
   ],
 };
 
@@ -133,7 +135,7 @@ async function seedCompanies(orgId: string) {
 
 async function seedStages(orgId: string) {
   for (const [type, wanted] of Object.entries(STAGES) as Array<
-    [WorkItemType, Array<[string, StageKind]>]
+    [WorkItemType, Array<[string, string, StageKind]>]
   >) {
     const current = await db
       .select()
@@ -146,10 +148,12 @@ async function seedStages(orgId: string) {
         ),
       );
 
+    // Compara pelo slug, não pelo nome: o nome é livre e vai ser customizável
+    // por empresa, então nome diferente não significa pipeline diferente.
     const same =
       current.length === wanted.length &&
-      wanted.every(([name], i) =>
-        current.some((s) => s.name === name && s.position === (i + 1) * 10),
+      wanted.every(([, slug], i) =>
+        current.some((s) => s.slug === slug && s.position === (i + 1) * 10),
       );
 
     if (same) continue;
@@ -183,11 +187,12 @@ async function seedStages(orgId: string) {
     }
 
     await db.insert(workItemStages).values(
-      wanted.map(([name, kind], i) => ({
+      wanted.map(([name, slug, kind], i) => ({
         orgId,
         companyId: null,
         type,
         name,
+        slug,
         kind,
         position: (i + 1) * 10,
       })),

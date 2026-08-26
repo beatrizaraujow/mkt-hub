@@ -15,6 +15,8 @@ export type RowItem = {
   dueDate: Date | null;
   completedAt: Date | null;
   stageName: string;
+  /** Ligacao com a cor e o icone em `lib/stages`. */
+  stageSlug: string;
   stageKind: string;
   companyName: string;
   companyColor: string;

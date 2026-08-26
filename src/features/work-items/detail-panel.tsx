@@ -59,7 +59,7 @@ export type DetailData = {
   companyColor: string;
   projectName: string | null;
   assigneeId: string | null;
-  stages: Array<{ id: string; name: string; kind: string }>;
+  stages: Array<{ id: string; name: string; slug: string; kind: string; position: number }>;
   checklist: Array<{ id: string; text: string; isDone: boolean }>;
   subtasks: Array<{
     id: string;

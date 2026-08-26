@@ -15,6 +15,7 @@ import {
 import { assertCompanyAccess, requireUserAction, type CurrentUser } from "@/lib/auth";
 import { dueDateFromInput } from "@/lib/date";
 import { isFormat, isSkill } from "@/lib/catalog";
+import { canLeaveStage, leaveDeniedMessage, presentationFor } from "@/lib/stages";
 import { REASON_MAX, REASON_MIN, needsReason } from "./rework";
 
 export type ActionState = { error?: string; ok?: boolean; id?: string };
@@ -179,6 +180,17 @@ export async function setStage(
     const from = stages.find((s) => s.id === item.stageId);
     if (from?.id === target.id) return { ok: true };
 
+    /**
+     * O aval final é da liderança, e a trava é aqui.
+     *
+     * A tela também não oferece o arrasto, mas isso é conforto: quem chama a
+     * action direto, ou arrasta antes da tela saber do papel, bate nesta
+     * linha. Esconder o botão no cliente é experiência, nunca segurança.
+     */
+    if (!canLeaveStage(user.role, from?.slug)) {
+      return fail(leaveDeniedMessage(from?.slug));
+    }
+
     // A tela pergunta antes; aqui e a trava, nao o aviso.
     const clean = reason?.trim() ?? "";
     if (needsReason(from, target)) {
@@ -215,7 +227,12 @@ export async function completeWorkItem(id: string): Promise<ActionState> {
     const user = await requireUserAction();
     const item = await loadItem(user, id);
     const stages = await stagesOf(user.orgId, item.type);
-    const done = stages.find((s) => s.kind === "done");
+    /**
+     * A etapa terminal é o arquivo do que já rodou, não o destino de
+     * "concluir" — sem esta exclusão, o botão jogaria a peça direto para o
+     * banco de criativos e pularia a etapa em que ela é entregue.
+     */
+    const done = stages.find((s) => s.kind === "done" && !presentationFor(s.slug)?.terminal);
     if (!done) return fail("Esse tipo não tem estágio de conclusão.");
     return setStage(id, done.id);
   } catch (err) {

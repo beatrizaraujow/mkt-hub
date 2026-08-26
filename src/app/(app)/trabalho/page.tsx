@@ -8,13 +8,14 @@ import { brtToday, inputFromDueDate } from "@/lib/date";
 import { gridRange, isMonth } from "@/lib/month";
 import { EmptyState, PageHeader } from "@/components/page-header";
 import {
+  allDefaultStages,
   countWithoutDueDate,
   listInRange,
   listWorkItems,
   quickCreateOptions,
   stagesFor,
 } from "@/features/work-items/queries";
-import { ItemRow } from "@/features/work-items/item-row";
+import { StageGroups } from "@/features/work-items/stage-groups";
 import { Board } from "@/features/work-items/board";
 import { Calendar } from "@/features/work-items/calendar";
 import { QuickCreate } from "@/features/work-items/quick-create";
@@ -47,15 +48,28 @@ export default async function TrabalhoPage({
 
   const scope = { companyId: params.empresa, assigneeId: params.responsavel };
 
-  const [items, options, companyRows, peopleRows, stages, running, monthItems, noDueDate] =
-    await Promise.all([
+  const [
+    items,
+    options,
+    companyRows,
+    peopleRows,
+    stages,
+    allStages,
+    running,
+    monthItems,
+    noDueDate,
+  ] = await Promise.all([
     // O calendário busca pela faixa do mês; a lista, pelo limite de página.
     isCalendar
       ? Promise.resolve([])
       : listWorkItems(user, {
           ...scope,
-          // No quadro, a coluna de concluído precisa existir com conteúdo.
-          includeDone: isBoard || params.concluidas === "1",
+          /**
+           * Lista e quadro agrupam por etapa, e etapa de conclusão que aparece
+           * vazia por causa de filtro mente sobre o que existe. Quem não quer
+           * ver recolhe o grupo — e o recolhimento fica lembrado.
+           */
+          includeDone: true,
         }),
     quickCreateOptions(user),
     user.companyIds.length
@@ -71,6 +85,7 @@ export default async function TrabalhoPage({
       .where(and(eq(users.orgId, user.orgId), eq(users.isActive, true)))
       .orderBy(asc(users.name)),
     stagesFor(user.orgId, "task"),
+    allDefaultStages(user.orgId),
     runningTimer(user.id),
     isCalendar ? listInRange(user, scope, range.from, range.to) : Promise.resolve([]),
     isCalendar ? countWithoutDueDate(user, scope) : Promise.resolve(0),
@@ -120,7 +135,7 @@ export default async function TrabalhoPage({
             }
           />
         ) : isBoard ? (
-          <Board stages={stages} items={taskItems} today={today} />
+          <Board stages={stages} items={taskItems} today={today} role={user.role} />
         ) : isCalendar ? (
           <Calendar
             month={month}
@@ -138,18 +153,13 @@ export default async function TrabalhoPage({
           />
         ) : (
           <>
-            <div className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
-              {visible.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  today={today}
-                  showAssignee
-                  runningItemId={runningItemId}
-                />
-              ))}
-            </div>
-            <p className="mt-2 text-[12px] text-faint">
+            <StageGroups
+              stages={allStages}
+              items={visible}
+              today={today}
+              runningItemId={runningItemId}
+            />
+            <p className="mt-3 text-[12px] text-faint">
               <span className="tnum">{visible.length}</span>{" "}
               {visible.length === 1 ? "tarefa" : "tarefas"}
               {visible.length === 300 ? " (limite da página)" : ""}
