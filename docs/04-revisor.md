@@ -18,8 +18,16 @@ e construído **aqui**, e o que ainda falta.
 | `review_settings` | operação | O que muda sem deploy |
 
 **A fila**, em `src/features/review/`. Pedido é aceito na hora e devolve o
-identificador do ciclo; o processamento acontece depois, pelo cron de dez em
-dez minutos em `/api/cron/review`.
+identificador do ciclo; o processamento acontece depois, pelo cron em
+`/api/cron/review`.
+
+O cron roda **uma vez por dia**, às 8h de Brasília. Não é escolha de produto: o
+plano Hobby da Vercel recusa qualquer agenda mais frequente que diária — e
+recusa o **deploy inteiro**, antes de criar o build, sem aparecer como falha em
+lugar nenhum. Foi o que deixou seis commits fora do ar entre 25 e 26/08/2026.
+Enquanto o revisor não tiver regras nem chave de modelo, a frequência não muda
+nada. Quando tiver, ou o plano vira Pro, ou a fila passa a ser drenada por
+outro gatilho.
 
 **O porteiro**, em `gate.ts`. Roda antes de gastar IA e devolve o que falta:
 tipo da peça, arquivo anexado, regra cadastrada para aquele recorte.
