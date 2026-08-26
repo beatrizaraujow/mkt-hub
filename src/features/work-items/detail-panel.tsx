@@ -338,41 +338,6 @@ export function DetailPanel({
             </div>
           </div>
 
-          {/* Trilha de etapas: onde está e para onde vai, num clique. */}
-          <div className="mt-3.5 flex gap-[2px]">
-            {item.stages.map((stage, i) => {
-              const active = stage.id === shownStageId;
-              return (
-                <button
-                  key={stage.id}
-                  type="button"
-                  disabled={pending}
-                  onClick={() => {
-                    const from = item.stages.find((s) => s.id === shownStageId);
-                    if (needsReason(from, stage)) {
-                      setAskFor({ id: stage.id, name: stage.name });
-                      return;
-                    }
-                    run(async () => {
-                      setShownStage(stage.id);
-                      return setStage(item.id, stage.id);
-                    });
-                  }}
-                  className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 px-2 py-2 text-[12.5px] transition-colors duration-150",
-                    i === 0 && "rounded-l-[7px]",
-                    i === item.stages.length - 1 && "rounded-r-[7px]",
-                    active
-                      ? "bg-accent-soft font-medium text-accent"
-                      : "bg-sunk text-faint hover:text-ink",
-                  )}
-                >
-                  {active && <span aria-hidden className="h-[5px] w-[5px] rounded-full bg-accent" />}
-                  <span className="truncate">{stage.name}</span>
-                </button>
-              );
-            })}
-          </div>
         </header>
 
         {/* Progresso sem apagar a tela: o conteudo continua legivel. */}
@@ -923,6 +888,42 @@ export function DetailPanel({
                 groups={FORMAT_GROUPS}
                 disabled={pending}
                 onChange={(next) => run(() => setFormat(item.id, next))}
+              />
+            </div>
+
+            {/*
+              A etapa mora aqui junto dos outros campos da peca, e nao numa
+              trilha separada no topo. `allowEmpty` fica falso de proposito:
+              todo item esta sempre em alguma etapa, e oferecer "—" seria
+              oferecer um estado que o sistema nao tem.
+            */}
+            <div>
+              <RailLabel>Etapa</RailLabel>
+              <OptionField
+                value={shownStageId}
+                options={item.stages.map((stage) => ({
+                  value: stage.id,
+                  label: stage.name,
+                  group: null,
+                }))}
+                allowEmpty={false}
+                disabled={pending}
+                onChange={(next) => {
+                  const target = item.stages.find((stage) => stage.id === next);
+                  if (!target) return;
+
+                  // A tela pergunta o motivo antes de voltar; a trava e no servidor.
+                  const from = item.stages.find((stage) => stage.id === shownStageId);
+                  if (needsReason(from, target)) {
+                    setAskFor({ id: target.id, name: target.name });
+                    return;
+                  }
+
+                  run(async () => {
+                    setShownStage(target.id);
+                    return setStage(item.id, target.id);
+                  });
+                }}
               />
             </div>
 
