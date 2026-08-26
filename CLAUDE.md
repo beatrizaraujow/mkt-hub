@@ -76,7 +76,7 @@ comportamento certo: **falha técnica nunca vira veredito**.
 |---|---|
 | `REVIEW_PROVIDER` | `anthropic` ou `gemini`. Sem ela, vale a chave que existir |
 | `ANTHROPIC_API_KEY` · `REVIEW_MODEL` | chave e modelo da Anthropic (padrão `claude-sonnet-5`) |
-| `GEMINI_API_KEY` · `GEMINI_MODEL` | chave e modelo do Google (padrão `gemini-2.5-flash`) |
+| `GEMINI_API_KEY` · `GEMINI_MODEL` | chave e modelo do Google (padrão `gemini-3.6-flash`) |
 | `ANTHROPIC_BASE_URL` · `GEMINI_BASE_URL` | trocar a base: gateway, proxy ou servidor de teste |
 | `REVIEW_READ_FILES=1` | religa a leitura de imagem e PDF, guardada desligada |
 

@@ -21,7 +21,15 @@ import { geminiSchema, readGeminiAnswer, type GeminiBody } from "./model-gemini-
  * Este arquivo **não julga nada** e não conhece o outro provedor.
  */
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+/**
+ * O padrão precisa ser um modelo liberado para projeto **novo**.
+ *
+ * O `gemini-2.5-flash` deixou de ser: chave criada depois do corte recebe
+ * `404 ... is no longer available to new users`. A falha é boa — sai explícita,
+ * com o substituto no corpo da resposta — mas custa uma rodada e um redeploy.
+ * `GEMINI_MODEL` continua existindo para fixar outro.
+ */
+const DEFAULT_MODEL = "gemini-3.6-flash";
 
 /**
  * A base é configurável para atravessar um gateway ou um proxy da empresa —

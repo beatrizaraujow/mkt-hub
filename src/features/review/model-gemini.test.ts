@@ -77,7 +77,7 @@ test("o esquema real do parecer atravessa sem perder nada que importa", () => {
 /* ------------------------------------------------------------ a resposta */
 
 const OK = {
-  modelVersion: "gemini-2.5-flash",
+  modelVersion: "gemini-3.6-flash",
   usageMetadata: { promptTokenCount: 1100, candidatesTokenCount: 320 },
   candidates: [
     {
@@ -90,10 +90,10 @@ const OK = {
 };
 
 test("resposta boa devolve o argumento cru e o custo separado", () => {
-  const answer = readGeminiAnswer(OK, "registrar_parecer", "gemini-2.5-flash");
+  const answer = readGeminiAnswer(OK, "registrar_parecer", "gemini-3.6-flash");
 
   assert.deepEqual(answer.raw, { achados: [] });
-  assert.equal(answer.model, "gemini-2.5-flash");
+  assert.equal(answer.model, "gemini-3.6-flash");
   assert.equal(answer.tokensIn, 1100);
   assert.equal(answer.tokensOut, 320);
 });
@@ -102,7 +102,7 @@ test("sem uso relatado, o custo é nulo — nunca zero", () => {
   const answer = readGeminiAnswer(
     { ...OK, usageMetadata: undefined },
     "registrar_parecer",
-    "gemini-2.5-flash",
+    "gemini-3.6-flash",
   );
 
   // Zero diria "não gastou nada". Nulo diz "não sei", que é a verdade.
@@ -112,7 +112,7 @@ test("sem uso relatado, o custo é nulo — nunca zero", () => {
 
 test("chamada com outro nome não é a nossa: não vira parecer", () => {
   assert.throws(
-    () => readGeminiAnswer(OK, "outra_ferramenta", "gemini-2.5-flash"),
+    () => readGeminiAnswer(OK, "outra_ferramenta", "gemini-3.6-flash"),
     (error: unknown) => error instanceof ModelError,
   );
 });
