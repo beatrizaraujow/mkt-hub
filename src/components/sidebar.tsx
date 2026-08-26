@@ -10,6 +10,7 @@ import {
   ListChecks,
   LogOut,
   Settings,
+  Sparkles,
   Trophy,
   Users,
   type LucideIcon,
@@ -29,6 +30,8 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   desempenho: Trophy,
   time: Users,
   empresas: Building2,
+  // O mesmo icone do pill da etapa REVISÃO IA: quem ve um reconhece o outro.
+  revisor: Sparkles,
   ajustes: Settings,
 };
 

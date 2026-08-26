@@ -12,6 +12,7 @@ export type NavIcon =
   | "desempenho"
   | "time"
   | "empresas"
+  | "revisor"
   | "ajustes";
 
 export type NavItem = {
@@ -32,6 +33,12 @@ export const NAV: NavItem[] = [
   { href: "/producao", label: "Produção", icon: "producao", soon: true },
   { href: "/rotinas", label: "Rotinas", icon: "rotinas", soon: true },
   { href: "/desempenho", label: "Desempenho", icon: "desempenho", soon: true },
+  /**
+   * O revisor fica no bloco de quem gerencia, junto de Time, e nao logo apos
+   * Trabalho: entre os tres itens apagados de "breve", um item vivo no meio
+   * quebra a leitura da lista. Colaborador nao ve nenhum dos dois.
+   */
+  { href: "/revisor", label: "Revisor", icon: "revisor", minRole: "gestor" },
   { href: "/time", label: "Time", icon: "time", minRole: "gestor" },
   { href: "/empresas", label: "Empresas", icon: "empresas", mobile: true },
   { href: "/ajustes", label: "Ajustes", icon: "ajustes", mobile: true },
