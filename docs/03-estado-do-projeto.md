@@ -182,7 +182,7 @@ rodando durante a migração. Decisão pendente.
 
 **V2:** esteira de conteúdo, captações, capacidade da semana, templates de projeto.
 
-**Revisão IA — pronta, em silencioso.** Entregue em 26/08/2026 e provada ponta a ponta: a etapa
+**Revisão IA — no ar e provada em produção em 26/08/2026, em silencioso.** Entregue em 26/08/2026 e provada ponta a ponta: a etapa
 `REVISÃO IA` é o gatilho, o porteiro barra entrada incompleta antes de gastar chamada, o
 julgamento lê **a copy da entrega** (campo próprio, separado do briefing), o parecer cita a regra
 e um trecho literal — achado que inventa regra ou inventa citação é descartado no servidor —, o

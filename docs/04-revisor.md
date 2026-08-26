@@ -254,6 +254,35 @@ inexistente e trecho ausente. Veredito `reprovado`, português na lista
 separada, cobertura gravada, modelo e custo registrados. As mesmas garantias
 do outro provedor, sem uma linha do julgamento ter mudado.
 
+## Em produção, 26/08/2026
+
+A primeira revisão de verdade. Uma regra de teste inegociável, valendo para
+todas as empresas e todos os tipos, e um carrossel da Onevo Energia com copy
+que a violava de propósito.
+
+**Rodada 1 falhou, e falhou do jeito certo.** O porteiro liberou, a requisição
+saiu da Vercel, chegou ao Google e voltou `404: models/gemini-2.5-flash is no
+longer available to new users`. O ciclo terminou em `falhou`, **sem veredito**,
+e o erro apareceu escrito no cartão e na medição. Falha técnica não virou
+aprovação — que é a propriedade mais importante deste sistema e a mais difícil
+de testar de propósito.
+
+**Rodada 2, com o padrão corrigido:** veredito `reprovado`, dois achados na
+mesma regra — a peça a violava em dois trechos distintos, e o prompt manda um
+achado por problema concreto. Cada um com o trecho literal e a substituição
+pronta. Modo silencioso: o cartão não se moveu. Medição registrou 1 parecer,
+1.0k tokens de entrada e 0.1k de saída, 8 segundos.
+
+**O porteiro barrando, também em produção**, na limpeza: com a regra desligada
+e a copy apagada, ele devolveu as duas faltas de uma vez, em vez de parar na
+primeira —
+
+> Falta a copy da entrega — é o texto que o revisor lê.
+> Nenhuma regra de máquina cadastrada para "Arte de post" nesta empresa.
+
+E a tela de regras voltou a listar `Onevo Energia · Arte de post` em
+**Recortes sem regra**: o buraco reaparece sozinho quando a regra sai.
+
 ## O que falta, em ordem
 
 1. **Escrever as regras reais** em `/revisor/regras`, classificadas em
@@ -279,3 +308,19 @@ apoio fala com o banco direto.
 **Cron mais frequente que diário faz a Vercel recusar o deploy inteiro** no
 plano Hobby, sem log. Por isso o cron é diário — e por isso o gatilho de
 verdade é o `after()` na mudança de etapa.
+
+**Modelo do Google morre para projeto novo antes de morrer para todo mundo.**
+Chave criada em agosto/2026 recebeu `404 ... is no longer available to new
+users` num modelo que a documentação ainda listava. A mensagem traz o
+substituto, então a falha se resolve sozinha na leitura — mas custa uma rodada
+e um redeploy. O padrão no código precisa ser um modelo liberado para conta
+nova, não o mais conhecido.
+
+**`gemini-3.6-flash` é alias flutuante.** A API devolve o próprio alias em
+`modelVersion`, não a versão resolvida, então o parecer não registra qual
+snapshot julgou. Durante a calibragem isso atrapalha atribuição de causa: se o
+parecer mudar, não dá para saber se foi a regra reescrita ou o modelo trocado
+por baixo. O caminho é listar `GET /v1beta/models` com a chave, achar o nome
+datado e fixá-lo em `GEMINI_MODEL`. O preço de fixar é que snapshot datado um
+dia é aposentado — e aí volta o 404, que agora sabemos ser barulhento e
+seguro.
