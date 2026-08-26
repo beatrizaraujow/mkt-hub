@@ -42,6 +42,7 @@ export function OptionField({
   allowEmpty = true,
   searchable = false,
   searchPlaceholder = "Buscar…",
+  renderOption,
   onChange,
   disabled,
 }: {
@@ -54,6 +55,14 @@ export function OptionField({
   allowEmpty?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /**
+   * Desenha a opcao no lugar do texto puro — no gatilho e na lista.
+   *
+   * Existe para a etapa poder aparecer com o mesmo pill da lista e do quadro
+   * sem que este controle, que tambem serve Tipo e Formato, precise saber o
+   * que e uma etapa.
+   */
+  renderOption?: (option: Flat) => React.ReactNode;
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
@@ -133,9 +142,13 @@ export function OptionField({
           open ? "border-accent text-ink" : "border-line text-ink hover:border-line-strong",
         )}
       >
-        <span className={cn("min-w-0 flex-1 truncate", !value && "text-faint")}>
-          {current?.label ?? emptyLabel}
-        </span>
+        {renderOption && current?.value ? (
+          <span className="flex min-w-0 flex-1 items-center">{renderOption(current)}</span>
+        ) : (
+          <span className={cn("min-w-0 flex-1 truncate", !value && "text-faint")}>
+            {current?.label ?? emptyLabel}
+          </span>
+        )}
         <ChevronDown
           size={13}
           className={cn("shrink-0 text-faint transition-transform", open && "rotate-180")}
@@ -191,7 +204,13 @@ export function OptionField({
                         !option.value && "text-faint",
                       )}
                     >
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      {renderOption && option.value ? (
+                        <span className="flex min-w-0 flex-1 items-center">
+                          {renderOption(option)}
+                        </span>
+                      ) : (
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      )}
                       {selected && <Check size={13} strokeWidth={2.5} className="shrink-0" />}
                     </button>
                   </div>

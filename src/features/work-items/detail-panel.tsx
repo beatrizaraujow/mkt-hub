@@ -42,6 +42,7 @@ import {
   type PersonOption,
 } from "./field-controls";
 import { AttachmentList, type AttachmentRow } from "@/features/attachments/attachment-list";
+import { StagePill } from "./stage-pill";
 import { ReviewCard } from "@/features/review/review-card";
 import type { ReviewPanel } from "@/features/review/panel-data";
 import { BriefingCard } from "@/features/requests/briefing-card";
@@ -907,6 +908,14 @@ export function DetailPanel({
                   group: null,
                 }))}
                 allowEmpty={false}
+                /* O mesmo pill da lista e do quadro: a cor sai de `lib/stages`. */
+                renderOption={(option) => (
+                  <StagePill
+                    name={option.label}
+                    slug={item.stages.find((stage) => stage.id === option.value)?.slug ?? null}
+                    size="sm"
+                  />
+                )}
                 disabled={pending}
                 onChange={(next) => {
                   const target = item.stages.find((stage) => stage.id === next);
