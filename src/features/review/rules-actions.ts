@@ -187,6 +187,15 @@ const checklistSchema = z.object({
   text: z.string().trim().min(8, "Escreva o item por extenso.").max(300),
   companyId: optional,
   skill: optional,
+  /**
+   * A regra que este item cobre, quando cobre uma.
+   *
+   * E o que torna o medidor util: com a regra ligada, a medicao compara a
+   * marcacao da pessoa com o que a maquina achou **naquela regra**. Sem ela,
+   * a comparacao vira "o robo achou alguma coisa nesta entrega", que infla o
+   * numero e destroi a utilidade do medidor.
+   */
+  ruleId: optional,
   isReliabilityProbe: z.coerce.boolean(),
 });
 
@@ -203,6 +212,7 @@ export async function saveChecklistItem(
       text: String(form.get("text") ?? ""),
       companyId: String(form.get("companyId") ?? ""),
       skill: String(form.get("skill") ?? ""),
+      ruleId: String(form.get("ruleId") ?? ""),
       isReliabilityProbe: form.get("isReliabilityProbe") === "on",
     });
 
@@ -218,6 +228,7 @@ export async function saveChecklistItem(
       companyId: data.companyId,
       skill: data.skill,
       text: data.text,
+      ruleId: data.ruleId,
       isReliabilityProbe: data.isReliabilityProbe,
     };
 

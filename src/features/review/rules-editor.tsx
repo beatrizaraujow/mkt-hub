@@ -274,10 +274,13 @@ function RuleForm({
 function ChecklistForm({
   item,
   companies,
+  rules,
   onClose,
 }: {
   item: ChecklistRow | null;
   companies: CompanyOption[];
+  /** Para ligar o item a regra que ele cobre — e o que faz o medidor medir. */
+  rules: RuleRow[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -314,6 +317,27 @@ function ChecklistForm({
           />
         </div>
 
+        <Field
+          label="Regra que este item cobre"
+          hint="Obrigatória no medidor: é contra ela que a marcação da pessoa é comparada."
+        >
+          <select
+            name="ruleId"
+            defaultValue={item?.ruleId ?? ""}
+            className={cn(field, "cursor-pointer")}
+          >
+            <option value="">Nenhuma</option>
+            {rules
+              .filter((rule) => rule.isActive)
+              .map((rule) => (
+                <option key={rule.id} value={rule.id}>
+                  {rule.code} — {rule.text.slice(0, 60)}
+                  {rule.text.length > 60 ? "…" : ""}
+                </option>
+              ))}
+          </select>
+        </Field>
+
         <label className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-line px-3 py-2.5">
           <input
             type="checkbox"
@@ -324,7 +348,8 @@ function ChecklistForm({
           <span>
             <span className="block text-[13px] text-ink">Medidor de confiabilidade</span>
             <span className="block text-[11.5px] text-faint">
-              A máquina também confere este. Serve para comparar, não para dobrar o trabalho.
+              A máquina também confere este. Ligue a regra acima, senão a medição compara com
+              qualquer achado da entrega e o número deixa de dizer alguma coisa.
             </span>
           </span>
         </label>
@@ -693,6 +718,11 @@ export function RulesEditor({ data }: { data: RulesData }) {
                     medidor
                   </span>
                 )}
+                {item.ruleId && (
+                  <code className="rounded-[5px] bg-sunk px-1.5 py-0.5 font-mono text-[11px] text-muted">
+                    {data.rules.find((rule) => rule.id === item.ruleId)?.code ?? "—"}
+                  </code>
+                )}
                 <span className="ml-auto flex items-center gap-3">
                   <Toggle
                     active={item.isActive}
@@ -729,6 +759,7 @@ export function RulesEditor({ data }: { data: RulesData }) {
         <ChecklistForm
           item={itemForm.item}
           companies={data.companies}
+          rules={data.rules}
           onClose={() => setItemForm({ open: false, item: null })}
         />
       )}
