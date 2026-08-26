@@ -59,8 +59,9 @@ senha — quem convida nunca escolhe a senha de ninguém. O banco guarda só o h
 O envio do link por e-mail não existe: exigiria serviço de envio, conta e chave. O link é copiado e
 mandado pelo canal que o time já usa. `npm run invite -- --base <url>` faz o mesmo em lote.
 
-**Anexos.** Link funciona. Arquivo está construído e espera as chaves do storage — enquanto não
-chegam, o botão fica desabilitado em vez de aceitar o arquivo e recusar depois.
+**Anexos.** Link e arquivo. `SUPABASE_URL` e a chave de serviço estão configuradas em produção
+desde 26/08/2026 — antes disso o botão ficava desabilitado, em vez de aceitar o arquivo e recusar
+depois. Bucket privado; a miniatura aparece por URL assinada, e a chave nunca chega ao navegador.
 
 **Formulário de solicitação**, em `/solicitar`, sem login. Quem pede a demanda não é do time e não
 tem conta; exigir login mandaria o pedido de volta para o WhatsApp. Uma página só para o grupo
@@ -75,10 +76,14 @@ Onde o board antigo tinha cerca de cem campos de briefing quase sempre vazios, a
 quatro por tipo de demanda. As respostas vão para `meta.briefing` e aparecem no detalhe da tarefa,
 na ordem em que foram perguntadas, junto de quem pediu e como falar com a pessoa.
 
-**Motivo obrigatório ao reprovar.** Sair de um estágio de revisão para qualquer coisa que não seja
-concluído pede um texto — pela trilha de etapas e pelo arrastar no quadro. O motivo entra no
-histórico e fica em destaque no topo da tarefa enquanto ela estiver de volta, sumindo sozinho
-quando ela anda de novo.
+**Motivo obrigatório ao voltar.** Sair de uma etapa de revisão **para trás** pede um texto — pelo
+campo de etapa e pelo arrastar no quadro. A comparação é por posição, não por tipo do destino: com
+quatro etapas de revisão em sequência, avançar de uma para a seguinte também é sair de uma revisão,
+e a regra antiga pedia motivo para seguir em frente. Motivo pedido no caminho normal vira "-"
+digitado para passar, e aí o dado de retrabalho morre.
+
+O motivo entra no histórico e fica em destaque no topo da tarefa enquanto ela estiver de volta,
+sumindo sozinho quando ela anda de novo.
 
 **Calendário**, a terceira visualização de Trabalho, ao lado de Lista e Quadro. Mês em grade
 começando na segunda, com os dias das pontas das semanas vizinhas, e o mês na URL (`?mes=`) para
@@ -92,7 +97,40 @@ Ao contrário das listas, inclui subtarefa e concluída: quem busca procura algo
 esconder o que terminou é o jeito mais rápido de a busca parecer quebrada. Respeita o alcance de
 empresa, com a mesma herança de sub-marca do resto.
 
-Apagados na navegação, ainda não construídos: Produção, Rotinas, Desempenho e Time.
+**Navegação.** Hoje, Trabalho, Revisor, Time, Empresas e Ajustes funcionam. Revisor e Time só
+aparecem para gestor e admin — menu que oferece tela que a pessoa não pode abrir promete o que não
+cumpre. Apagados, ainda não construídos: Produção, Rotinas e Desempenho.
+
+## O fluxo de tarefa
+
+Onze etapas. A cor sai de um lugar só (`src/lib/stages.ts`), então a etapa é a mesma na lista, no
+quadro e no campo do painel. O **nome** continua vindo do banco — é livre e será customizável por
+empresa; o que não muda é o `slug`, que liga o nome à cor e à regra de papel.
+
+| # | Etapa | Slug | Cor |
+|---|---|---|---|
+| 1 | Solicitado | `solicitado` | `#8A8F98` |
+| 2 | Pendente | `pendente` | `#6B7280` |
+| 3 | Em andamento | `em_andamento` | `#F5C518` |
+| 4 | Pré revisão | `pre_revisao` | `#8B5CF6` |
+| 5 | Revisão IA | `revisao_ia` | `#06B6D4` |
+| 6 | Ajustar | `ajustar` | `#E5352B` |
+| 7 | Aprovação | `aprovacao` | `#14B8A6` |
+| 8 | Aprovação líder | `aprovacao_lider` | `#F07C1E` |
+| 9 | Publicar | `publicar` | `#E5187F` |
+| 10 | Completo | `completo` | `#16A34A` |
+| 11 | Banco de criativos | `banco_criativos` | `#2F6BFF` |
+
+**Sair de `APROVAÇÃO LÍDER` exige gestor ou acima**, validado no servidor. A tela também não
+oferece o arrasto, mas isso é conforto: quem chama a action direto bate na mesma linha.
+
+**Sair de `APROVAÇÃO` para frente exige o checklist respondido.** Voltar para ajuste, não — quem
+devolveu já viu o que estava errado, e exigir ali só ensinaria a marcar tudo para conseguir
+devolver.
+
+**Texto escuro nos onze pills.** Branco reprova o contraste em nove das onze cores; sobre o amarelo
+dá 1.63:1. O `pendente` (`#6B7280`) fica em 4.34 e é o único abaixo do mínimo — clarear o cinza
+resolve, e a cor é decisão de quem desenhou o fluxo.
 
 ## Decisões que governam o resto
 
@@ -102,7 +140,8 @@ Apagados na navegação, ainda não construídos: Produção, Rotinas, Desempenh
 3. **Entidade única** — tarefa, conteúdo e captação são o mesmo `work_items`.
 4. **Supabase**, não Neon.
 5. **Quatro empresas com sub-marcas dentro**, não nove soltas.
-6. **Doze estágios viraram seis** — quatro colunas de "esperando alguém olhar" viraram uma.
+6. **Doze estágios viraram seis**, e os seis viraram **onze** em 26/08/2026, quando o fluxo
+   ganhou as duas revisões, os dois portões de aprovação e o banco de criativos.
 7. **Formulário de solicitação entra no MVP.**
 
 ## Armadilhas que já custaram tempo
@@ -143,6 +182,33 @@ repositório anda. Foi o que deixou seis commits fora do ar entre 25 e 26/08/202
 
 **A Vercel não roda migration no build.** Mudança de schema precisa de `npm run db:migrate`
 apontado para produção **antes** do push — código novo com banco velho quebra a tela.
+
+**Variável de ambiente congela no build.** Salvar no painel não muda nada até o próximo deploy.
+Foi o que fez um "deploy Ready" parecer feature no ar quando o build era do commit anterior.
+
+**Modelo do Google morre para conta nova antes de morrer para todo mundo.** Chave criada em
+agosto/2026 recebeu `404 ... is no longer available to new users` num modelo que a documentação
+ainda listava. A mensagem traz o substituto, então a falha se resolve na leitura — mas custa uma
+rodada e um redeploy. O padrão no código precisa ser um modelo liberado para conta nova.
+
+**O erro do Postgres vem embrulhado.** A mensagem de fora diz só `Failed query` com o SQL colado; o
+nome da constraint fica em `cause`. Sem desembrulhar, quem cadastrava um código repetido recebia o
+`insert into` inteiro na tela. Mora em `src/lib/errors.ts`.
+
+**O pooler do Supabase é compartilhado.** O host é idêntico em desenvolvimento e em produção — o
+que identifica o projeto é o **usuário** da conexão, antes do `@`. Conferir pelo host aprova o banco
+errado com aparência de conferência feita.
+
+## Como chegou aqui
+
+| Data | O que entrou |
+|---|---|
+| 21/08 | Base: autenticação, empresas, projetos e o deploy na Vercel |
+| 22/08 | Tarefas: criação rápida, lista, quadro com arrastar, detalhe em modal, cronômetro, subtarefas |
+| 23/08 | Redesenho a partir dos mockups. Anexos, formulário público de pedido, motivo ao reprovar |
+| 24/08 | Busca global, calendário, e as primeiras tabelas do revisor |
+| 25/08 | Tela de Time e convite. Desenvolvimento separado de produção, com trava contra seed no lugar errado |
+| 26/08 | Pipeline de onze etapas, a Revisão IA inteira com o adaptador do Gemini, e a primeira revisão de verdade em produção |
 
 ## Pendências
 
