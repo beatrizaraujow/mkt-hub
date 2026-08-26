@@ -132,6 +132,15 @@ schema, ele não gera nada — e o silêncio parece bug da ferramenta.
 **Contador que soma sobre o próprio valor** precisa de `setState` funcional. Lendo a prop, cinco
 cliques rápidos no `+` viram um: cada clique lê o valor antes do React atualizar.
 
+**Cron mais frequente que diário derruba o deploy inteiro.** No plano Hobby, a Vercel recusa
+`vercel.json` com agenda tipo `*/10 * * * *` — e recusa **antes de criar o deploy**, então não
+aparece como build falhado em lugar nenhum. O board fica servindo a versão antiga enquanto o
+repositório anda. Foi o que deixou seis commits fora do ar entre 25 e 26/08/2026. O sintoma é
+`vercel ls` mostrar o deploy mais novo com um dia de idade; `npx vercel --prod` mostra o motivo.
+
+**A Vercel não roda migration no build.** Mudança de schema precisa de `npm run db:migrate`
+apontado para produção **antes** do push — código novo com banco velho quebra a tela.
+
 ## Pendências
 
 **Que dependem da usuária:**

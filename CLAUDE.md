@@ -87,6 +87,13 @@ Push em `main` dispara build de produção.
 build, o que parece travamento. O repositório já está configurado com o e-mail noreply da conta.
 Não troque `user.email` local por um e-mail que o GitHub não reconheça.
 
+**Cron mais frequente que diário faz a Vercel recusar o deploy inteiro** no plano Hobby, antes de
+criá-lo — sem build, sem log, sem nada em `vercel ls`. O `vercel.json` roda uma vez por dia por
+isso, não por escolha de produto.
+
+**Migration não roda no build.** Mudança de schema exige `npm run db:migrate` contra produção
+antes do push, senão o código novo encontra o banco velho.
+
 Quando um deploy não conclui, o estado real vem da API, não do `vercel ls`:
 
 ```bash
