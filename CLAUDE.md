@@ -69,10 +69,20 @@ npm run seed       # organização, 4 empresas, pipelines e o primeiro admin
 
 `.env.local` precisa de `DATABASE_URL` (pooler 6543), `DIRECT_URL` (pooler 5432) e
 `SESSION_SECRET` (32+ caracteres). Para anexos, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`.
-Para o revisor, `CRON_SECRET` e `ANTHROPIC_API_KEY` — sem a chave do modelo ele falha
-explicitamente, que é o comportamento certo: **falha técnica nunca vira veredito**.
-`REVIEW_MODEL` troca o modelo sem mexer em código, e `REVIEW_READ_FILES=1` religa a leitura de
-imagem e PDF, guardada desligada (esta versão revisa texto).
+Para o revisor, `CRON_SECRET` e a chave do provedor. Sem chave ele falha explicitamente, que é o
+comportamento certo: **falha técnica nunca vira veredito**.
+
+| Variável | Para quê |
+|---|---|
+| `REVIEW_PROVIDER` | `anthropic` ou `gemini`. Sem ela, vale a chave que existir |
+| `ANTHROPIC_API_KEY` · `REVIEW_MODEL` | chave e modelo da Anthropic (padrão `claude-sonnet-5`) |
+| `GEMINI_API_KEY` · `GEMINI_MODEL` | chave e modelo do Google (padrão `gemini-2.5-flash`) |
+| `ANTHROPIC_BASE_URL` · `GEMINI_BASE_URL` | trocar a base: gateway, proxy ou servidor de teste |
+| `REVIEW_READ_FILES=1` | religa a leitura de imagem e PDF, guardada desligada |
+
+Trocar de provedor é variável de ambiente e mais nada: o porteiro, o julgamento, o veredito e as
+telas não sabem quem respondeu. A tela **Revisor → Regras** mostra quem está atendendo e avisa
+quando falta a chave.
 
 **O `.env.local` aponta para o banco de desenvolvimento** (`mkt-hub-dev`, ref `hqohquknxgiywpokmndp`),
 nunca para produção — as variáveis de produção vivem na Vercel e não passam por este arquivo.

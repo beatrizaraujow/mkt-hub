@@ -28,6 +28,11 @@ const area =
   "w-full rounded-[var(--radius-control)] border border-line bg-surface px-2.5 py-2 " +
   "text-[13.5px] leading-relaxed text-ink focus:border-accent focus:outline-none";
 
+const PROVIDER_LABEL = {
+  anthropic: "Anthropic",
+  gemini: "Google Gemini",
+} as const;
+
 const VERIFIER_LABEL = {
   maquina: "Máquina",
   pessoa: "Pessoa",
@@ -471,6 +476,16 @@ function OperationPanel({ data }: { data: RulesData }) {
           {silent ? "Deixar o revisor mover reprovados" : "Voltar para silencioso"}
         </button>
       </div>
+
+      <p className="mt-2.5 text-[12px] text-faint">
+        Quem responde:{" "}
+        <span className="text-ink">{PROVIDER_LABEL[data.model.provider]}</span>
+        {" · "}
+        <span className="font-mono text-[11.5px]">{data.model.name}</span>
+        {data.model.configured ? null : (
+          <span className="text-danger"> · sem chave configurada: o revisor falha ao julgar</span>
+        )}
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {data.companies.map((company) => {

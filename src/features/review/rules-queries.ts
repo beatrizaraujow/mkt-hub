@@ -10,6 +10,7 @@ import {
   type ReviewRule,
 } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth";
+import { modelConfigured, modelName, provider, type Provider } from "./model";
 import { disabledCompanies, reviewMode, type Mode } from "./settings";
 
 export type CompanyOption = { id: string; name: string; parentId: string | null };
@@ -42,6 +43,11 @@ export type RulesData = {
   mode: Mode;
   /** As marcas com o revisor desligado. */
   disabled: string[];
+  /**
+   * Quem responde e se existe chave. É a primeira pergunta de quem abre esta
+   * tela quando algo não saiu — e ela não se responde olhando o parecer.
+   */
+  model: { provider: Provider; name: string; configured: boolean };
 };
 
 export async function loadRules(user: CurrentUser): Promise<RulesData> {
@@ -80,6 +86,7 @@ export async function loadRules(user: CurrentUser): Promise<RulesData> {
     gaps,
     mode,
     disabled,
+    model: { provider: provider(), name: modelName(), configured: modelConfigured() },
     rules: rules.map((rule) => ({
       ...rule,
       companyName: rule.companyId ? (byId.get(rule.companyId) ?? null) : null,

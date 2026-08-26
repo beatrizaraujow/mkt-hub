@@ -105,6 +105,40 @@ sistema que tenta acerta na demonstração e cala a regra errada em produção.
 
 **Nasce em silencioso.** `modo = silencioso` até alguém virar a chave na tela.
 
+## Quem responde
+
+Dois provedores, escolhidos por `REVIEW_PROVIDER`. Sem a variável, vale a chave que existir —
+quem configurou só o Gemini não deve receber um erro dizendo que falta a chave da Anthropic.
+
+| Arquivo | O que é |
+|---|---|
+| `model-contract.ts` | Os tipos, o `ModelError` e a classificação de status. Não importa ninguém |
+| `model-anthropic.ts` | A chamada da Anthropic, com `tool_choice` fixo |
+| `model-gemini.ts` | A chamada do Google, com `functionCallingConfig: ANY` |
+| `model-gemini-read.ts` | O dialeto do Gemini: traduzir o esquema na ida, ler a resposta na volta |
+| `model.ts` | Escolhe o provedor e passa adiante. Não julga nada |
+
+O critério para um provedor entrar aqui é um só: **saída estruturada obrigatória**. Texto livre
+teria que ser interpretado, e interpretação de texto livre erra em silêncio — um parecer que não
+deu para ler viraria "nenhum problema encontrado".
+
+Duas diferenças do Gemini que custam 400 se ignoradas, e por isso moram na fronteira:
+
+- O esquema não é JSON Schema, é um recorte do OpenAPI: os tipos vão em **maiúsculas** e qualquer
+  chave desconhecida (`additionalProperties`, `$schema`, `default`) derruba o pedido inteiro.
+  `geminiSchema()` limpa isso, e o julgamento não precisa saber.
+- A resposta não levanta exceção quando é recusada: vem 200 com `finishReason` ou
+  `promptFeedback.blockReason`. `readGeminiAnswer()` traduz isso em falha explícita, distinguindo
+  o que vale repetir (`MAX_TOKENS`, sem candidato) do que não vale (`SAFETY`).
+
+**Modelo fraco não erra: emudece.** Como todo achado que cita regra inexistente ou trecho ausente
+é descartado no servidor, um modelo que não segue instrução produz parecer **vazio**, não parecer
+errado. É a falha segura — mas um revisor que nunca acha nada é um revisor que o time aprende a
+pular. Vale olhar a tela de medição depois de trocar de provedor.
+
+**A camada gratuita do Google treina em cima do que recebe.** No plano pago, não. É decisão de
+quem manda a copy do cliente, não do código.
+
 ## As telas
 
 | Onde | Para quem | O que resolve |
@@ -177,12 +211,14 @@ imagem, ele só encareceria o parecer sem mudar nenhuma conclusão.
 
 ## Testado
 
-**Automático** (`npm test`, 24 casos): o veredito nas quatro combinações e a
+**Automático** (`npm test`, 35 casos): o veredito nas quatro combinações e a
 independência da quantidade de achados; o escalonamento e o que zera a
 sequência; a resolução de camadas, a substituição declarada, a substituição
 recusada por não ser mais específica, e a corrente de três regras; o mínimo de
 copy por tipo e a conferência de trecho literal, com acento, aspas e
-reticências.
+reticências; e o dialeto do Gemini — tipos em maiúsculas em qualquer
+profundidade, chave desconhecida removida, resposta cortada valendo nova
+tentativa e recusa por segurança não valendo.
 
 **Ponta a ponta, no banco de desenvolvimento, com um servidor de mentira no
 lugar da API** — quatro achados mandados, um sobreviveu:
@@ -209,6 +245,15 @@ e liberou depois de respondido; a terceira reprovação **escalonou** e o cartã
 parou mesmo em modo ativo; e uma entrega sem tipo e sem copy foi barrada pelo
 porteiro, com os dois motivos escritos e sem gastar chamada.
 
+**O Gemini, ponta a ponta**, com um servidor de mentira no lugar da API: o pedido
+saiu no caminho certo (`/v1beta/models/…:generateContent`), com a instrução de
+sistema separada, `functionCallingConfig: ANY` travando a ferramenta, os tipos
+do esquema em maiúsculas em todos os níveis e nenhuma chave proibida. Dos três
+achados devolvidos, sobreviveu **um** — os outros dois citavam regra
+inexistente e trecho ausente. Veredito `reprovado`, português na lista
+separada, cobertura gravada, modelo e custo registrados. As mesmas garantias
+do outro provedor, sem uma linha do julgamento ter mudado.
+
 ## O que falta, em ordem
 
 1. **Escrever as regras reais** em `/revisor/regras`, classificadas em
@@ -216,7 +261,7 @@ porteiro, com os dois motivos escritos e sem gastar chamada.
    chute. As correções que se repetem são o melhor ponto de partida.
 2. **Fechar o checklist humano** — quatro a oito itens por recorte, mais um ou
    dois medidores.
-3. **`ANTHROPIC_API_KEY` e `CRON_SECRET` na Vercel.**
+3. **A chave do provedor escolhido e `CRON_SECRET` na Vercel.**
 4. **Rodar em silencioso por um período**, comparando o parecer com o que o
    time decidiu, pela tela de medição.
 5. **Virar a chave para ativo**, só então.
