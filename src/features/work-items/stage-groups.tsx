@@ -11,6 +11,18 @@ export type GroupStage = { id: string; name: string; slug: string; type: string 
 const CHAVE = "mkt-hub:etapas-recolhidas";
 
 /**
+ * De qual fluxo o grupo veio.
+ *
+ * Só aparece fora de tarefa: "Solicitado" existe no pipeline de tarefa e no de
+ * captação, e dois grupos com o mesmo nome, um embaixo do outro, não dizem qual
+ * é qual. Repetir "Tarefa" nas onze linhas do fluxo principal seria ruído.
+ */
+const PIPELINE_LABEL: Record<string, string> = {
+  content: "Conteúdo",
+  capture: "Captação",
+};
+
+/**
  * Quais grupos estão recolhidos, lembrado no navegador.
  *
  * Como store externa, e não como estado hidratado dentro de um efeito: ler o
@@ -102,6 +114,11 @@ export function StageGroups({
                 )}
               />
               <StagePill name={stage.name} slug={stage.slug} />
+              {PIPELINE_LABEL[stage.type] ? (
+                <span className="text-[11px] uppercase tracking-[0.06em] text-faint">
+                  {PIPELINE_LABEL[stage.type]}
+                </span>
+              ) : null}
               <span className="tnum text-[12px] text-faint">{list.length}</span>
             </button>
 
