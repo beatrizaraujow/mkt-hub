@@ -51,8 +51,16 @@ export function Sidebar({ items, user, running, logoutAction }: Props) {
 
   return (
     <>
-      {/* desktop */}
-      <aside className="hidden w-[212px] shrink-0 flex-col border-r border-line bg-surface md:flex">
+      {/*
+        desktop — presa no topo, com a altura da janela.
+
+        `sticky` em vez de fazer o conteudo rolar num container proprio: assim
+        quem rola continua sendo o documento, e o `sticky` dos cabecalhos de
+        coluna do quadro (que se prende ao scroll do documento) segue
+        funcionando. Trocar o elemento que rola quebraria aquilo sem aviso, e
+        tambem a restauracao de posicao ao voltar de uma tela para outra.
+      */}
+      <aside className="sticky top-0 hidden h-dvh w-[212px] shrink-0 flex-col border-r border-line bg-surface md:flex">
         <div className="flex h-14 items-center px-4">
           <Wordmark />
         </div>
@@ -62,7 +70,12 @@ export function Sidebar({ items, user, running, logoutAction }: Props) {
           <GlobalSearch />
         </div>
 
-        <nav className="flex flex-1 flex-col gap-0.5 px-2.5 py-2">
+        {/*
+          Rola por dentro quando a janela e baixa demais para os itens. Sem
+          isto, `h-dvh` cortaria o rodape com o nome de quem esta logado — e o
+          botao de sair junto.
+        */}
+        <nav className="scroll-thin flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 py-2">
           {items.map((item) => {
             const active = isActive(pathname, item.href);
             const Icon = ICONS[item.icon];
