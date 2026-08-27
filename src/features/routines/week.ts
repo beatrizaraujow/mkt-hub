@@ -128,7 +128,7 @@ export function generatesFor(monday: string, today: string): boolean {
  * tempo não criarem a mesma ocorrência duas vezes.
  */
 export function missingOccurrences(
-  routines: Array<{ id: string; weekdays: number[] }>,
+  routines: Array<{ id: string; weekdays: number[]; desde?: string | null }>,
   monday: string,
   existing: Array<{ routineId: string; day: string }>,
 ): Array<{ routineId: string; day: string }> {
@@ -136,6 +136,11 @@ export function missingOccurrences(
 
   return routines.flatMap((routine) =>
     daysForRoutine(monday, routine.weekdays)
+      // Rotina nao pode estar atrasada num dia anterior a ela existir. Sem
+      // isto, cadastrar na quinta gera segunda, terca e quarta ja vencidas —
+      // trabalho que ninguem pediu, cobrado de gente de verdade, e a aderencia
+      // da semana travada perto de zero faca o time o que fizer.
+      .filter((day) => !routine.desde || day >= routine.desde)
       .filter((day) => !seen.has(`${routine.id}|${day}`))
       .map((day) => ({ routineId: routine.id, day })),
   );

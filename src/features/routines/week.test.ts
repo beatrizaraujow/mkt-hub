@@ -174,3 +174,35 @@ test("a semana corrente gera até o domingo", () => {
 test("semana futura gera: a grade existe para planejar adiante", () => {
   assert.equal(generatesFor("2026-09-07", "2026-08-27"), true);
 });
+
+/* -------------------------------------- rotina nao cobra o que veio antes */
+
+test("dia anterior à criação da rotina não gera: ela não pode estar atrasada ali", () => {
+  // Cadastrada na quinta (27). Segunda, terça e quarta já passaram — cobrar
+  // por elas seria inventar 91 tarefas vencidas, que foi exatamente o que
+  // aconteceu na migração das rotinas do sistema antigo.
+  const faltando = missingOccurrences(
+    [{ id: "r1", weekdays: [0, 1, 2, 3, 4], desde: "2026-08-27" }],
+    "2026-08-24",
+    [],
+  );
+
+  assert.deepEqual(
+    faltando.map((f) => f.day),
+    ["2026-08-27", "2026-08-28"],
+  );
+});
+
+test("rotina antiga continua gerando a semana inteira", () => {
+  const faltando = missingOccurrences(
+    [{ id: "r1", weekdays: [0, 1, 2], desde: "2026-01-05" }],
+    "2026-08-24",
+    [],
+  );
+
+  assert.equal(faltando.length, 3);
+});
+
+test("sem data de criação, gera tudo — o filtro não pode virar bloqueio", () => {
+  assert.equal(missingOccurrences([{ id: "r1", weekdays: [0, 1] }], "2026-08-24", []).length, 2);
+});

@@ -24,6 +24,8 @@ export type RoutineRow = {
   assigneeId: string | null;
   assigneeName: string | null;
   isActive: boolean;
+  /** Dia BRT em que a rotina passou a existir. Antes disso ela nao cobra. */
+  desde: string;
 };
 
 export type OccurrenceRow = {
@@ -48,7 +50,7 @@ export async function listRoutines(
   ];
   if (!options.includeInactive) where.push(eq(routines.isActive, true));
 
-  return db
+  const rows = await db
     .select({
       id: routines.id,
       companyId: routines.companyId,
@@ -60,12 +62,15 @@ export async function listRoutines(
       assigneeId: routines.assigneeId,
       assigneeName: users.name,
       isActive: routines.isActive,
+      createdAt: routines.createdAt,
     })
     .from(routines)
     .innerJoin(companies, eq(companies.id, routines.companyId))
     .leftJoin(users, eq(users.id, routines.assigneeId))
     .where(and(...where))
     .orderBy(asc(companies.name), asc(routines.platform), asc(routines.label));
+
+  return rows.map(({ createdAt, ...rotina }) => ({ ...rotina, desde: brtToday(createdAt) }));
 }
 
 /**
