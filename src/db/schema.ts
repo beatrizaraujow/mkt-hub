@@ -88,6 +88,9 @@ export const humanVerdict = pgEnum("review_human_verdict", ["concordou", "discor
  */
 export const performanceRule = pgEnum("performance_rule", ["pontos", "rotinas"]);
 
+/** Semana calculada espera gente; semana fechada nao muda mais sozinha. */
+export const snapshotStatus = pgEnum("snapshot_status", ["pendente", "fechado"]);
+
 /* ---------------------------------------------------------- organizacoes */
 
 export const organizations = pgTable("organizations", {
@@ -873,6 +876,104 @@ export const performanceGoals = pgTable(
     // para a mesma semana, e nenhum jeito de saber qual vale.
     uniqueIndex("performance_goal_user_unique").on(t.userId),
   ],
+);
+
+/**
+ * O fechamento de uma semana.
+ *
+ * **Existe para congelar.** Sem ele, mexer numa tarefa de duas semanas atras
+ * muda a pontuacao que ja foi paga — e coin pago nao se despaga. O snapshot e
+ * a fotografia do que valia quando a semana fechou, e e ela que responde
+ * qualquer pergunta sobre o passado.
+ *
+ * Nasce em `pendente`: o sistema calcula e **espera uma pessoa**. Fechar e ato
+ * humano, com nome e hora, porque e o momento em que numero vira coin.
+ */
+export const weekSnapshots = pgTable(
+  "week_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+
+    /** `2026-W35`, pela ISO 8601. Ver `lib/week`. */
+    weekId: text("week_id").notNull(),
+    weekStart: date("week_start").notNull(),
+    weekEnd: date("week_end").notNull(),
+
+    status: snapshotStatus("status").notNull().default("pendente"),
+
+    calculatedAt: timestamp("calculated_at", { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closedById: uuid("closed_by_id").references(() => users.id, { onDelete: "set null" }),
+
+    /** Toda edicao manual fica registrada: o que mudou, quem mudou, quando. */
+    edits: jsonb("edits").$type<Array<Record<string, unknown>>>().notNull().default([]),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Uma semana fecha uma vez. Dois snapshots da mesma semana dariam duas
+    // verdades sobre o mesmo passado.
+    uniqueIndex("snapshot_org_week_unique").on(t.orgId, t.weekId),
+  ],
+);
+
+/**
+ * A linha de cada pessoa dentro do fechamento.
+ *
+ * **Os numeros sao copiados, nao referenciados** — de proposito. Meta, nome e
+ * papel entram como estavam na hora do calculo. Se a meta de alguem mudar em
+ * outubro, o fechamento de agosto continua contando a historia de agosto; se
+ * apontasse para a tabela de metas, o passado mudaria sozinho toda vez que o
+ * presente mudasse.
+ *
+ * `coinsValidated` nulo significa **ainda nao passou por uma pessoa**. E a
+ * separacao mais importante desta tabela: o sistema sugere, alguem valida.
+ */
+export const snapshotEntries = pgTable(
+  "snapshot_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    snapshotId: uuid("snapshot_id")
+      .notNull()
+      .references(() => weekSnapshots.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    /** Como estava na hora do calculo. */
+    name: text("name").notNull(),
+    jobTitle: text("job_title"),
+    rule: performanceRule("rule").notNull(),
+
+    points: integer("points").notNull().default(0),
+    deliveries: integer("deliveries").notNull().default(0),
+    /** Entregas concluidas sem ponto. O buraco, guardado tambem no passado. */
+    withoutPoints: integer("without_points").notNull().default(0),
+
+    /** Para a regua de rotinas: o que saiu sobre o que venceu. */
+    routinesDone: integer("routines_done").notNull().default(0),
+    routinesDue: integer("routines_due").notNull().default(0),
+
+    weeklyTarget: integer("weekly_target"),
+    weeklyTarget120: integer("weekly_target_120"),
+    /** Nulo quando nao havia regua: diferente de zero por cento. */
+    percent: integer("percent"),
+
+    /** Posicao dentro do **mesmo grupo de regua**, nunca entre grupos. */
+    position: integer("position"),
+
+    coinsSuggested: smallint("coins_suggested").notNull().default(0),
+    /** Nulo = ainda nao validado por uma pessoa. */
+    coinsValidated: smallint("coins_validated"),
+
+    note: text("note").notNull().default(""),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("snapshot_entry_unique").on(t.snapshotId, t.userId)],
 );
 
 /* ----------------------------------------------------------------- tipos */
