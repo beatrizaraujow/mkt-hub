@@ -15,7 +15,8 @@
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "user": "tsx --env-file=.env.local src/db/create-user.ts",
     "invite": "tsx --env-file=.env.local src/db/invite-team.ts",
-    "dev:setup": "tsx --env-file=.env.local src/db/setup-dev.ts"
+    "dev:setup": "tsx --env-file=.env.local src/db/setup-dev.ts",
+    "rotinas:importar": "tsx --env-file=.env.local src/db/import-routines.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
