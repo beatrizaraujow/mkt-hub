@@ -292,7 +292,7 @@ Decisão pendente desde 24/08/2026.
 
 | Bloco | Estado |
 |---|---|
-| A · Rotinas | **Construído em 27/08/2026.** Falta migrar produção e publicar |
+| A · Rotinas | **No ar desde 27/08/2026.** Migration `0010` aplicada e conferida no banco de produção antes do push |
 | B · Ponte de leitura | Não construída, por decisão — ver abaixo |
 | C · Motor de pontuação, metas, snapshot, coins, ranking | Não começado. Aguarda a decisão do ponto obrigatório |
 | D · Tela Desempenho | Não começado |
