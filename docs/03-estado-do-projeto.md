@@ -97,9 +97,30 @@ Ao contrário das listas, inclui subtarefa e concluída: quem busca procura algo
 esconder o que terminou é o jeito mais rápido de a busca parecer quebrada. Respeita o alcance de
 empresa, com a mesma herança de sub-marca do resto.
 
-**Navegação.** Hoje, Trabalho, Revisor, Time, Empresas e Ajustes funcionam. Revisor e Time só
+**Rotinas.** A grade da semana, uma linha por plataforma de cada empresa, com três estados por
+célula: previsto, publicado, atrasado. Marcar que saiu é um clique na célula; botão direito abre a
+tarefa gerada.
+
+Rotina **não é entidade paralela**: é um gerador. Cada ocorrência vira um `work_items` de verdade,
+com responsável, prazo, cronômetro e histórico. Marcar publicado leva a tarefa ao fim do pipeline
+junto — senão a grade diria "saiu" com a tarefa aberta na fila de alguém, e os dois números do
+sistema passariam a discordar.
+
+A geração roda **na leitura da tela**, sem cron e sem fila: o índice único em (rotina, dia) segura
+duas pessoas abrindo ao mesmo tempo. Semana passada não gera — tarefa não nasce atrasada porque
+alguém clicou na seta para trás.
+
+Item de rotina fica **fora da lista de Trabalho por padrão**, com o filtro "Incluir rotinas" para
+quem quiser ver. Story diário em quatro empresas são 28 itens por semana; misturados com a demanda
+de verdade, afogam o que precisa de atenção. O lugar de olhar rotina é a grade.
+
+A configuração da recorrência mora em **Ajustes de cada empresa**, não na grade: acompanhar é
+diário e de olhar, configurar é raro e de decidir. Story diário é uma rotina com sete dias
+marcados, não sete rotinas.
+
+**Navegação.** Hoje, Trabalho, Rotinas, Revisor, Time, Empresas e Ajustes funcionam. Revisor e Time só
 aparecem para gestor e admin — menu que oferece tela que a pessoa não pode abrir promete o que não
-cumpre. Apagados, ainda não construídos: Produção, Rotinas e Desempenho.
+cumpre. Apagados, ainda não construídos: Produção e Desempenho.
 
 ## O fluxo de tarefa
 
@@ -195,6 +216,11 @@ rodada e um redeploy. O padrão no código precisa ser um modelo liberado para c
 nome da constraint fica em `cause`. Sem desembrulhar, quem cadastrava um código repetido recebia o
 `insert into` inteiro na tela. Mora em `src/lib/errors.ts`.
 
+**`vercel env pull` traz nome sem valor.** As variáveis sensíveis de produção voltam como
+`DATABASE_URL=""`. E **não existe `DIRECT_URL` em produção** — ela só é usada por migration, que
+roda da máquina de quem desenvolve. Ou seja: migrar produção exige a string do session pooler vinda
+de fora, não do painel.
+
 **O pooler do Supabase é compartilhado.** O host é idêntico em desenvolvimento e em produção — o
 que identifica o projeto é o **usuário** da conexão, antes do `@`. Conferir pelo host aprova o banco
 errado com aparência de conferência feita.
@@ -262,7 +288,27 @@ Duas decisões travam essa virada, e são a mesma decisão vista de dois lados:
 
 Decisão pendente desde 24/08/2026.
 
-**V1.5:** rotinas, metas, motor de pontuação, coins, ranking e snapshot semanal.
+**V1.5** — o objetivo é desligar o MKT Hub 1, não somar funcionalidade.
+
+| Bloco | Estado |
+|---|---|
+| A · Rotinas | **Construído em 27/08/2026.** Falta migrar produção e publicar |
+| B · Ponte de leitura | Não construída, por decisão — ver abaixo |
+| C · Motor de pontuação, metas, snapshot, coins, ranking | Não começado. Aguarda a decisão do ponto obrigatório |
+| D · Tela Desempenho | Não começado |
+| E · Daily | Não levantado. Depende de ler como roda hoje no `mktimer` |
+| F · Notificações | Não começado |
+
+**A ponte não vai ser construída agora.** Em 27/08/2026 ficou sabido que a tarefa nasce **nos dois
+sistemas** ao mesmo tempo. Nesse cenário a ponte sozinha não resolve e pode piorar: se o `mktimer`
+trocar a origem, a tarefa que ainda nasce no ClickUp some da conta; se somar as duas, a mesma
+tarefa recriada nos dois lados conta em dobro. Hoje o número já está errado para menos — a ponte
+mal colocada troca isso por errado para mais, que é pior porque parece certo.
+
+O que resolve é a **data de corte**: a partir dela, tarefa nova nasce só no Hub 2. Com ela marcada,
+a ponte decide-se sozinha — perto, congela e espera o C1; longe, ponte. Enquanto a data não existir,
+`docs/01` continua listando a ponte no MVP e este documento na V1.5, e a contradição fica de pé de
+propósito, porque nenhum dos dois está errado ainda.
 
 **V2:** esteira de conteúdo, captações, capacidade da semana, templates de projeto.
 
