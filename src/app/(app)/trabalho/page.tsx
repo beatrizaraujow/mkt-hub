@@ -33,6 +33,7 @@ export default async function TrabalhoPage({
     empresa?: string;
     responsavel?: string;
     concluidas?: string;
+    rotinas?: string;
     view?: string;
     mes?: string;
     item?: string;
@@ -46,7 +47,12 @@ export default async function TrabalhoPage({
   const month = isMonth(params.mes) ? params.mes : today.slice(0, 7);
   const range = gridRange(month);
 
-  const scope = { companyId: params.empresa, assigneeId: params.responsavel };
+  const scope = {
+    companyId: params.empresa,
+    assigneeId: params.responsavel,
+    // Item de rotina fica de fora por padrao. A grade e o lugar de olhar isso.
+    includeRoutine: params.rotinas === "1",
+  };
 
   const [
     items,

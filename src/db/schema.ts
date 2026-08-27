@@ -8,11 +8,13 @@
  * por tipo e nao entram em calculo ficam em `meta` (jsonb). Tudo que entra em
  * calculo — data, responsavel, estagio, tempo — e coluna real e indexada.
  *
- * Escopo deste arquivo: MVP. Rotinas, metas, coins e snapshots entram na V1.5.
+ * Escopo deste arquivo: MVP mais as rotinas da V1.5. Metas, coins e snapshot
+ * entram nos blocos seguintes.
  */
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
@@ -814,6 +816,84 @@ export const reviewSettings = pgTable(
 
 /* ----------------------------------------------------------------- tipos */
 
+/* --------------------------------------------------------------- rotinas */
+
+/**
+ * Rotina de publicacao: o que deveria sair, em que plataforma, em que dias.
+ *
+ * **Nao e entidade paralela.** Ela e um gerador: cada ocorrencia vira um
+ * `work_items` de verdade, com responsavel, prazo, cronometro e historico
+ * como qualquer outro. A grade semanal e uma leitura desses itens, nao um
+ * mundo separado com regra propria.
+ *
+ * `weekdays` guarda 0 a 6 com **segunda = 0**, igual a `lib/month`. Story
+ * diario e uma linha com os sete dias, nao sete linhas.
+ */
+export const routines = pgTable(
+  "routines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+
+    /** Instagram, TikTok, LinkedIn, YouTube. Texto livre: a lista muda sozinha. */
+    platform: text("platform").notNull(),
+    /** O que sai: "Reels", "Carrossel", "Story". Vira o titulo da tarefa. */
+    label: text("label").notNull(),
+
+    weekdays: jsonb("weekdays").$type<number[]>().notNull().default([]),
+
+    /** Quem costuma fazer. A ocorrencia nasce com esta pessoa. */
+    assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
+
+    /** Desativar, nunca apagar: a rotina antiga explica a ocorrencia antiga. */
+    isActive: boolean("is_active").notNull().default(true),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("routines_company_idx").on(t.companyId, t.isActive)],
+);
+
+/**
+ * Uma ocorrencia por rotina e por dia.
+ *
+ * O indice unico e o que torna a geracao idempotente: rodar duas vezes no
+ * mesmo dia nao duplica nada, entao o gerador pode rodar na leitura da tela,
+ * sem cron e sem fila.
+ *
+ * `publishedAt` e o unico estado guardado. "Previsto" e "atrasado" saem da
+ * data comparada com hoje — guardar isso viraria linha que envelhece sozinha
+ * e precisa de alguem para corrigir.
+ */
+export const routineOccurrences = pgTable(
+  "routine_occurrences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    routineId: uuid("routine_id")
+      .notNull()
+      .references(() => routines.id, { onDelete: "cascade" }),
+
+    /** Dia previsto, em BRT, no formato YYYY-MM-DD. */
+    day: date("day").notNull(),
+
+    /** A tarefa gerada. Nula so se a criacao falhar no meio. */
+    workItemId: uuid("work_item_id").references(() => workItems.id, { onDelete: "set null" }),
+
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedById: uuid("published_by_id").references(() => users.id, { onDelete: "set null" }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("occurrence_routine_day_unique").on(t.routineId, t.day),
+    index("occurrence_day_idx").on(t.day),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Company = typeof companies.$inferSelect;
 export type Project = typeof projects.$inferSelect;
@@ -827,6 +907,9 @@ export type UserRole = (typeof userRole.enumValues)[number];
 export type WorkItemType = (typeof workItemType.enumValues)[number];
 export type Priority = (typeof priority.enumValues)[number];
 export type StageKind = (typeof stageKind.enumValues)[number];
+
+export type Routine = typeof routines.$inferSelect;
+export type RoutineOccurrence = typeof routineOccurrences.$inferSelect;
 
 export type ReviewRule = typeof reviewRules.$inferSelect;
 export type ReviewChecklistItem = typeof reviewChecklistItems.$inferSelect;

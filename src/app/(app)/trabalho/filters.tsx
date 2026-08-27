@@ -26,13 +26,18 @@ export function Filters({
       const next = new URLSearchParams(params.toString());
       if (value) next.set(key, value);
       else next.delete(key);
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+
+      // Sem query, vai o caminho puro. `/trabalho?` com a interrogacao
+      // sozinha nao conta como URL nova, e desmarcar o ultimo filtro
+      // ficava sem efeito nenhum.
+      const query = next.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     },
     [params, pathname, router],
   );
 
   const current = (key: string) => params.get(key) ?? "";
-  const dirty = ["empresa", "responsavel", "concluidas"].some((k) => params.get(k));
+  const dirty = ["empresa", "responsavel", "concluidas", "rotinas"].some((k) => params.get(k));
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-2.5 md:px-7">
@@ -79,6 +84,20 @@ export function Filters({
           Mostrar concluídas
         </label>
       )}
+
+      {/*
+        Item de rotina fica escondido por padrao: story diario em quatro
+        empresas sao 28 por semana, e o lugar de olhar isso e a grade.
+      */}
+      <label className="flex cursor-pointer items-center gap-1.5 text-[13px] text-muted">
+        <input
+          type="checkbox"
+          checked={current("rotinas") === "1"}
+          onChange={(e) => set("rotinas", e.target.checked ? "1" : "")}
+          className="h-3.5 w-3.5 accent-[var(--accent)]"
+        />
+        Incluir rotinas
+      </label>
 
       <button
         type="button"

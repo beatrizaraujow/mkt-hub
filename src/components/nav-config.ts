@@ -31,7 +31,7 @@ export const NAV: NavItem[] = [
   { href: "/", label: "Hoje", icon: "hoje", mobile: true },
   { href: "/trabalho", label: "Trabalho", icon: "trabalho", mobile: true },
   { href: "/producao", label: "Produção", icon: "producao", soon: true },
-  { href: "/rotinas", label: "Rotinas", icon: "rotinas", soon: true },
+  { href: "/rotinas", label: "Rotinas", icon: "rotinas", mobile: true },
   { href: "/desempenho", label: "Desempenho", icon: "desempenho", soon: true },
   /**
    * O revisor fica no bloco de quem gerencia, junto de Time, e nao logo apos

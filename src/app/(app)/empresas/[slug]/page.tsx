@@ -6,6 +6,8 @@ import { canManage, canSeeCompany, requireUser } from "@/lib/auth";
 import { EmptyState, PageHeader } from "@/components/page-header";
 import { NewProject } from "./new-project";
 import { RequestLink } from "@/features/requests/request-link";
+import { RoutineConfig } from "@/features/routines/config";
+import { knownPlatforms, listRoutines } from "@/features/routines/queries";
 
 function formatDate(value: Date | null) {
   if (!value) return null;
@@ -41,6 +43,20 @@ export default async function CompanyPage({ params }: { params: Promise<{ slug: 
     .orderBy(asc(projects.name));
 
   const manage = canManage(user);
+
+  // Rotina da empresa, inclusive as desativadas: quem configura precisa ver o
+  // que desligou para reativar, senao a unica saida e criar de novo.
+  const [routines, platforms, people] = manage
+    ? await Promise.all([
+        listRoutines(user, { companyId: company.id, includeInactive: true }),
+        knownPlatforms(user),
+        db
+          .select({ id: users.id, name: users.name })
+          .from(users)
+          .where(and(eq(users.orgId, user.orgId), eq(users.isActive, true)))
+          .orderBy(asc(users.name)),
+      ])
+    : [[], [], []];
 
   return (
     <>
@@ -79,6 +95,15 @@ export default async function CompanyPage({ params }: { params: Promise<{ slug: 
               </li>
             ))}
           </ul>
+        )}
+
+        {manage && (
+          <RoutineConfig
+            companyId={company.id}
+            routines={routines}
+            people={people}
+            platforms={platforms}
+          />
         )}
       </div>
     </>

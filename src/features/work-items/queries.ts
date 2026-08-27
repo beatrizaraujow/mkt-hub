@@ -90,7 +90,19 @@ export type WorkFilters = {
   assigneeId?: string;
   /** Por padrao esconde o que ja foi concluido. */
   includeDone?: boolean;
+  /**
+   * Por padrao esconde o que a rotina gerou.
+   *
+   * Story diario em quatro empresas sao 28 itens por semana. Misturados com
+   * a demanda de verdade, eles afogam o que precisa de atencao — e o lugar
+   * de olhar rotina e a grade, que mostra a semana inteira de uma vez.
+   * Quem quiser ver aqui, liga o filtro.
+   */
+  includeRoutine?: boolean;
 };
+
+/** Item gerado por rotina tem ocorrencia de origem; item feito a mao, nao. */
+const NOT_FROM_ROUTINE = isNull(workItems.sourceOccurrenceId);
 
 export async function listWorkItems(
   user: CurrentUser,
@@ -103,6 +115,7 @@ export async function listWorkItems(
   if (filters.projectId) where.push(eq(workItems.projectId, filters.projectId));
   if (filters.assigneeId) where.push(eq(workItems.assigneeId, filters.assigneeId));
   if (!filters.includeDone) where.push(isNull(workItems.completedAt));
+  if (!filters.includeRoutine) where.push(NOT_FROM_ROUTINE);
 
   return baseQuery()
     .where(and(...where))
@@ -125,7 +138,7 @@ export async function listWorkItems(
  */
 export async function listInRange(
   user: CurrentUser,
-  filters: Pick<WorkFilters, "companyId" | "assigneeId">,
+  filters: Pick<WorkFilters, "companyId" | "assigneeId" | "includeRoutine">,
   fromYmd: string,
   toYmd: string,
 ): Promise<WorkItemRow[]> {
@@ -137,6 +150,7 @@ export async function listInRange(
 
   if (filters.companyId) where.push(eq(workItems.companyId, filters.companyId));
   if (filters.assigneeId) where.push(eq(workItems.assigneeId, filters.assigneeId));
+  if (!filters.includeRoutine) where.push(NOT_FROM_ROUTINE);
 
   return baseQuery()
     .where(and(...where))
@@ -147,11 +161,12 @@ export async function listInRange(
 /** Quantas tarefas abertas estao sem prazo — o que o calendario nao mostra. */
 export async function countWithoutDueDate(
   user: CurrentUser,
-  filters: Pick<WorkFilters, "companyId" | "assigneeId">,
+  filters: Pick<WorkFilters, "companyId" | "assigneeId" | "includeRoutine">,
 ): Promise<number> {
   const where = [scope(user), isNull(workItems.dueDate), isNull(workItems.completedAt)];
   if (filters.companyId) where.push(eq(workItems.companyId, filters.companyId));
   if (filters.assigneeId) where.push(eq(workItems.assigneeId, filters.assigneeId));
+  if (!filters.includeRoutine) where.push(NOT_FROM_ROUTINE);
 
   const [row] = await db
     .select({ total: sql<number>`count(*)::int` })

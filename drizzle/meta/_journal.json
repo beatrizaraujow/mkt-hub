@@ -71,6 +71,13 @@
       "when": 1787756826209,
       "tag": "0009_worried_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787836274158,
+      "tag": "0010_yellow_captain_universe",
+      "breakpoints": true
     }
   ]
 }
