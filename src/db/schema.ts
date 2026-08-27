@@ -91,6 +91,9 @@ export const performanceRule = pgEnum("performance_rule", ["pontos", "rotinas"])
 /** Semana calculada espera gente; semana fechada nao muda mais sozinha. */
 export const snapshotStatus = pgEnum("snapshot_status", ["pendente", "fechado"]);
 
+/** De onde a coin veio. `semanal` e a unica que o sistema credita sozinho. */
+export const coinEntryType = pgEnum("coin_entry_type", ["semanal", "ajuste", "gasto"]);
+
 /* ---------------------------------------------------------- organizacoes */
 
 export const organizations = pgTable("organizations", {
@@ -974,6 +977,54 @@ export const snapshotEntries = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("snapshot_entry_unique").on(t.snapshotId, t.userId)],
+);
+
+/**
+ * O extrato de coins. **Append-only**: nada aqui e editado nem apagado.
+ *
+ * Saldo e a soma das linhas, nunca um numero guardado. Numero guardado e
+ * linhas guardadas divergem no primeiro erro, e a partir dai ninguem sabe qual
+ * das duas mente. Somar sete linhas e barato; explicar um saldo que nao bate
+ * com o proprio extrato, nao.
+ *
+ * `amount` negativo e gasto. Correcao de erro entra como linha nova de
+ * `ajuste`, com o motivo escrito — nunca como edicao da linha errada, porque
+ * apagar a historia e o que faz alguem perder a confianca no placar.
+ */
+export const coinLedger = pgTable(
+  "coin_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    /** `2026-W35` quando a linha veio de um fechamento. Nulo em gasto e ajuste. */
+    weekId: text("week_id"),
+
+    type: coinEntryType("type").notNull(),
+    amount: integer("amount").notNull(),
+    description: text("description").notNull().default(""),
+
+    /** Quem lancou. Nulo so quando a pessoa foi removida do sistema depois. */
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    /**
+     * Uma semana credita uma vez por pessoa. E a linha de defesa que impede o
+     * acidente mais caro do sistema: fechar a mesma semana duas vezes e pagar
+     * em dobro. Parcial de proposito — gasto e ajuste podem repetir a vontade.
+     */
+    uniqueIndex("coin_ledger_weekly_unique")
+      .on(t.userId, t.weekId)
+      .where(sql`${t.type} = 'semanal'`),
+    index("coin_ledger_user_idx").on(t.userId, t.createdAt),
+  ],
 );
 
 /* ----------------------------------------------------------------- tipos */
