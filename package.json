@@ -17,7 +17,8 @@
     "invite": "tsx --env-file=.env.local src/db/invite-team.ts",
     "dev:setup": "tsx --env-file=.env.local src/db/setup-dev.ts",
     "rotinas:importar": "tsx --env-file=.env.local src/db/import-routines.ts",
-    "metas": "tsx --env-file=.env.local src/db/set-goals.ts"
+    "metas": "tsx --env-file=.env.local src/db/set-goals.ts",
+    "clickup:importar": "tsx --env-file=.env.local src/db/import-clickup.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
