@@ -51,7 +51,11 @@ export default async function CompanyPage({ params }: { params: Promise<{ slug: 
         listRoutines(user, { companyId: company.id, includeInactive: true }),
         knownPlatforms(user),
         db
-          .select({ id: users.id, name: users.name })
+          // O e-mail vem junto porque o import casa responsavel por nome ou
+          // por e-mail. Sem ele a previa diria "nao achei ninguem" numa linha
+          // que o servidor aceitaria — e previa que discorda do resultado e
+          // pior que nao ter previa.
+          .select({ id: users.id, name: users.name, email: users.email })
           .from(users)
           .where(and(eq(users.orgId, user.orgId), eq(users.isActive, true)))
           .orderBy(asc(users.name)),

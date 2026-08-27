@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, X } from "lucide-react";
+import { ClipboardList, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { WEEKDAY_LABELS } from "./week";
 import { createRoutine, setRoutineActive, updateRoutine } from "./actions";
+import { ImportPanel } from "./import-panel";
 import type { RoutineRow } from "./queries";
 
 /**
@@ -77,6 +78,7 @@ export function RoutineConfig({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft>(EMPTY);
@@ -94,12 +96,20 @@ export function RoutineConfig({
     <section id="rotinas" className="scroll-mt-4">
       <div className="mb-2 flex items-center justify-between gap-3">
         <h2 className="label-mono">Rotinas de publicação</h2>
-        {!adding && (
-          <Button size="sm" variant="subtle" onClick={() => setAdding(true)}>
-            <Plus size={14} strokeWidth={2} />
-            Nova rotina
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {!importing && (
+            <Button size="sm" variant="subtle" onClick={() => setImporting(true)}>
+              <ClipboardList size={14} strokeWidth={2} />
+              Importar lista
+            </Button>
+          )}
+          {!adding && (
+            <Button size="sm" variant="subtle" onClick={() => setAdding(true)}>
+              <Plus size={14} strokeWidth={2} />
+              Nova rotina
+            </Button>
+          )}
+        </div>
       </div>
 
       {error ? (
@@ -109,7 +119,19 @@ export function RoutineConfig({
       ) : null}
 
       <div className="overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
-        {routines.length === 0 && !adding && (
+        {importing && (
+          <ImportPanel
+            companyId={companyId}
+            people={people}
+            existing={routines.map((rotina) => ({
+              platform: rotina.platform,
+              label: rotina.label,
+            }))}
+            onClose={() => setImporting(false)}
+          />
+        )}
+
+        {routines.length === 0 && !adding && !importing && (
           <p className="px-4 py-5 text-[13px] text-faint">
             Nenhuma rotina. A grade de Rotinas se monta a partir daqui.
           </p>

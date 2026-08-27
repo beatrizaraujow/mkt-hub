@@ -8,6 +8,7 @@ import {
   companies,
   routineOccurrences,
   routines,
+  users,
   workItemStages,
   workItems,
 } from "@/db/schema";
@@ -18,6 +19,7 @@ import {
   type CurrentUser,
 } from "@/lib/auth";
 import { describeError } from "@/lib/errors";
+import { marcarRepetidas, parseImport } from "./import";
 
 export type RoutineState = { error?: string; ok?: boolean };
 
@@ -104,6 +106,81 @@ export async function createRoutine(input: {
     return { ok: true };
   } catch (err) {
     return problem(err, "Não foi possível criar a rotina.");
+  }
+}
+
+/**
+ * Sobe uma lista inteira de rotinas de uma vez.
+ *
+ * A tela ja mostrou a previa com a mesma funcao pura — e por isso mesmo o
+ * texto e lido **de novo** aqui. Previa e cortesia com quem cola; o que decide
+ * o que entra no banco e o servidor, que nunca recebe a lista ja interpretada.
+ *
+ * Linha ruim nao derruba a leva: as boas entram e as ruins voltam nomeadas,
+ * porque errar uma virgula na linha 14 e refazer as outras 37 e o jeito mais
+ * rapido de a pessoa desistir do import e voltar para o formulario um a um.
+ */
+export async function importRoutines(
+  companyId: string,
+  texto: string,
+): Promise<RoutineState & { criadas?: number; puladas?: number; recusadas?: string[] }> {
+  try {
+    const user = await requireUserAction();
+    assertCanManage(user);
+    assertCompanyAccess(user, companyId);
+
+    const [company] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.id, companyId), eq(companies.orgId, user.orgId)))
+      .limit(1);
+
+    if (!company) return fail("Empresa não encontrada.");
+
+    // So quem a pessoa enxerga pode virar responsavel — senao a coluna de nome
+    // vira um jeito de descobrir quem existe na organizacao.
+    const pessoas = await db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(and(eq(users.orgId, user.orgId), eq(users.isActive, true)));
+
+    const existentes = await db
+      .select({ platform: routines.platform, label: routines.label })
+      .from(routines)
+      .where(eq(routines.companyId, companyId));
+
+    const linhas = marcarRepetidas(parseImport(texto, pessoas), existentes);
+    const novas = linhas.filter((linha) => linha.tipo === "ok" && !linha.repetida);
+    const recusadas = linhas
+      .filter((linha) => linha.tipo === "erro")
+      .map((linha) => `linha ${linha.numero}: ${linha.tipo === "erro" ? linha.motivo : ""}`);
+
+    if (novas.length === 0) {
+      return recusadas.length > 0
+        ? { error: "Nenhuma linha aproveitável.", recusadas }
+        : fail("Nada novo nesta lista — todas as rotinas já existem nesta empresa.");
+    }
+
+    await db.insert(routines).values(
+      novas.map((linha) => ({
+        orgId: user.orgId,
+        companyId,
+        platform: linha.tipo === "ok" ? linha.plataforma : "",
+        label: linha.tipo === "ok" ? linha.label : "",
+        weekdays: linha.tipo === "ok" ? linha.dias : [],
+        assigneeId: linha.tipo === "ok" ? linha.pessoaId : null,
+      })),
+    );
+
+    refresh();
+    return {
+      ok: true,
+      criadas: novas.length,
+      puladas: linhas.filter((linha) => linha.tipo === "ok" && linha.repetida).length,
+      recusadas,
+    };
+  } catch (err) {
+    return problem(err, "Não foi possível importar as rotinas.");
   }
 }
 
