@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import { porEmpresa, porPessoa, type Fatia, type Ocorrencia, type Resumo } from "./stats";
+import { faixaDe, porEmpresa, porPessoa, type Fatia, type Ocorrencia, type Resumo } from "./stats";
+import { BARRA, TOM } from "./tone";
 
 /**
  * O painel de aderencia: quanto do que venceu saiu, por empresa e por pessoa.
@@ -10,24 +11,9 @@ import { porEmpresa, porPessoa, type Fatia, type Ocorrencia, type Resumo } from 
  * numa tela de relatorio que ninguem responde de pe.
  */
 
-/** Verde so quando esta bom de verdade. Amarelo e um aviso, nao um elogio. */
-function tomDe(pct: number | null): string {
-  if (pct === null) return "text-faint";
-  if (pct >= 90) return "text-success";
-  if (pct >= 70) return "text-warning";
-  return "text-danger";
-}
-
-function barraDe(pct: number | null): string {
-  if (pct === null) return "bg-line";
-  if (pct >= 90) return "bg-success";
-  if (pct >= 70) return "bg-warning";
-  return "bg-danger";
-}
-
 function Percentual({ resumo, className }: { resumo: Resumo; className?: string }) {
   return (
-    <span className={cn("tnum font-medium", tomDe(resumo.pct), className)}>
+    <span className={cn("tnum font-medium", TOM[faixaDe(resumo.pct)], className)}>
       {resumo.pct === null ? "—" : `${resumo.pct}%`}
     </span>
   );
@@ -65,7 +51,7 @@ function Linha({ fatia }: { fatia: Fatia }) {
       */}
       <span className="hidden h-1 w-20 shrink-0 overflow-hidden rounded-full bg-surface-sunk sm:block">
         <span
-          className={cn("block h-full rounded-full", barraDe(resumo.pct))}
+          className={cn("block h-full rounded-full", BARRA[faixaDe(resumo.pct)])}
           style={{ width: `${resumo.pct ?? 0}%` }}
         />
       </span>

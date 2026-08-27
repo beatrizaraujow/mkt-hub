@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ChevronRight } from "lucide-react";
+import { createCollapseStore, useCollapsed } from "@/lib/collapse-store";
 import { cn } from "@/lib/utils";
 import { useOpenItem } from "@/features/work-items/use-open-item";
 import { togglePublished } from "./actions";
+import { faixaDe, resumir, type Contavel } from "./stats";
+import { TOM } from "./tone";
 import { cellState, WEEKDAY_FULL, WEEKDAY_LABELS, type CellState } from "./week";
 import type { OccurrenceRow, RoutineRow } from "./queries";
 
@@ -14,6 +18,8 @@ import type { OccurrenceRow, RoutineRow } from "./queries";
  * Marcar publicado é um clique na célula. Nada de abrir tela, escolher status
  * e salvar — a tela existe para ser respondida de pé, entre uma coisa e outra.
  */
+
+const recolhidas = createCollapseStore("mkt-hub:rotinas-empresas-recolhidas");
 
 const STATE_STYLE: Record<Exclude<CellState, "fora">, string> = {
   previsto: "border-line-strong bg-surface hover:border-accent",
@@ -42,7 +48,19 @@ export function RoutineGrid({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  const collapsed = useCollapsed(recolhidas);
+
   const byKey = new Map(occurrences.map((row) => [`${row.routineId}|${row.day}`, row]));
+
+  // O resumo de cada empresa sai das mesmas ocorrencias que pintam as celulas
+  // dela. Ler de outra fonte deixaria o cabecalho discordar da propria linha.
+  const porRotina = new Map<string, Contavel[]>();
+  for (const row of occurrences) {
+    const lista = porRotina.get(row.routineId);
+    const item = { dia: row.day, publicada: row.publishedAt !== null };
+    if (lista) lista.push(item);
+    else porRotina.set(row.routineId, [item]);
+  }
 
   // Agrupa por empresa para a grade não virar uma lista plana de trinta linhas.
   const groups = routines.reduce<Array<{ companyId: string; name: string; color: string; rows: RoutineRow[] }>>(
@@ -98,18 +116,64 @@ export function RoutineGrid({
             ))}
           </div>
 
-          {groups.map((group) => (
+          {groups.map((group) => {
+            const aberto = !collapsed.includes(group.companyId);
+            const resumo = resumir(
+              group.rows.flatMap((routine) => porRotina.get(routine.id) ?? []),
+              today,
+            );
+
+            return (
             <section key={group.companyId} className="mt-3">
-              <p className="mb-1 flex items-center gap-1.5 text-[12px] text-muted">
+              {/*
+                O cabecalho e botao, nao rotulo: com nove empresas na tela, quem
+                cuida de uma so precisa fechar as outras oito. O que ficou
+                fechado e lembrado no navegador — reabrir tudo a cada visita
+                seria o mesmo que nao ter recolhido.
+
+                O numero fica aqui em cima justamente para o grupo fechado
+                continuar dizendo como esta. Grupo que so mostra o nome quando
+                fechado esconde exatamente o que faria alguem abrir.
+              */}
+              <button
+                type="button"
+                onClick={() => recolhidas.alternar(group.companyId)}
+                aria-expanded={aberto}
+                className="mb-1 flex w-full items-center gap-1.5 py-0.5 text-left text-[12px] text-muted transition-colors hover:text-ink"
+              >
+                <ChevronRight
+                  size={13}
+                  strokeWidth={2.5}
+                  aria-hidden
+                  className={cn(
+                    "shrink-0 text-faint transition-transform duration-150",
+                    aberto && "rotate-90",
+                  )}
+                />
                 <span
                   aria-hidden
                   style={{ background: group.color }}
-                  className="h-1.5 w-1.5 rounded-full"
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
                 />
-                {group.name}
-              </p>
+                <span className="truncate">{group.name}</span>
+                <span className="tnum shrink-0 text-faint">{group.rows.length}</span>
 
-              {group.rows.map((routine) => (
+                <span className="flex-1" />
+
+                {resumo.atrasadas > 0 && (
+                  <span className="tnum shrink-0 text-danger">
+                    {resumo.atrasadas} atrasada{resumo.atrasadas > 1 ? "s" : ""}
+                  </span>
+                )}
+                <span className="tnum shrink-0 text-faint">
+                  {resumo.feitas}/{resumo.cobradas}
+                </span>
+                <span className={cn("tnum w-9 shrink-0 text-right font-medium", TOM[faixaDe(resumo.pct)])}>
+                  {resumo.pct === null ? "—" : `${resumo.pct}%`}
+                </span>
+              </button>
+
+              {aberto && group.rows.map((routine) => (
                 <div
                   key={routine.id}
                   className="grid grid-cols-[minmax(160px,1fr)_repeat(7,44px)] items-center gap-x-1 border-b border-line py-1 last:border-b-0"
@@ -178,7 +242,8 @@ export function RoutineGrid({
                 </div>
               ))}
             </section>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -47,7 +47,14 @@ export type Fatia = {
 /** Rotina sem responsavel continua sendo cobrada de alguem. */
 export const SEM_RESPONSAVEL = "sem-responsavel";
 
-export function resumir(ocorrencias: Ocorrencia[], hoje: string): Resumo {
+/**
+ * So precisa do dia e de ter saido. O tipo minimo, e nao `Ocorrencia`, para a
+ * grade poder resumir um grupo sem montar objeto de empresa e pessoa que ela
+ * ja tem na mao.
+ */
+export type Contavel = { dia: string; publicada: boolean };
+
+export function resumir(ocorrencias: Contavel[], hoje: string): Resumo {
   let feitas = 0;
   let atrasadas = 0;
   let previstas = 0;
@@ -131,4 +138,21 @@ export function porPessoa(ocorrencias: Ocorrencia[], hoje: string): Fatia[] {
     if (b.id === SEM_RESPONSAVEL) return -1;
     return a.nome.localeCompare(b.nome);
   });
+}
+
+/**
+ * A faixa em que a aderencia cai.
+ *
+ * Mora aqui, com as contas, e nao na tela: onde comeca "bom" e decisao de
+ * operacao, nao de cor. A tela escolhe o verde; quem escolhe os noventa por
+ * cento e o dominio — e no dia em que o time achar a regua injusta, o lugar de
+ * discutir e um so, com teste do lado.
+ */
+export type Faixa = "boa" | "atencao" | "ruim" | "sem-dado";
+
+export function faixaDe(pct: number | null): Faixa {
+  if (pct === null) return "sem-dado";
+  if (pct >= 90) return "boa";
+  if (pct >= 70) return "atencao";
+  return "ruim";
 }

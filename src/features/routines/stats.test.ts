@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cellState } from "./week";
-import { porEmpresa, porPessoa, resumir, SEM_RESPONSAVEL, type Ocorrencia } from "./stats";
+import { faixaDe, porEmpresa, porPessoa, resumir, SEM_RESPONSAVEL, type Ocorrencia } from "./stats";
 
 /*
   O que estes testes seguram e uma propriedade, nao um numero: a contagem do
@@ -125,4 +125,16 @@ test("a classificacao do resumo é a mesma da grade, celula por celula", () => {
       assert.equal(doResumo, estado, `${dia} publicada=${publicada}`);
     }
   }
+});
+
+/* ------------------------------------------------------- faixa de aderencia */
+
+test("a faixa muda exatamente nos cortes, e sem dado não é ruim", () => {
+  assert.equal(faixaDe(null), "sem-dado");
+  assert.equal(faixaDe(100), "boa");
+  assert.equal(faixaDe(90), "boa");
+  assert.equal(faixaDe(89), "atencao");
+  assert.equal(faixaDe(70), "atencao");
+  assert.equal(faixaDe(69), "ruim");
+  assert.equal(faixaDe(0), "ruim");
 });

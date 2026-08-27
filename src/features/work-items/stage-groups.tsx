@@ -1,14 +1,14 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { ChevronRight } from "lucide-react";
+import { createCollapseStore, useCollapsed } from "@/lib/collapse-store";
 import { cn } from "@/lib/utils";
 import { ItemRow, type RowItem } from "./item-row";
 import { StagePill } from "./stage-pill";
 
 export type GroupStage = { id: string; name: string; slug: string; type: string };
 
-const CHAVE = "mkt-hub:etapas-recolhidas";
+const recolhidas = createCollapseStore("mkt-hub:etapas-recolhidas");
 
 /**
  * De qual fluxo o grupo veio.
@@ -21,48 +21,6 @@ const PIPELINE_LABEL: Record<string, string> = {
   content: "Conteúdo",
   capture: "Captação",
 };
-
-/**
- * Quais grupos estão recolhidos, lembrado no navegador.
- *
- * Como store externa, e não como estado hidratado dentro de um efeito: ler o
- * armazenamento e chamar `setState` na montagem funciona, mas desenha a tela
- * duas vezes toda vez que ela abre — e é o começo do render em cascata. Aqui o
- * servidor devolve "nada recolhido", o cliente devolve o que estiver salvo, e
- * o React concilia os dois sozinho.
- */
-const VAZIO: string[] = [];
-let cache: string[] | null = null;
-const ouvintes = new Set<() => void>();
-
-function ler(): string[] {
-  if (cache) return cache;
-  try {
-    const salvo = window.localStorage.getItem(CHAVE);
-    cache = salvo ? (JSON.parse(salvo) as string[]) : VAZIO;
-  } catch {
-    // Aba anônima ou armazenamento bloqueado: segue com tudo aberto.
-    cache = VAZIO;
-  }
-  return cache;
-}
-
-function alternar(id: string) {
-  const atual = ler();
-  // Referência nova a cada mudança, senão o React não vê que mudou.
-  cache = atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id];
-  try {
-    window.localStorage.setItem(CHAVE, JSON.stringify(cache));
-  } catch {
-    // Não poder lembrar não pode impedir de recolher agora.
-  }
-  for (const ouvinte of ouvintes) ouvinte();
-}
-
-function assinar(ouvinte: () => void) {
-  ouvintes.add(ouvinte);
-  return () => ouvintes.delete(ouvinte);
-}
 
 /**
  * A lista agrupada por etapa.
@@ -84,7 +42,7 @@ export function StageGroups({
   today: string;
   runningItemId: string | null;
 }) {
-  const collapsed = useSyncExternalStore(assinar, ler, () => VAZIO);
+  const collapsed = useCollapsed(recolhidas);
 
   const visible = stages.filter(
     (stage) => stage.type === "task" || items.some((item) => item.stageId === stage.id),
@@ -100,7 +58,7 @@ export function StageGroups({
           <section key={stage.id}>
             <button
               type="button"
-              onClick={() => alternar(stage.id)}
+              onClick={() => recolhidas.alternar(stage.id)}
               aria-expanded={open}
               className="flex w-full items-center gap-2 py-1.5 text-left"
             >
