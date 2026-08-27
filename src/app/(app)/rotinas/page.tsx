@@ -11,11 +11,13 @@ import {
   ensureWeek,
   listRoutines,
   occurrencesForWeek,
-  weekProgress,
 } from "@/features/routines/queries";
 import { isWeek, mondayOf, weekDays } from "@/features/routines/week";
+import { resumir, type Ocorrencia } from "@/features/routines/stats";
 import { RoutineGrid } from "@/features/routines/grid";
+import { RoutineSummary } from "@/features/routines/summary";
 import { ItemPanel } from "@/features/work-items/item-panel";
+import { RoutineFilters } from "./filters";
 import { WeekNav } from "./week-nav";
 
 export const metadata: Metadata = { title: "Rotinas · MKT Hub" };
@@ -23,7 +25,12 @@ export const metadata: Metadata = { title: "Rotinas · MKT Hub" };
 export default async function RotinasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ semana?: string; item?: string }>;
+  searchParams: Promise<{
+    semana?: string;
+    item?: string;
+    empresa?: string;
+    responsavel?: string;
+  }>;
 }) {
   const user = await requireUser();
   const params = await searchParams;
@@ -34,18 +41,69 @@ export default async function RotinasPage({
   // deslocada, com a semana começando na quinta.
   const monday = isWeek(params.semana) ? mondayOf(params.semana) : thisMonday;
 
-  // Gera antes de ler. É o que dispensa cron: quem abre a tela materializa a
-  // semana, e o índice único segura duas pessoas abrindo ao mesmo tempo.
+  // Gera antes de ler, e sem olhar filtro nenhum: a materialização da semana
+  // é do sistema, não do recorte que a pessoa escolheu ver. Gerar só o que
+  // está filtrado deixaria buraco na semana de quem nunca abre a tela sem
+  // filtro.
   await ensureWeek(user, monday);
 
-  const [routines, occurrences] = await Promise.all([
+  const [todasRotinas, todasOcorrencias] = await Promise.all([
     listRoutines(user),
     occurrencesForWeek(user, monday),
   ]);
 
+  const filtroEmpresa = params.empresa ?? "";
+  const filtroPessoa = params.responsavel ?? "";
+
+  const routines = todasRotinas.filter(
+    (rotina) =>
+      (!filtroEmpresa || rotina.companyId === filtroEmpresa) &&
+      (!filtroPessoa || rotina.assigneeId === filtroPessoa),
+  );
+
+  const visiveis = new Set(routines.map((rotina) => rotina.id));
+  const occurrences = todasOcorrencias.filter((ocorrencia) => visiveis.has(ocorrencia.routineId));
+
+  // O painel e a grade leem a mesma coleção já filtrada. Se lessem coleções
+  // diferentes, o número de cima poderia discordar dos quadradinhos de baixo
+  // sem ninguém notar até alguém somar na mão.
+  const porRotina = new Map(routines.map((rotina) => [rotina.id, rotina]));
+  const paraAnalise: Ocorrencia[] = occurrences.flatMap((ocorrencia) => {
+    const rotina = porRotina.get(ocorrencia.routineId);
+    if (!rotina) return [];
+    return [
+      {
+        empresaId: rotina.companyId,
+        empresaNome: rotina.companyName,
+        empresaCor: rotina.companyColor,
+        pessoaId: rotina.assigneeId,
+        pessoaNome: rotina.assigneeName,
+        dia: ocorrencia.day,
+        publicada: ocorrencia.publishedAt !== null,
+      },
+    ];
+  });
+
   const days = weekDays(monday);
-  const progress = weekProgress(occurrences, today);
+  const geral = resumir(paraAnalise, today);
   const manage = canManage(user);
+
+  // As opções vêm das rotinas que existem, não do cadastro inteiro — e da
+  // lista sem filtro, senão escolher uma empresa apagaria as outras do
+  // próprio seletor e não haveria como voltar.
+  const empresasComRotina = [
+    ...new Map(
+      todasRotinas.map((rotina) => [rotina.companyId, { id: rotina.companyId, name: rotina.companyName }]),
+    ).values(),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+
+  const pessoasComRotina = [
+    ...new Map(
+      todasRotinas
+        .filter((rotina) => rotina.assigneeId && rotina.assigneeName)
+        .map((rotina) => [rotina.assigneeId!, { id: rotina.assigneeId!, name: rotina.assigneeName! }]),
+    ).values(),
+  ].sort((a, b) => a.name.localeCompare(b.name));
 
   const firstCompany = user.companyIds.length
     ? await db
@@ -68,8 +126,18 @@ export default async function RotinasPage({
         }
       />
 
+      {todasRotinas.length > 0 && (
+        <Suspense fallback={<div className="h-[53px] border-b border-line" />}>
+          <RoutineFilters
+            companies={empresasComRotina}
+            people={pessoasComRotina}
+            meId={user.id}
+          />
+        </Suspense>
+      )}
+
       <div className="px-5 py-5 md:px-7">
-        {routines.length === 0 ? (
+        {todasRotinas.length === 0 ? (
           <EmptyState
             title="Nenhuma rotina configurada"
             description={
@@ -88,19 +156,14 @@ export default async function RotinasPage({
               ) : undefined
             }
           />
+        ) : routines.length === 0 ? (
+          <EmptyState
+            title="Nada neste recorte"
+            description="Nenhuma rotina combina com o filtro escolhido."
+          />
         ) : (
           <>
-            <p className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
-              <span className="text-muted">
-                <span className="tnum font-medium text-ink">
-                  {progress.done}/{progress.total}
-                </span>{" "}
-                publicados nesta semana
-              </span>
-              {progress.late > 0 && (
-                <span className="tnum font-medium text-danger">{progress.late} atrasados</span>
-              )}
-            </p>
+            <RoutineSummary ocorrencias={paraAnalise} hoje={today} geral={geral} />
 
             <RoutineGrid
               routines={routines}

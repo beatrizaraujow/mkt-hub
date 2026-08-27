@@ -188,14 +188,6 @@ export async function occurrencesForWeek(
     );
 }
 
-/** Quanto da semana saiu, para o cabeçalho da grade. */
-export function weekProgress(rows: OccurrenceRow[], today = brtToday()) {
-  const total = rows.length;
-  const done = rows.filter((row) => row.publishedAt).length;
-  const late = rows.filter((row) => !row.publishedAt && row.day < today).length;
-  return { total, done, late };
-}
-
 /** Plataformas já usadas, para sugerir sem obrigar. */
 export async function knownPlatforms(user: CurrentUser): Promise<string[]> {
   if (!user.companyIds.length) return [];
