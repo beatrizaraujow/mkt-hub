@@ -20,6 +20,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  smallint,
   pgTable,
   primaryKey,
   text,
@@ -77,6 +78,15 @@ export const runState = pgEnum("review_run_state", ["na_fila", "rodando", "concl
  * fica ou sai.
  */
 export const humanVerdict = pgEnum("review_human_verdict", ["concordou", "discordou"]);
+
+/**
+ * Como a semana da pessoa e medida.
+ *
+ * `pontos`: meta fixa em pontos por semana. `rotinas`: a meta e o que as
+ * rotinas dela previam para aquela semana — quem faz story diario nao entrega
+ * "pontos", entrega presenca, e cobrar pontos dessa pessoa mede a coisa errada.
+ */
+export const performanceRule = pgEnum("performance_rule", ["pontos", "rotinas"]);
 
 /* ---------------------------------------------------------- organizacoes */
 
@@ -812,6 +822,57 @@ export const reviewSettings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.orgId, t.key] })],
+);
+
+/* ------------------------------------------------------------ desempenho */
+
+/**
+ * A regua de cada pessoa. Uma linha por pessoa, e so quem tem meta aparece.
+ *
+ * **A meta de 120% e guardada, nao calculada.** Parece 1,2x a de 100% ate voce
+ * conferir: 130 vira 156 e 80 vira 96, mas 60 vira 70 e nao 72. Sao numeros
+ * negociados um a um, e derivar por formula reescreveria em silencio um acordo
+ * que alguem fez com alguem.
+ *
+ * `metaSemanal` nulo significa **regua de rotinas**: a meta daquela semana e o
+ * que as rotinas ativas previam, entao ela muda sozinha quando a grade muda e
+ * nao ha numero fixo a guardar.
+ *
+ * Desativar, nunca apagar: o fechamento de marco cita a meta que valia em
+ * marco, e apagar deixaria a historia apontando para o vazio.
+ */
+export const performanceGoals = pgTable(
+  "performance_goals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    rule: performanceRule("rule").notNull().default("pontos"),
+
+    /** Pontos por semana para 100%. Nulo quando a regua e de rotinas. */
+    weeklyTarget: integer("weekly_target"),
+    /** Pontos por semana para 120%. Guardado, nao derivado — ver acima. */
+    weeklyTarget120: integer("weekly_target_120"),
+
+    /** Coins sugeridas ao bater cada faixa. O sistema sugere, alguem valida. */
+    coinsAt100: smallint("coins_at_100").notNull().default(3),
+    coinsAt120: smallint("coins_at_120").notNull().default(5),
+
+    isActive: boolean("is_active").notNull().default(true),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Uma regua por pessoa. Duas linhas dariam dois fechamentos diferentes
+    // para a mesma semana, e nenhum jeito de saber qual vale.
+    uniqueIndex("performance_goal_user_unique").on(t.userId),
+  ],
 );
 
 /* ----------------------------------------------------------------- tipos */
