@@ -70,6 +70,21 @@ const PELO_TITULO: Array<[RegExp, string]> = [
   [/pedro\s*galv[aã]o|se\s*vira/i, "pedro-galvao-p2p"],
 ];
 
+/**
+ * Empresa que ninguem consegue inferir, e uma pessoa decidiu.
+ *
+ * Por id do ClickUp, e nao por titulo: sao trabalho interno da casa — uma
+ * placa e uma melhoria de sistema —, e nao ha nada no texto que aponte para
+ * uma empresa. Ficaram de fora do primeiro import de proposito, foram
+ * perguntadas, e a resposta mora aqui em vez de num regex que finge ter
+ * adivinhado.
+ */
+const EMPRESA_DECIDIDA: Record<string, string> = {
+  // Decidido por Anny em 27/08/2026: as duas sao da SeuBone.
+  "86ak2jayq": "seubone", // placa "sujeito a guincho"
+  "86ajqfqtb": "seubone", // [SISTEMA] Melhorias no agendamento de captacao
+};
+
 const PESSOA_DE: Record<string, string> = {
   "thiago": "thiago.nascimento@grupoquatro5.com",
   "klenio braz": "klenio.braz@grupoquatro5.com",
@@ -102,6 +117,9 @@ const chave = (v: string) =>
   v.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 
 function empresaDe(tarefa: Bruta): string | null {
+  const decidida = EMPRESA_DECIDIDA[tarefa.id];
+  if (decidida) return decidida;
+
   for (const rotulo of tarefa.empresa ?? []) {
     const slug = EMPRESA_DE[rotulo.trim().toLowerCase()];
     if (slug) return slug;

@@ -169,8 +169,14 @@ export function Board({
       ) : null}
 
       <div
+        /*
+          `items-start` e o que impede coluna vazia de esticar. Sem isso o flex
+          alinha por `stretch` e as onze colunas ficam todas com a altura da
+          mais cheia — a de Aprovacao, com cinquenta e seis cartoes, obrigava
+          "vazio" a ocupar uma tela inteira de nada.
+        */
         // O cartao ja se move na hora; apagar o quadro inteiro so atrapalha.
-        className="scroll-thin flex gap-3 overflow-x-auto pb-3"
+        className="scroll-thin flex items-start gap-3 overflow-x-auto pb-3"
       >
         {stages.map((stage) => {
           const list = shown.filter((i) => i.stageId === stage.id);
@@ -189,15 +195,25 @@ export function Board({
                 drop(stage.id, e.dataTransfer.getData("text/plain"));
               }}
               className={cn(
-                "flex w-[264px] shrink-0 flex-col rounded-[var(--radius-card)] border bg-sunk p-2",
+                /*
+                  Teto na altura da janela, e a lista rola por dentro. Sem
+                  teto, uma coluna cheia estica a pagina inteira e as outras
+                  dez viram um rastro de espaco vazio ao lado dela.
+
+                  O desconto cobre o cabecalho da tela, a barra de filtros e o
+                  respiro de baixo. Coluna com pouco cartao continua do tamanho
+                  do que tem: o teto limita, nao estica.
+                */
+                "flex max-h-[calc(100dvh-13rem)] w-[264px] shrink-0 flex-col rounded-[var(--radius-card)] border bg-sunk p-2",
                 over === stage.id ? "border-accent" : "border-line",
               )}
             >
               {/*
-                Grudado no topo: com onze colunas a rolagem vertical e longa, e
-                sem isto a pessoa perde de vista em que etapa esta olhando.
+                Fora da area que rola, entao a etapa fica visivel o tempo todo
+                sem precisar de `sticky`: quem rola os cartoes nao perde de
+                vista em que coluna esta.
               */}
-              <header className="sticky top-0 z-10 -mx-2 -mt-2 mb-2 flex items-center gap-2 rounded-t-[var(--radius-card)] bg-sunk px-3 py-2">
+              <header className="-mx-2 -mt-2 mb-2 flex shrink-0 items-center gap-2 rounded-t-[var(--radius-card)] bg-sunk px-3 py-2">
                 <StagePill name={stage.name} slug={stage.slug} size="sm" />
                 <span className="tnum text-[11.5px] text-faint">{list.length}</span>
                 {!canLeaveStage(role, stage.slug) && (
@@ -209,7 +225,7 @@ export function Board({
                 )}
               </header>
 
-              <div className="flex flex-col gap-2">
+              <div className="scroll-thin -mx-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-1">
                 {list.map((item) => (
                   <Card key={item.id} item={item} today={today} />
                 ))}
