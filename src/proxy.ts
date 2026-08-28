@@ -8,10 +8,14 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE = "mkt_session";
 
 /**
- * Aberto para qualquer um, logado ou nao: o formulario de pedido e o link de
- * convite. Quem recebe um convite ainda nao tem conta para logar.
+ * Aberto para qualquer um, logado ou nao: o formulario de pedido, o link de
+ * convite e a saida. Quem recebe um convite ainda nao tem conta para logar.
+ *
+ * `/sair` precisa passar **justamente por ter cookie**: e ele que apaga o
+ * cookie invalido. Barrar a saida aqui recriaria o laco que ela existe para
+ * quebrar.
  */
-const OPEN_PATHS = ["/solicitar", "/convite"];
+const OPEN_PATHS = ["/solicitar", "/convite", "/sair"];
 
 /** Porta de entrada: quem ja entrou nao volta para ela. */
 const AUTH_PATHS = ["/login"];

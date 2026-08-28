@@ -94,7 +94,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 /** Uso em pages e layouts. Manda para o login quem nao tem sessao valida. */
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  /**
+   * Vai para `/sair`, e nao direto para `/login`.
+   *
+   * Chegar aqui com cookie significa que ele nao vale mais — conta desativada,
+   * ou apagada. Mandar para `/login` faria o proxy ver o cookie e devolver
+   * para ca, em laco infinito. `/sair` apaga o cookie no caminho.
+   */
+  if (!user) redirect("/sair");
   return user;
 }
 
