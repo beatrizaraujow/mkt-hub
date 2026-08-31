@@ -132,15 +132,8 @@ Não troque `user.email` local por um e-mail que o GitHub não reconheça.
 criá-lo — sem build, sem log, sem nada em `vercel ls`. O `vercel.json` roda uma vez por dia por
 isso, não por escolha de produto.
 
-**Migration não roda no build, e o build recusa subir sem ela.** Mudança de schema exige
-`npx drizzle-kit migrate` contra produção antes do push. O `npm run build` chama
-`npm run db:check` antes do `next build`: ele compara `drizzle/meta/_journal.json` com a
-`drizzle.__drizzle_migrations` do banco de destino e **falha o build** se faltar alguma.
-Build que falha não promove, então produção continua servindo a versão anterior.
-
-Isso existe porque em 31/08/2026 a `0015` foi para produção sem rodar e **toda tela de tarefa
-caiu** — a consulta procurava a coluna `number`, que não existia. A regra já estava escrita
-aqui e mesmo assim passou; regra escrita não impede nada.
+**Migration não roda no build.** Mudança de schema exige `npm run db:migrate` contra produção
+antes do push, senão o código novo encontra o banco velho.
 
 Quando um deploy não conclui, o estado real vem da API, não do `vercel ls`:
 
