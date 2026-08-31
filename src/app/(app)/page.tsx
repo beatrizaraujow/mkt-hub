@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
-import { brtToday, formatDuration } from "@/lib/date";
+import { brtToday } from "@/lib/date";
+import { formatarDuracao } from "@/lib/duration";
 import { secondsTrackedToday, todayBoard, type WorkItemRow } from "@/features/work-items/queries";
 import { ItemRow } from "@/features/work-items/item-row";
 import { QuickCreate } from "@/features/work-items/quick-create";
@@ -166,7 +167,7 @@ export default async function HojePage({
           <div>
             <p className="label-mono mb-1">Horas hoje</p>
             <p className="tnum font-display text-[26px] font-semibold text-ink">
-              {formatDuration(seconds)}
+              {formatarDuracao(seconds)}
             </p>
           </div>
           <div>

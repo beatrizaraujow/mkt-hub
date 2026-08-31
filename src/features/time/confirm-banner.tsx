@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { formatDuration } from "@/lib/date";
+import { formatarDuracao } from "@/lib/duration";
 import { adjustEntry, confirmEntry, discardEntry } from "./actions";
 
 export type PendingEntry = {
@@ -52,7 +52,7 @@ export function ConfirmBanner({ entries }: { entries: PendingEntry[] }) {
         {entries.map((entry) => (
           <li key={entry.id} className="flex flex-wrap items-center gap-2 text-[13px]">
             <span className="tnum font-medium text-ink">
-              {formatDuration(entry.durationSeconds ?? 0)}
+              {formatarDuracao(entry.durationSeconds ?? 0)}
             </span>
             <span className="min-w-0 flex-1 truncate text-muted">
               em {entry.title ?? "tarefa removida"} · {dayLabel(entry.startedAt)}
@@ -67,13 +67,12 @@ export function ConfirmBanner({ entries }: { entries: PendingEntry[] }) {
                 }}
               >
                 <input
-                  type="number"
-                  min={0}
                   autoFocus
                   value={minutes}
                   onChange={(e) => setMinutes(e.target.value)}
-                  placeholder="min"
-                  className="h-7 w-[76px] rounded-[var(--radius-control)] border border-line bg-surface px-1.5 text-[13px] text-ink focus:border-accent focus:outline-none"
+                  placeholder="1h30"
+                  title="Aceita 1h30, 45m, 2h ou 1:30"
+                  className="tnum h-7 w-[86px] rounded-[var(--radius-control)] border border-line bg-surface px-1.5 text-[13px] text-ink focus:border-accent focus:outline-none"
                 />
                 <button
                   type="submit"
@@ -104,7 +103,7 @@ export function ConfirmBanner({ entries }: { entries: PendingEntry[] }) {
                   type="button"
                   disabled={pending}
                   onClick={() => {
-                    setMinutes(String(Math.round((entry.durationSeconds ?? 0) / 60)));
+                    setMinutes(formatarDuracao(entry.durationSeconds ?? 0));
                     setEditing(entry.id);
                   }}
                   className="text-[12.5px] text-muted hover:text-ink"

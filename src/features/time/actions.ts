@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { timeEntries, workItems } from "@/db/schema";
 import { assertCompanyAccess, requireUserAction, type CurrentUser } from "@/lib/auth";
 import { dueDateFromInput } from "@/lib/date";
+import { parseDuration } from "@/lib/duration";
 import { closeStaleTimers } from "./queries";
 
 export type TimeState = { error?: string; ok?: boolean };
@@ -118,22 +119,26 @@ export async function discardTimer(): Promise<TimeState> {
 /** Lançamento manual: quem esqueceu de ligar o timer não fica sem registrar. */
 export async function logManualTime(
   workItemId: string,
-  minutes: string,
+  duracao: string,
   date: string,
+  nota?: string,
 ): Promise<TimeState> {
   try {
     const user = await requireUserAction();
     const item = await loadItem(user, workItemId);
 
-    const value = Number(minutes);
-    if (!Number.isFinite(value) || value <= 0) return fail("Informe os minutos.");
-    if (value > 24 * 60) return fail("Mais de 24 horas num lançamento só? Confira o número.");
+    /*
+     * Aceita o que a pessoa escreve — `1h30`, `45m`, `2h`, `1:30` —, e nao um
+     * numero de minutos. Lancar quatro horas e meia exigia digitar 270, o que
+     * significa fazer a conta de cabeca toda vez e errar de vez em quando.
+     */
+    const lida = parseDuration(duracao);
+    if ("erro" in lida) return fail(lida.erro);
 
     const day = dueDateFromInput(date);
     if (!day) return fail("Data inválida.");
 
-    const seconds = Math.round(value * 60);
-    const startedAt = new Date(day.getTime() - seconds * 1000);
+    const startedAt = new Date(day.getTime() - lida.segundos * 1000);
 
     await db.insert(timeEntries).values({
       userId: user.id,
@@ -141,7 +146,8 @@ export async function logManualTime(
       companyId: item.companyId,
       startedAt,
       endedAt: day,
-      durationSeconds: seconds,
+      durationSeconds: lida.segundos,
+      note: nota?.trim() || null,
       confirmedAt: new Date(),
     });
 
@@ -172,14 +178,27 @@ export async function confirmEntry(entryId: string): Promise<TimeState> {
   }
 }
 
-/** Corrige a duração de um registro fechado pelo corte automático. */
-export async function adjustEntry(entryId: string, minutes: string): Promise<TimeState> {
+/**
+ * Corrige a duração e a nota de um registro.
+ *
+ * **Só o próprio dono corrige**, e isso é o `where` por `userId`, não a tela: a
+ * aba Tempo mostra o lançamento de todo mundo, e esconder o botão no front seria
+ * enfeite. Quem chamar a action direto bate na mesma linha.
+ *
+ * Nasceu para o corte automático e hoje serve o dia a dia — um lançamento
+ * errado precisava ficar errado para sempre, porque a única correção morava no
+ * aviso de fim de expediente.
+ */
+export async function adjustEntry(
+  entryId: string,
+  duracao: string,
+  nota?: string,
+): Promise<TimeState> {
   try {
     const user = await requireUserAction();
 
-    const value = Number(minutes);
-    if (!Number.isFinite(value) || value < 0) return fail("Informe os minutos.");
-    if (value > 24 * 60) return fail("Mais de 24 horas num registro só? Confira o número.");
+    const lida = parseDuration(duracao);
+    if ("erro" in lida) return fail(lida.erro);
 
     const [entry] = await db
       .select()
@@ -189,13 +208,12 @@ export async function adjustEntry(entryId: string, minutes: string): Promise<Tim
 
     if (!entry) return fail("Registro não encontrado.");
 
-    const seconds = Math.round(value * 60);
-
     await db
       .update(timeEntries)
       .set({
-        durationSeconds: seconds,
-        endedAt: new Date(entry.startedAt.getTime() + seconds * 1000),
+        durationSeconds: lida.segundos,
+        endedAt: new Date(entry.startedAt.getTime() + lida.segundos * 1000),
+        note: nota === undefined ? entry.note : nota.trim() || null,
         confirmedAt: new Date(),
       })
       .where(eq(timeEntries.id, entryId));

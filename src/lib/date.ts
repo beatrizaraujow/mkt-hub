@@ -72,10 +72,3 @@ export function formatDueDate(value: Date | null, today: string = brtToday()): s
   return DAY_LABEL.format(value).replace(".", "");
 }
 
-/** Segundos em h:mm, para contadores de tempo. */
-export function formatDuration(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  return `${h}h${String(m).padStart(2, "0")}`;
-}

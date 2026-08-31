@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Onde o MKT Hub 2 está. Atualizado em **26/08/2026**.
+Onde o MKT Hub 2 está. Atualizado em **31/08/2026**.
 
 Para o porquê de cada decisão, veja [01-analise-e-arquitetura.md](01-analise-e-arquitetura.md).
 Para o board que estamos substituindo, [02-clickup-house-quatro5.md](02-clickup-house-quatro5.md).
@@ -52,12 +52,44 @@ grupos, navegação por teclado e calendário com semana começando na segunda.
 manual, e o corte automático na virada do dia com o aviso de confirmar, ajustar ou descartar no
 dia seguinte.
 
+O tempo é **escrito como se fala**, desde 31/08/2026: `1h30`, `45m`, `2h`, `1:30`, `90`, `1,5h`,
+`2 horas`. Antes, lançar quatro horas e meia era digitar `270`. Duas regras dentro do leitor
+(`src/lib/duration.ts`): número sozinho vale como **minuto**, porque quem digita `45` quer 45
+minutos; e número solto ambíguo é **recusado, não adivinhado** — `3h20` são três e vinte, mas
+`2h 20 30` não tem leitura óbvia, e chutar cria um número errado que ninguém confere.
+
+A saída é `4h 30m`, `2h`, `30m`, `42s`. O formato antigo escrevia meia hora como `0h30`, que se lê
+como zero no primeiro olhar.
+
+**Corrigir e apagar lançamento moram na própria lista**, e não só no aviso de fim de expediente —
+antes, um lançamento errado no dia a dia não tinha conserto. Só nas próprias linhas, garantido
+pelo `where` por `userId` na action, não pelo botão escondido na tela. Cada lançamento aceita
+**nota**: "reunião com o cliente" explica um registro de 2h que sem isso vira suspeita seis meses
+depois.
+
+**O que não foi copiado do ClickUp**, de propósito: o interruptor de faturável (a casa não cobra
+por hora), tag por lançamento (o registro já sabe tarefa, empresa e pessoa), a linha "Sem
+subtarefas" quando não há subtarefa, e o intervalo vazio que aparece antes de a pessoa digitar
+qualquer coisa. A regra que sai disso: **divisão só quando há o que dividir** — vale para o total
+com subtarefa e para o agrupamento por pessoa.
+
 **Time.** Quem administra convida; a pessoa define a própria senha pelo link. A conta nasce sem
 senha — quem convida nunca escolhe a senha de ninguém. O banco guarda só o hash do token, que vale
 7 dias e serve uma vez. Desativa em vez de apagar, porque apagar levaria junto o histórico.
 
-O envio do link por e-mail não existe: exigiria serviço de envio, conta e chave. O link é copiado e
-mandado pelo canal que o time já usa. `npm run invite -- --base <url>` faz o mesmo em lote.
+**O convite sai por e-mail desde 31/08/2026** (SMTP). O link continua aparecendo na tela mesmo
+quando o envio dá certo — mensagem cai em spam, e enquanto o link estiver à mão isso não impede
+ninguém de entrar. Falha de SMTP nunca cancela o convite: vira aviso, e o link vale igual.
+`npm run invite -- --base <url> --enviar` faz o mesmo em lote.
+
+**Convite para quem já tem senha é recusado.** Não substitui a senha vigente, só abre uma segunda
+porta para a mesma conta — e por e-mail essa porta passaria a morar numa caixa de entrada,
+encaminhável.
+
+**A casa tem dois provedores de e-mail, um por domínio.** `@grupoquatro5.com` está no Google
+Workspace (`smtp.gmail.com`); `@seubone.com` está no Zoho (`smtp.zoho.com`). Autenticar um
+endereço no servidor do outro dá 535, e se passasse o SPF do domínio derrubaria a mensagem em
+spam. Confira o MX antes de supor.
 
 **Anexos.** Link e arquivo. `SUPABASE_URL` e a chave de serviço estão configuradas em produção
 desde 26/08/2026 — antes disso o botão ficava desabilitado, em vez de aceitar o arquivo e recusar
@@ -118,9 +150,9 @@ A configuração da recorrência mora em **Ajustes de cada empresa**, não na gr
 diário e de olhar, configurar é raro e de decidir. Story diário é uma rotina com sete dias
 marcados, não sete rotinas.
 
-**Navegação.** Hoje, Trabalho, Rotinas, Revisor, Time, Empresas e Ajustes funcionam. Revisor e Time só
-aparecem para gestor e admin — menu que oferece tela que a pessoa não pode abrir promete o que não
-cumpre. Apagados, ainda não construídos: Produção e Desempenho.
+**Navegação.** Hoje, Trabalho, Rotinas, Desempenho, Revisor, Time, Empresas e Ajustes funcionam.
+Revisor e Time só aparecem para gestor e admin — menu que oferece tela que a pessoa não pode abrir
+promete o que não cumpre. Apagado, ainda não construído: só Produção.
 
 ## O fluxo de tarefa
 
@@ -235,15 +267,23 @@ errado com aparência de conferência feita.
 | 24/08 | Busca global, calendário, e as primeiras tabelas do revisor |
 | 25/08 | Tela de Time e convite. Desenvolvimento separado de produção, com trava contra seed no lugar errado |
 | 26/08 | Pipeline de onze etapas, a Revisão IA inteira com o adaptador do Gemini, e a primeira revisão de verdade em produção |
+| 27/08 | Rotinas: grade da semana, filtros, análise por empresa e por pessoa, import por colagem |
+| 28/08 | Bloco C inteiro — pontuação, metas, snapshot, coins — e a tela Desempenho. Import das 90 tarefas vivas do ClickUp |
+| 30/08 | Coluna do quadro para de esticar e rola por dentro. Conta desativada deixava a pessoa presa num laço de redirecionamento (`/sair`) |
+| 31/08 | Convite por e-mail (SMTP), e o tempo escrito como se fala — com corrigir, apagar e nota no lançamento |
 
 ## Pendências
 
 **Que dependem da usuária:**
 
-- **Desativar a conta `teste@mkthub.test`.** É admin master com senha que circulou em chat, e o
-  time real já está no sistema. Desativar corta o acesso na requisição seguinte — o `requireUser`
-  filtra por `is_active` a cada requisição, o cookie de 12h não sobrevive. É o item mais sério
-  desta lista inteira.
+- ~~Desativar a conta `teste@mkthub.test`.~~ Desativada em 30/08/2026. Ela era, sem ninguém
+  saber, **a única conta que alguém já tinha usado**: as seis do time nunca definiram senha, e os
+  convites de 25/08 nunca chegaram a ninguém. Desativá-la deixou a produção sem porta de entrada.
+  Ver o item novo abaixo.
+- **Ninguém consegue entrar em produção.** Klenio, Maria Clara, Maria Luiza, Samuel, Thiago e Zion
+  têm conta ativa e **nenhuma senha**; a conta da Anny tem senha mas nunca foi usada. Resolve em
+  uma hora, sem depender de e-mail: `create-user` para o admin e `npm run invite` para os seis,
+  entregando os links à mão. É o item mais sério desta lista inteira.
 - **Decidir como o board do ClickUp atravessa.** Não existe importação, e não há nenhuma prevista:
   hoje toda tarefa nasce à mão. Ou se escreve um importador, ou se marca uma data de corte e o que
   está em andamento termina no ClickUp. Enquanto isso não for decidido, os dois sistemas divergem
@@ -265,9 +305,10 @@ errado com aparência de conferência feita.
 - O filtro "Mostrar concluídas" na tela de Trabalho não muda mais nada: a lista agrupada inclui
   tudo, porque grupo marcando zero por causa de filtro mente sobre o que existe. O controle
   continua na tela sem efeito — some ou vira "recolher os terminados"
-- `resendInvite` gera token novo mas não invalida a senha vigente. Como não existe (por decisão
-  aprovada) ação de admin para trocar senha de terceiro, o convite é o único caminho e hoje ele
-  não fecha a porta
+- ~~`resendInvite` gera token novo mas não invalida a senha vigente.~~ Corrigido em 31/08/2026:
+  a action **recusa quem já tem senha**, em vez de abrir uma segunda porta para a mesma conta.
+  Virou urgente quando o convite passou a sair por e-mail, porque a segunda porta deixaria de
+  morrer na tela de quem convida e passaria a ficar numa caixa de entrada, encaminhável
 - No banco de **desenvolvimento** ficaram quatro regras de exemplo (SB-01 a SB-04), três itens de
   checklist e a entrega "Peça de teste do revisor", com três rodadas de parecer. Servem para
   conhecer a tela; apagar quando as regras reais entrarem
@@ -294,10 +335,10 @@ Decisão pendente desde 24/08/2026.
 |---|---|
 | A · Rotinas | **No ar desde 27/08/2026.** Migration `0010` aplicada e conferida no banco de produção antes do push |
 | B · Ponte de leitura | Não construída, por decisão — ver abaixo |
-| C · Motor de pontuação, metas, snapshot, coins, ranking | Não começado. Aguarda a decisão do ponto obrigatório |
-| D · Tela Desempenho | Não começado |
-| E · Daily | Não levantado. Depende de ler como roda hoje no `mktimer` |
-| F · Notificações | Não começado |
+| C · Motor de pontuação, metas, snapshot, coins, ranking | **No ar desde 28/08/2026.** Semana fechada não recalcula; coin creditada não se despaga |
+| D · Tela Desempenho | **No ar desde 28/08/2026.** Pódio e a própria posição para o time; mesa de fechamento para quem gerencia |
+| E · Daily | **Levantado em 31/08/2026** e menor do que parecia: no `mktimer` a daily é meta de pontos **por dia** por pessoa (`samuel=26, thiago=16, klenio=16, bia=6`), não reunião. Reusa o motor do bloco C |
+| F · Notificações | Recomendado **mover para a V2**: não bloqueia desligar o sistema antigo, que é o objetivo declarado da V1.5, e ainda não há rotina de uso que diga quais valeriam a pena |
 
 **A ponte não vai ser construída agora.** Em 27/08/2026 ficou sabido que a tarefa nasce **nos dois
 sistemas** ao mesmo tempo. Nesse cenário a ponte sozinha não resolve e pode piorar: se o `mktimer`

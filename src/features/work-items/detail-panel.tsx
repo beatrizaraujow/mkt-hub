@@ -4,12 +4,13 @@ import { useCallback, useEffect, useOptimistic, useState, useTransition } from "
 import { useRouter } from "next/navigation";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDueDate, formatDuration, inputFromDueDate } from "@/lib/date";
+import { formatDueDate, inputFromDueDate } from "@/lib/date";
+import { formatarDuracao, relogio } from "@/lib/duration";
 import { FORMAT_GROUPS, SKILL_GROUPS } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { TimerButton } from "@/features/time/timer-button";
 import { useNowSeconds } from "@/features/time/use-now";
-import { logManualTime } from "@/features/time/actions";
+import { TimeTab } from "@/features/time/time-tab";
 import type { TimeEntryRow, TimeSummary } from "@/features/time/queries";
 import {
   addChecklistItem,
@@ -124,23 +125,8 @@ function when(date: Date) {
   }).format(date);
 }
 
-function dayOnly(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit",
-    month: "short",
-  }).format(date);
-}
-
 function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
-}
-
-function clock(seconds: number) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
 function Avatar({ name }: { name: string }) {
@@ -191,9 +177,6 @@ export function DetailPanel({
   /** Etapa escolhida que ainda espera o motivo da volta. */
   const [askFor, setAskFor] = useState<{ id: string; name: string } | null>(null);
   const [newComment, setNewComment] = useState("");
-  const [manual, setManual] = useState(false);
-  const [manualMin, setManualMin] = useState("");
-  const [manualDay, setManualDay] = useState(today);
 
   // A etapa muda na hora. Se o servidor recusar, volta sozinha.
   const [shownStageId, setShownStage] = useOptimistic(item.stageId);
@@ -311,7 +294,7 @@ export function DetailPanel({
                     <span className="relative inline-flex h-[7px] w-[7px] rounded-full bg-accent" />
                   </span>
                   <span suppressHydrationWarning className="tnum min-w-[56px]">
-                    {clock(live)}
+                    {relogio(live)}
                   </span>
                 </span>
               )}
@@ -459,7 +442,7 @@ export function DetailPanel({
                         </span>
                       )}
                       {summary.subtasks > 0 && (
-                        <span className="tnum ml-auto">{formatDuration(summary.subtasks)}</span>
+                        <span className="tnum ml-auto">{formatarDuracao(summary.subtasks)}</span>
                       )}
                     </h3>
 
@@ -508,7 +491,7 @@ export function DetailPanel({
 
                             {summary.bySubtask[sub.id] ? (
                               <span className="tnum shrink-0 text-[11.5px] text-faint">
-                                {formatDuration(summary.bySubtask[sub.id])}
+                                {formatarDuracao(summary.bySubtask[sub.id])}
                               </span>
                             ) : null}
 
@@ -659,87 +642,13 @@ export function DetailPanel({
               )}
 
               {tab === "tempo" && (
-                <div className="flex flex-col gap-1">
-                  {entries.length === 0 && (
-                    <p className="text-[13px] text-faint">Nenhum tempo registrado ainda.</p>
-                  )}
-
-                  {entries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center gap-2.5 border-b border-line py-1.5 last:border-b-0"
-                    >
-                      <span className="tnum w-[54px] shrink-0 text-[13px] font-medium text-ink">
-                        {formatDuration(entry.durationSeconds ?? 0)}
-                      </span>
-                      <span className="tnum w-[54px] shrink-0 text-[12px] text-faint">
-                        {dayOnly(entry.startedAt)}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted">
-                        {entry.isSubtask ? `↳ ${entry.fromTitle}` : entry.fromTitle}
-                      </span>
-                      {entry.autoClosed && !entry.confirmedAt && (
-                        <span className="shrink-0 rounded border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[10.5px] text-warning">
-                          a confirmar
-                        </span>
-                      )}
-                      <span className="shrink-0 text-[11.5px] text-faint">
-                        {entry.userName ? initials(entry.userName) : "—"}
-                      </span>
-                    </div>
-                  ))}
-
-                  {manual ? (
-                    <form
-                      className="mt-2 flex flex-wrap items-end gap-2"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        run(async () => {
-                          const result = await logManualTime(item.id, manualMin, manualDay);
-                          if (result.ok) {
-                            setManualMin("");
-                            setManual(false);
-                          }
-                          return result;
-                        });
-                      }}
-                    >
-                      <input
-                        type="number"
-                        min={1}
-                        autoFocus
-                        value={manualMin}
-                        onChange={(e) => setManualMin(e.target.value)}
-                        placeholder="min"
-                        className={cn(field, "w-[84px]")}
-                      />
-                      <input
-                        type="date"
-                        value={manualDay}
-                        onChange={(e) => setManualDay(e.target.value)}
-                        className={cn(field, "w-[150px]")}
-                      />
-                      <Button type="submit" size="sm" disabled={pending}>
-                        Lançar
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={() => setManual(false)}
-                        className="text-[12.5px] text-faint hover:text-ink"
-                      >
-                        Cancelar
-                      </button>
-                    </form>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setManual(true)}
-                      className="mt-2 self-start text-[12.5px] text-faint transition-colors hover:text-ink"
-                    >
-                      + Lançar manual
-                    </button>
-                  )}
-                </div>
+                <TimeTab
+                  itemId={item.id}
+                  meId={meId}
+                  hoje={today}
+                  resumo={summary}
+                  entradas={entries}
+                />
               )}
 
               {tab === "historico" && (
@@ -791,12 +700,12 @@ export function DetailPanel({
                   suppressHydrationWarning
                   className="tnum font-display text-[19px] font-semibold text-ink"
                 >
-                  {anyTimer ? clock(live) : formatDuration(summary.own)}
+                  {anyTimer ? relogio(live) : formatarDuracao(summary.own)}
                 </span>
               </div>
               <p className="mt-1.5 text-[11.5px] text-accent">
                 {timerRunning
-                  ? `contando agora · total ${formatDuration(summary.own)}`
+                  ? `contando agora · total ${formatarDuracao(summary.own)}`
                   : runningSubtaskId
                     ? "contando numa subtarefa"
                     : "registradas nesta tarefa"}
@@ -804,7 +713,7 @@ export function DetailPanel({
               {summary.subtasks > 0 && (
                 <p className="mt-1 flex items-center justify-between text-[11.5px] text-muted">
                   <span>Nas subtarefas</span>
-                  <span className="tnum">{formatDuration(summary.subtasks)}</span>
+                  <span className="tnum">{formatarDuracao(summary.subtasks)}</span>
                 </p>
               )}
             </div>

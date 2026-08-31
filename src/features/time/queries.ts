@@ -171,9 +171,13 @@ export async function timeSummary(itemId: string): Promise<TimeSummary> {
 export type TimeEntryRow = {
   id: string;
   startedAt: Date;
+  endedAt: Date | null;
   durationSeconds: number | null;
   autoClosed: boolean;
   confirmedAt: Date | null;
+  note: string | null;
+  /** Para a tela saber o que e seu. Corrigir so o proprio dono, e isso a action garante. */
+  userId: string | null;
   userName: string | null;
   fromTitle: string | null;
   isSubtask: boolean;
@@ -185,9 +189,12 @@ export async function entriesForItem(itemId: string): Promise<TimeEntryRow[]> {
     .select({
       id: timeEntries.id,
       startedAt: timeEntries.startedAt,
+      endedAt: timeEntries.endedAt,
       durationSeconds: timeEntries.durationSeconds,
       autoClosed: timeEntries.autoClosed,
       confirmedAt: timeEntries.confirmedAt,
+      note: timeEntries.note,
+      userId: timeEntries.userId,
       userName: users.name,
       fromTitle: workItems.title,
       isSubtask: sql<boolean>`${workItems.parentId} is not null`,

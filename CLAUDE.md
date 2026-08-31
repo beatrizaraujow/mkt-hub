@@ -65,6 +65,7 @@ npm run typecheck
 npm run test       # funcoes puras do revisor (veredito, camadas, copy)
 npm run db:push    # aplica o schema no Supabase (usa DIRECT_URL, porta 5432)
 npm run seed       # organização, 4 empresas, pipelines e o primeiro admin
+npm run mail:teste -- --so-verificar   # autentica no SMTP sem mandar nada
 ```
 
 `.env.local` precisa de `DATABASE_URL` (pooler 6543), `DIRECT_URL` (pooler 5432) e
@@ -79,6 +80,9 @@ comportamento certo: **falha técnica nunca vira veredito**.
 | `GEMINI_API_KEY` · `GEMINI_MODEL` | chave e modelo do Google (padrão `gemini-3.6-flash`) |
 | `ANTHROPIC_BASE_URL` · `GEMINI_BASE_URL` | trocar a base: gateway, proxy ou servidor de teste |
 | `REVIEW_READ_FILES=1` | religa a leitura de imagem e PDF, guardada desligada |
+| `SMTP_HOST` · `SMTP_PORT` · `SMTP_USER` · `SMTP_PASSWORD` | envio de convite. Ver a nota de domínio abaixo |
+| `MAIL_FROM` | remetente. Vazio usa o `SMTP_USER` |
+| `APP_URL` | endereço público, para montar link que sai por e-mail |
 
 Trocar de provedor é variável de ambiente e mais nada: o porteiro, o julgamento, o veredito e as
 telas não sabem quem respondeu. A tela **Revisor → Regras** mostra quem está atendendo e avisa
@@ -133,6 +137,19 @@ Zion, Klenio e Thiago (colaboradores, com as quatro empresas). Anny é admin.
 **A conta nasce sem senha e quem convida nunca escolhe a senha de ninguém.** Se precisar de mais
 alguém, use a tela de Time ou `npm run invite`. Papel é o teto no sistema e não se infere do cargo
 nem do que a pessoa costuma fazer no board — pergunte.
+
+O convite sai por e-mail (SMTP) e **o link continua aparecendo na tela mesmo quando o envio
+dá certo** — mensagem cai em spam, e enquanto o link estiver à mão isso não impede ninguém de
+entrar. Falha de SMTP nunca cancela o convite: ela vira aviso, e o link vale igual.
+
+**Convite para quem já tem senha é recusado.** Não substitui a senha vigente, só abre uma segunda
+porta para a mesma conta — e agora essa porta ficaria numa caixa de entrada, encaminhável. Quem
+esqueceu a senha troca a dela em Ajustes.
+
+**A casa tem dois provedores de e-mail, um por domínio** — confira o MX antes de supor:
+`@grupoquatro5.com` está no **Google Workspace** (`smtp.gmail.com`) e `@seubone.com` está no
+**Zoho** (`smtp.zoho.com`). Autenticar um endereço no servidor do outro dá 535, porque a conta não
+existe lá; e se passasse, o SPF do domínio não autoriza aquele remetente e a mensagem cai em spam.
 
 `teste@mkthub.test` é conta de teste com poder de admin e senha conhecida. Desativar quando não
 precisar mais.
