@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { canManage, requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { ChangePassword } from "@/features/people/change-password";
 
 export const metadata: Metadata = { title: "Ajustes · MKT Hub" };
@@ -43,6 +44,15 @@ export default async function AjustesPage() {
             value={`${user.companyIds.length} ${user.companyIds.length === 1 ? "empresa" : "empresas"}`}
           />
         </div>
+
+        <section className="mt-4 rounded-[var(--radius-card)] border border-line bg-surface p-4">
+          <h2 className="label-mono">Tema</h2>
+          <p className="mb-3 mt-1.5 max-w-[52ch] text-[12.5px] leading-relaxed text-faint">
+            Vale neste aparelho. Em <strong className="font-medium text-muted">Sistema</strong>, a
+            tela acompanha o computador — inclusive quando ele escurece sozinho ao anoitecer.
+          </p>
+          <ThemeToggle />
+        </section>
 
         <ChangePassword />
 

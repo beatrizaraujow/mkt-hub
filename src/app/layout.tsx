@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { TEMA_SCRIPT } from "@/lib/theme";
 
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
@@ -37,7 +38,20 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    /*
+     * `suppressHydrationWarning` porque o script abaixo mexe na classe do
+     * `<html>` antes de o React hidratar, e sem isto o React reclamaria de uma
+     * diferenca que e exatamente o que se quer.
+     */
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        {/*
+          Antes de qualquer pintura. Se isto esperasse o React, quem escolheu o
+          escuro veria a tela clara por um quadro toda vez que abrisse o
+          sistema — e esse pisco branco e pior que nao ter a opcao.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: TEMA_SCRIPT }} />
+      </head>
       <body className={`${bricolage.variable} ${instrument.variable} ${jetbrains.variable}`}>
         {children}
       </body>

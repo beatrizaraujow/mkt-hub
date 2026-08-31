@@ -60,6 +60,13 @@
   --radius-control: 8px;
   --radius-card: 10px;
   --row-h: 36px;
+
+  /*
+    Diz ao navegador em que tema pintar o que nao e nosso: barra de
+    rolagem, cursor de texto, calendario nativo do campo de data. Sem
+    isto, forcar o escuro deixava a barra de rolagem branca.
+  */
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -98,6 +105,8 @@
     --p-alta: #e0a53f;
     --p-media: #4fbfb4;
     --p-baixa: #6e7a77;
+
+    color-scheme: dark;
   }
 }
 
@@ -136,6 +145,8 @@
   --p-alta: #e0a53f;
   --p-media: #4fbfb4;
   --p-baixa: #6e7a77;
+
+  color-scheme: dark;
 }
 
 @theme inline {
