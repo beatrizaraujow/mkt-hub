@@ -205,3 +205,29 @@ export async function knownPlatforms(user: CurrentUser): Promise<string[]> {
 
   return rows.map((row) => row.platform);
 }
+
+/**
+ * Existe rotina ativa atribuida a esta pessoa?
+ *
+ * E a pergunta que decide se a secao Rotinas aparece para ela. A resposta vem
+ * do banco e nao do papel: quem tem regua de pontos e colaborador igual a quem
+ * tem regua de rotina, e a diferenca entre os dois nao esta em `role`.
+ *
+ * Quem gerencia nao passa por aqui — ve sempre, porque a aderencia alimenta a
+ * pontuacao da semana e nao se valida um fechamento sem poder conferir a grade.
+ */
+export async function temRotinaPropria(user: CurrentUser): Promise<boolean> {
+  const [linha] = await db
+    .select({ id: routines.id })
+    .from(routines)
+    .where(
+      and(
+        eq(routines.orgId, user.orgId),
+        eq(routines.assigneeId, user.id),
+        eq(routines.isActive, true),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(linha);
+}

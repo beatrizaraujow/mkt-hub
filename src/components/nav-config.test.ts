@@ -40,3 +40,30 @@ test("o que está marcado como `soon` não promete papel nenhum", () => {
     assert.equal(item.minRole, undefined, `${item.href} mistura soon com minRole`);
   }
 });
+
+test("colaborador sem rotina propria nao ve a secao Rotinas", () => {
+  // Samuel, Thiago e Klenio sao colaboradores como o Zion, mas a regua deles
+  // e pontos: a grade seriam 38 linhas do trabalho de outra pessoa.
+  const vistas = visibleNav("colaborador", { temRotina: false }).map((i) => i.href);
+  assert.ok(!vistas.includes("/rotinas"));
+  assert.ok(vistas.includes("/desempenho"));
+});
+
+test("colaborador com rotina propria ve", () => {
+  const vistas = visibleNav("colaborador", { temRotina: true }).map((i) => i.href);
+  assert.ok(vistas.includes("/rotinas"));
+});
+
+test("quem gerencia ve a grade mesmo sem rotina propria", () => {
+  // A aderencia alimenta a pontuacao; nao se valida um fechamento sem poder
+  // conferir a grade que o alimenta.
+  for (const papel of ["gestor", "admin"] as const) {
+    const vistas = visibleNav(papel, { temRotina: false }).map((i) => i.href);
+    assert.ok(vistas.includes("/rotinas"), `${papel} deveria ver /rotinas`);
+  }
+});
+
+test("sem a opcao, o padrao nao escancara a grade", () => {
+  // Chamada antiga, sem o segundo argumento: colaborador nao ve.
+  assert.ok(!visibleNav("colaborador").map((i) => i.href).includes("/rotinas"));
+});

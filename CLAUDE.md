@@ -50,6 +50,9 @@ permanente — antes de sugerir biblioteca, escreva a função.
   `assertCompanyAccess` / `assertCanManage` em server action. Esconder item de menu no front é UX,
   nunca segurança.
 - **O papel define o teto, o acesso por empresa define o alcance.**
+- **Rotinas é de quem a rotina alcança.** A seção aparece para quem tem rotina ativa atribuída, e
+  para quem gerencia — não para todo colaborador. Papel não resolve isso: quem tem régua de pontos
+  é colaborador igual a quem tem régua de rotina, e a diferença não está em `role`.
 - **Todo cálculo de data é em BRT** (`America/Sao_Paulo`), nunca UTC. Misturar fuso desloca o
   fechamento da semana.
 - **`kind` do estágio é o que o sistema calcula**, não o nome. Nome é livre e será customizável por

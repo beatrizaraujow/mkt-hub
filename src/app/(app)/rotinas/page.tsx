@@ -11,6 +11,7 @@ import {
   ensureWeek,
   listRoutines,
   occurrencesForWeek,
+  temRotinaPropria,
 } from "@/features/routines/queries";
 import { isWeek, mondayOf, weekDays } from "@/features/routines/week";
 import { resumir, type Ocorrencia } from "@/features/routines/stats";
@@ -34,6 +35,29 @@ export default async function RotinasPage({
 }) {
   const user = await requireUser();
   const params = await searchParams;
+
+  /*
+   * A secao e de quem a rotina alcanca. Esconder o item de menu e conforto;
+   * a recusa de verdade e esta, porque quem digitar /rotinas na barra de
+   * endereco chega aqui do mesmo jeito.
+   *
+   * Nao redireciono: mandar para outra tela sem explicar deixa a pessoa achando
+   * que o sistema quebrou. Uma frase dizendo por que resolve melhor.
+   */
+  const gerencia = canManage(user);
+  if (!gerencia && !(await temRotinaPropria(user))) {
+    return (
+      <>
+        <PageHeader title="Rotinas" description="A grade de quem publica todo dia." />
+        <div className="px-5 py-5 md:px-7">
+          <EmptyState
+            title="Você não tem rotina atribuída"
+            description="Esta grade é de quem tem publicação recorrente. A sua régua de desempenho é por pontos, e o seu trabalho aparece em Trabalho e em Desempenho."
+          />
+        </div>
+      </>
+    );
+  }
 
   const today = brtToday();
   const thisMonday = mondayOf(today);
