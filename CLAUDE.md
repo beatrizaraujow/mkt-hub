@@ -59,6 +59,10 @@ permanente — antes de sugerir biblioteca, escreva a função.
   empresa na V2.
 - **Cor codifica camada:** neutro para trabalho, petróleo para ação/foco/progresso, semânticas só
   para estado, âmbar (`--reward`) só para coins/ranking/meta batida.
+- **O ouro da marca (`--brand`, `#FCC100`) tem três lugares e nenhum a mais:** o logo, o botão
+  primário e a borda do que a pessoa selecionou. Ele **não** substitui o petróleo — foco, progresso,
+  link e item ativo de menu continuam petróleo, senão a codificação de camada some. Em fundo claro a
+  marca usa `--brand-line`: o `#FCC100` puro tem 1,7:1 contra o branco e desaparece.
 - **Borda antes de sombra.** Sombra só em camada flutuante.
 - **Gamificação nunca por volume.** Coins vêm de percentual de meta e posição, com teto semanal.
   Toda regra nova passa pelo teste: *"como eu burlaria isso em cinco minutos?"*

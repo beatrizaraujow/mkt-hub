@@ -51,7 +51,7 @@ function Chip({
       className={cn(
         "shrink-0 rounded-full px-2.5 py-1 text-[11.5px] transition-colors",
         active
-          ? "border border-accent/40 bg-accent-soft text-accent"
+          ? "border border-brand-line bg-brand-soft font-medium text-ink"
           : "border border-line text-muted hover:text-ink",
       )}
     >
@@ -257,7 +257,7 @@ export function ItemPicker({
                 className={cn(
                   "shrink-0 cursor-pointer rounded-full border px-2.5 py-1 text-[11.5px] focus:outline-none",
                   stageId
-                    ? "border-accent/40 bg-accent-soft text-accent"
+                    ? "border-brand-line bg-brand-soft text-ink"
                     : "border-line bg-surface text-muted",
                 )}
               >
@@ -292,7 +292,7 @@ export function ItemPicker({
                     className={cn(
                       "flex w-full flex-col gap-1 border-l-2 px-4 py-2.5 text-left transition-colors",
                       index === cursor
-                        ? "border-l-accent bg-accent-soft/40"
+                        ? "border-l-brand-line bg-brand-soft/60"
                         : "border-l-transparent hover:bg-hover",
                     )}
                   >

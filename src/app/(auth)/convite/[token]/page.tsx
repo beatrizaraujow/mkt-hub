@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Wordmark } from "@/components/wordmark";
+import { Logo } from "@/components/logo";
 import { inviteHolder } from "@/features/people/actions";
 import { AcceptInviteForm } from "@/features/people/accept-invite-form";
 
@@ -13,7 +13,7 @@ export default async function ConvitePage({ params }: { params: Promise<{ token:
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-center px-5 py-10">
       <div className="mb-6">
-        <Wordmark />
+        <Logo className="w-[150px]" />
       </div>
 
       {!holder ? (

@@ -169,7 +169,7 @@ function CompanyPicker({
                 name="companyIds"
                 value={parent.id}
                 defaultChecked={selected.includes(parent.id)}
-                className="accent-[var(--accent)]"
+                className="accent-[var(--brand)]"
               />
               {parent.name}
             </label>
@@ -185,7 +185,7 @@ function CompanyPicker({
                     name="companyIds"
                     value={child.id}
                     defaultChecked={selected.includes(child.id)}
-                    className="accent-[var(--accent)]"
+                    className="accent-[var(--brand)]"
                   />
                   {child.name}
                 </label>
@@ -425,7 +425,7 @@ export function PeopleList({
                       value={option.value}
                       checked={role === option.value}
                       onChange={() => setRole(option.value)}
-                      className="accent-[var(--accent)]"
+                      className="accent-[var(--brand)]"
                     />
                     <span>
                       {option.label}
@@ -482,7 +482,7 @@ export function PeopleList({
                       value={option.value}
                       checked={role === option.value}
                       onChange={() => setRole(option.value)}
-                      className="accent-[var(--accent)]"
+                      className="accent-[var(--brand)]"
                     />
                     <span>
                       {option.label}

@@ -184,7 +184,7 @@ export function RequestForm({ data, today }: { data: RequestFormData; today: str
                     className={cn(
                       "h-[32px] rounded-[var(--radius-control)] border px-3 text-[13px] transition-colors duration-150",
                       active
-                        ? "border-accent bg-accent-soft font-medium text-accent"
+                        ? "border-brand-line bg-brand-soft font-medium text-ink"
                         : "border-line text-muted hover:border-line-strong hover:text-ink",
                     )}
                   >

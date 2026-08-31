@@ -222,7 +222,7 @@ function RuleForm({
                 className={cn(
                   "flex cursor-pointer gap-3 rounded-[var(--radius-control)] border px-3.5 py-3 transition-colors",
                   verifier === option.value
-                    ? "border-accent/45 bg-accent-soft"
+                    ? "border-brand-line bg-brand-soft"
                     : "border-line hover:bg-hover",
                 )}
               >
@@ -232,7 +232,7 @@ function RuleForm({
                   value={option.value}
                   checked={verifier === option.value}
                   onChange={() => setVerifier(option.value)}
-                  className="mt-[3px] accent-[var(--accent)]"
+                  className="mt-[3px] accent-[var(--brand)]"
                 />
                 <span>
                   <span className="block text-[13px] text-ink">{option.title}</span>
@@ -423,7 +423,7 @@ function ChecklistForm({
             type="checkbox"
             name="isReliabilityProbe"
             defaultChecked={item?.isReliabilityProbe ?? false}
-            className="mt-[3px] accent-[var(--accent)]"
+            className="mt-[3px] accent-[var(--brand)]"
           />
           <span>
             <span className="block text-[13px] text-ink">Medidor de confiabilidade</span>

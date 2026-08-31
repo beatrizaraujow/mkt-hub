@@ -121,7 +121,7 @@ export function FilterCheck({
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-3.5 w-3.5 accent-[var(--accent)]"
+        className="h-3.5 w-3.5 accent-[var(--brand)]"
       />
       {label}
     </label>

@@ -24,6 +24,21 @@
   --accent-soft: #e3efee;
   --accent-fg: #ffffff;
 
+  /*
+    O ouro da marca. Nao substitui o petroleo: o acento continua codificando
+    acao, foco e progresso na interface inteira. O ouro fica onde a marca
+    aparece — logo, botao que a pessoa vem clicar, e a borda do que ela
+    escolheu.
+
+    `--brand-line` e mais escuro no tema claro de proposito: #FCC100 tem 1.7:1
+    contra o branco, e uma borda de selecao que nao se enxerga e um estado que
+    nao existe. No escuro o ouro da marca ja se destaca sozinho.
+  */
+  --brand: #fcc100;
+  --brand-fg: #191300;
+  --brand-line: #c79800;
+  --brand-soft: #fdf3d6;
+
   --success: #2e7d4f;
   --success-soft: #e6f1ea;
   --warning: #b7791f;
@@ -60,6 +75,11 @@
     --accent-soft: #14302e;
     --accent-fg: #06201e;
 
+    --brand: #fcc100;
+    --brand-fg: #191300;
+    --brand-line: #fcc100;
+    --brand-soft: #2e2410;
+
     --success: #5cb77f;
     --success-soft: #16281e;
     --warning: #e0a53f;
@@ -92,6 +112,11 @@
   --accent-soft: #14302e;
   --accent-fg: #06201e;
 
+  --brand: #fcc100;
+  --brand-fg: #191300;
+  --brand-line: #fcc100;
+  --brand-soft: #2e2410;
+
   --success: #5cb77f;
   --success-soft: #16281e;
   --warning: #e0a53f;
@@ -122,6 +147,11 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
   --color-accent-fg: var(--accent-fg);
+
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-line: var(--brand-line);
+  --color-brand-soft: var(--brand-soft);
 
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);

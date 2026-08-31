@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Wordmark } from "@/components/wordmark";
+import { Logo } from "@/components/logo";
 import type { NavIcon, NavItem } from "@/components/nav-config";
 import { TimerWidget } from "@/features/time/timer-widget";
 import { GlobalSearch } from "@/features/search/global-search";
@@ -62,7 +62,7 @@ export function Sidebar({ items, user, running, logoutAction }: Props) {
       */}
       <aside className="sticky top-0 hidden h-dvh w-[212px] shrink-0 flex-col border-r border-line bg-surface md:flex">
         <div className="flex h-14 items-center px-4">
-          <Wordmark />
+          <Logo className="w-[124px]" />
         </div>
 
         {/* A caixa fica montada aqui e o atalho vale em qualquer tela. */}

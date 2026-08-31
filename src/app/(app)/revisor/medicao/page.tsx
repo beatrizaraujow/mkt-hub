@@ -39,7 +39,7 @@ function Pill({
       className={cn(
         "rounded-full px-3 py-1 text-[12.5px] transition-colors",
         active
-          ? "border border-accent/40 bg-accent-soft text-accent"
+          ? "border border-brand-line bg-brand-soft font-medium text-ink"
           : "border border-transparent text-muted hover:text-ink",
       )}
     >

@@ -6,7 +6,13 @@ const button = cva(
   {
     variants: {
       variant: {
-        primary: "bg-accent text-accent-fg hover:bg-accent-hover",
+        /*
+         * O botao primario e da marca, nao do acento: e o unico lugar da
+         * interface onde a pessoa vem clicar de proposito, e e la que o ouro
+         * paga. O petroleo continua sendo a cor de foco, progresso e navegacao
+         * — quem le a tela nao perde a codificacao por causa disto.
+         */
+        primary: "bg-brand text-brand-fg hover:brightness-[1.07]",
         subtle: "bg-sunk text-ink border border-line hover:bg-hover",
         ghost: "text-muted hover:bg-hover hover:text-ink",
         danger: "bg-danger text-white hover:opacity-90",

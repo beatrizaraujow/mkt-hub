@@ -52,7 +52,7 @@ function DayPicker({
             className={cn(
               "h-7 w-9 rounded-[var(--radius-control)] border text-[11.5px] transition-colors duration-150",
               on
-                ? "border-accent bg-accent-soft font-medium text-accent"
+                ? "border-brand-line bg-brand-soft font-medium text-ink"
                 : "border-line text-faint hover:text-ink",
             )}
           >

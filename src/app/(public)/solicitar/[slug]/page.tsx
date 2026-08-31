@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { brtToday } from "@/lib/date";
 import { loadScope } from "@/features/requests/queries";
 import { RequestForm } from "@/features/requests/request-form";
+import { Logo } from "@/components/logo";
 
 /**
  * O mesmo formulario, recortado numa empresa. Serve para quem quer mandar o
@@ -35,6 +36,7 @@ export default async function CompanyRequestPage({
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 py-10 sm:px-6 sm:py-14">
       <header className="mb-8">
+        <Logo className="mb-6 w-[132px]" />
         <p className="label-mono mb-2">{scope.title}</p>
         <h1 className="font-display text-[27px] font-semibold leading-tight text-ink">
           Pedir para o marketing
@@ -47,7 +49,9 @@ export default async function CompanyRequestPage({
 
       <RequestForm today={brtToday()} data={{ slug, ...scope }} />
 
-      <p className="mt-10 text-center text-[12px] text-faint">MKT Hub · Grupo SB</p>
+      <p className="mt-10 text-center text-[12px] text-faint">
+        MKT Hub · Grupo SB
+      </p>
     </main>
   );
 }

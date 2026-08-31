@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LoginLockup } from "@/components/login-lockup";
+import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Entrar · MKT Hub" };
@@ -67,7 +67,7 @@ export default async function LoginPage({
             </h2>
             <span
               aria-hidden
-              className="block text-[clamp(52px,6vw,92px)] font-extrabold leading-[.4] text-[#ffc71c]"
+              className="block text-[clamp(52px,6vw,92px)] font-extrabold leading-[.4] text-[#fcc100]"
             >
               &rdquo;
             </span>
@@ -91,7 +91,7 @@ export default async function LoginPage({
         />
 
         <div className="relative flex w-full min-w-0 max-w-[560px] flex-col gap-[clamp(22px,3.4vh,40px)]">
-          <LoginLockup className="login-sobe text-[#ffc71c]" />
+          <Logo className="login-sobe max-w-[292px] text-[#fcc100]" />
 
           <h1 className="login-sobe login-sobe-2 font-display text-[clamp(34px,4.4vw,64px)] font-bold leading-[1.05] tracking-[-0.03em] text-white">
             Pronto para

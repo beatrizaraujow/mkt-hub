@@ -19,7 +19,7 @@ const CAMPO =
   "login-field h-[clamp(56px,7.4vh,72px)] w-full rounded-[16px] border border-white/[.06] " +
   "bg-[#171717] px-5 text-[16px] text-white placeholder:text-[#54524c] " +
   "transition-[border-color,background-color] duration-300 " +
-  "focus:border-[#ffc71c] focus:bg-[#1c1b17] focus:outline-none";
+  "focus:border-[#fcc100] focus:bg-[#1c1b17] focus:outline-none";
 
 const ROTULO = "text-[15px] font-medium text-[#e9e9e5]";
 
@@ -31,7 +31,7 @@ function Submit() {
       disabled={pending}
       className={cn(
         "mt-[clamp(8px,2.4vh,26px)] h-[clamp(58px,8vh,76px)] rounded-[16px]",
-        "bg-[#ffc71c] text-[17px] font-semibold text-[#191300]",
+        "bg-[#fcc100] text-[17px] font-semibold text-[#191300]",
         "transition-[filter,transform] duration-200",
         "hover:-translate-y-px hover:brightness-[1.07] active:translate-y-0",
         "disabled:pointer-events-none disabled:opacity-60",
