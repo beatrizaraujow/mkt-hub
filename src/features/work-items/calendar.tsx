@@ -124,7 +124,7 @@ export function Calendar({
                     className={cn(
                       "tnum text-[11.5px]",
                       isToday
-                        ? "flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 font-medium text-white"
+                        ? "flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1 font-medium text-brand-fg"
                         : outside
                           ? "text-faint/60"
                           : "text-faint",

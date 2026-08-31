@@ -59,10 +59,15 @@ permanente — antes de sugerir biblioteca, escreva a função.
   empresa na V2.
 - **Cor codifica camada:** neutro para trabalho, petróleo para ação/foco/progresso, semânticas só
   para estado, âmbar (`--reward`) só para coins/ranking/meta batida.
-- **O ouro da marca (`--brand`, `#FCC100`) tem três lugares e nenhum a mais:** o logo, o botão
-  primário e a borda do que a pessoa selecionou. Ele **não** substitui o petróleo — foco, progresso,
-  link e item ativo de menu continuam petróleo, senão a codificação de camada some. Em fundo claro a
-  marca usa `--brand-line`: o `#FCC100` puro tem 1,7:1 contra o branco e desaparece.
+- **O ouro da marca (`--brand`) é a cor do que a pessoa escolheu.** Logo, botão primário, item ativo
+  do menu, aba aberta, filtro com valor, opção marcada, dia de hoje. Ele **não** substitui o
+  petróleo: cronômetro rodando, barra de progresso, links, identidade (iniciais de quem é
+  responsável) e as onze cores de etapa continuam petróleo e suas próprias cores — senão a
+  codificação de camada some junto. Semânticas e prioridade nunca viram ouro.
+- **São quatro tokens porque ouro puro só funciona como fundo:** `--brand` preenche, `--brand-fg` é
+  a tinta escura em cima dele, `--brand-line` desenha borda, `--brand-ink` é texto dourado legível.
+  No tema claro `#FCC100` tem 1,7:1 contra o branco e 2,3:1 contra o próprio `--brand-soft`; por
+  isso borda e texto usam ouros mais fechados no claro e o ouro cheio no escuro.
 - **Borda antes de sombra.** Sombra só em camada flutuante.
 - **Gamificação nunca por volume.** Coins vêm de percentual de meta e posição, com teto semanal.
   Toda regra nova passa pelo teste: *"como eu burlaria isso em cinco minutos?"*

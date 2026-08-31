@@ -267,7 +267,7 @@ export default async function RevisorPage({
                           {saida && (
                             <Link
                               href={saida.href(data.item.id)}
-                              className="shrink-0 rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft px-3 py-1.5 text-[12px] text-accent transition-opacity hover:opacity-80"
+                              className="shrink-0 rounded-[var(--radius-control)] bg-brand px-3 py-1.5 text-[12px] font-medium text-brand-fg transition-[filter] hover:brightness-[1.07]"
                             >
                               {saida.label}
                             </Link>

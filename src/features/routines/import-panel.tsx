@@ -33,7 +33,7 @@ function Dias({ dias }: { dias: number[] }) {
           key={label}
           className={cn(
             "w-[22px] rounded-[4px] text-center text-[10.5px] leading-[15px]",
-            dias.includes(index) ? "bg-accent-soft text-accent" : "text-faint/50",
+            dias.includes(index) ? "bg-brand-soft text-brand-ink" : "text-faint/50",
           )}
         >
           {label}

@@ -361,7 +361,7 @@ export function DetailPanel({
                   className={cn(
                     "border-b-2 pb-2 text-[13px] transition-colors duration-150",
                     tab === t.key
-                      ? "border-accent text-ink"
+                      ? "border-brand-line text-ink"
                       : "border-transparent text-faint hover:text-muted",
                   )}
                 >

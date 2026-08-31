@@ -107,7 +107,7 @@ export function RoutineGrid({
                 key={day}
                 className={cn(
                   "label-mono text-center",
-                  day === today && "!text-accent",
+                  day === today && "!text-brand-ink",
                 )}
                 title={day}
               >

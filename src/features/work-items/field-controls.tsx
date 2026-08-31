@@ -139,7 +139,7 @@ export function OptionField({
         aria-expanded={open}
         className={cn(
           trigger,
-          open ? "border-accent text-ink" : "border-line text-ink hover:border-line-strong",
+          open ? "border-brand-line text-ink" : "border-line text-ink hover:border-line-strong",
         )}
       >
         {renderOption && current?.value ? (
@@ -200,7 +200,7 @@ export function OptionField({
                       className={cn(
                         row,
                         highlighted && "bg-hover",
-                        selected ? "text-accent" : "text-ink",
+                        selected ? "text-brand-ink" : "text-ink",
                         !option.value && "text-faint",
                       )}
                     >
@@ -287,7 +287,7 @@ export function AssigneeField({
         aria-expanded={open}
         className={cn(
           trigger,
-          open ? "border-accent" : "border-line hover:border-line-strong",
+          open ? "border-brand-line" : "border-line hover:border-line-strong",
         )}
       >
         {current ? (
@@ -330,12 +330,12 @@ export function AssigneeField({
                     role="option"
                     aria-selected={selected}
                     onClick={() => choose(person.id)}
-                    className={cn(row, "hover:bg-hover", selected ? "text-accent" : "text-ink")}
+                    className={cn(row, "hover:bg-hover", selected ? "text-brand-ink" : "text-ink")}
                   >
                     <span
                       className={cn(
                         "flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full text-[9px] font-semibold",
-                        selected ? "bg-accent text-accent-fg" : "bg-accent-soft text-accent",
+                        selected ? "bg-brand text-brand-fg" : "bg-accent-soft text-accent",
                       )}
                     >
                       {initials(person.name)}
@@ -486,7 +486,7 @@ export function DueDateField({
         className={cn(
           trigger,
           "tnum",
-          open ? "border-accent" : "border-line hover:border-line-strong",
+          open ? "border-brand-line" : "border-line hover:border-line-strong",
         )}
       >
         <span className={cn("min-w-0 flex-1 truncate", !value && "text-faint")}>{display}</span>
@@ -507,7 +507,7 @@ export function DueDateField({
                 className={cn(
                   "rounded-full px-2.5 py-1 text-[12px] transition-colors duration-150",
                   s.value === value
-                    ? "bg-accent-soft font-medium text-accent"
+                    ? "bg-brand-soft font-medium text-brand-ink"
                     : "bg-sunk text-muted hover:text-ink",
                 )}
               >
@@ -563,9 +563,9 @@ export function DueDateField({
                     className={cn(
                       "tnum flex h-7 items-center justify-center rounded-[6px] text-[12.5px] transition-colors duration-150",
                       cell === value
-                        ? "bg-accent font-medium text-accent-fg"
+                        ? "bg-brand font-medium text-brand-fg"
                         : cell === today
-                          ? "text-accent ring-1 ring-inset ring-accent"
+                          ? "text-brand-ink ring-1 ring-inset ring-brand-line"
                           : "text-ink hover:bg-hover",
                     )}
                   >

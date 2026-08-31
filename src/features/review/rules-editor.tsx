@@ -774,7 +774,7 @@ export function RulesEditor({ data }: { data: RulesData }) {
               className={cn(
                 "-mb-px border-b-2 pb-2.5 text-[12.5px] transition-colors",
                 aba === chave
-                  ? "border-accent text-ink"
+                  ? "border-brand-line text-ink"
                   : "border-transparent text-muted hover:text-ink",
               )}
             >

@@ -97,7 +97,12 @@ export function FilterSelect({
   return (
     <select
       aria-label={label}
-      className={filterSelectClass}
+      /*
+       * Filtro com valor escolhido fica dourado. Antes disso, "Todas as
+       * empresas" e "SeuBoné" tinham exatamente a mesma cara, e quem voltava
+       * para a tela via uma lista curta sem saber por que ela estava curta.
+       */
+      className={cn(filterSelectClass, value && "border-brand-line text-brand-ink")}
       value={value}
       onChange={(event) => onChange(event.target.value)}
     >

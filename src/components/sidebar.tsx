@@ -102,7 +102,7 @@ export function Sidebar({ items, user, running, logoutAction }: Props) {
                 className={cn(
                   "flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-[7px] text-[13.5px] transition-colors duration-150",
                   active
-                    ? "bg-accent-soft font-medium text-accent"
+                    ? "bg-brand-soft font-medium text-brand-ink"
                     : "text-muted hover:bg-hover hover:text-ink",
                 )}
               >
@@ -152,7 +152,7 @@ export function Sidebar({ items, user, running, logoutAction }: Props) {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10.5px]",
-                  active ? "text-accent" : "text-faint",
+                  active ? "text-brand-ink" : "text-faint",
                 )}
               >
                 <Icon size={19} strokeWidth={1.75} />

@@ -80,7 +80,7 @@ export function NewCompany() {
                 style={{ background: c }}
                 className={
                   color === c
-                    ? "h-6 w-6 rounded-full ring-2 ring-accent ring-offset-2 ring-offset-[var(--surface)]"
+                    ? "h-6 w-6 rounded-full ring-2 ring-brand-line ring-offset-2 ring-offset-[var(--surface)]"
                     : "h-6 w-6 rounded-full"
                 }
               />

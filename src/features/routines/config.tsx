@@ -52,7 +52,7 @@ function DayPicker({
             className={cn(
               "h-7 w-9 rounded-[var(--radius-control)] border text-[11.5px] transition-colors duration-150",
               on
-                ? "border-brand-line bg-brand-soft font-medium text-ink"
+                ? "border-brand-line bg-brand-soft font-medium text-brand-ink"
                 : "border-line text-faint hover:text-ink",
             )}
           >
@@ -224,7 +224,7 @@ export function RoutineConfig({
                         className={cn(
                           "tnum rounded-[4px] px-1 text-[10.5px]",
                           routine.weekdays.includes(index)
-                            ? "bg-accent-soft text-accent"
+                            ? "bg-brand-soft text-brand-ink"
                             : "text-faint/50",
                         )}
                       >
