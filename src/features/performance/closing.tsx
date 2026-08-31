@@ -11,7 +11,16 @@ import { calcularSemana, fecharSemana, validarCoins } from "./actions";
 import type { Entrada } from "./snapshot";
 
 /**
- * A mesa de fechamento. So quem gerencia ve.
+ * A mesa de fechamento. **Todo mundo ve; so quem gerencia mexe.**
+ *
+ * Ver e mexer sao permissoes diferentes, e separa-las e o ponto: o time
+ * enxerga a conta inteira — quanto cada um entregou, quanto isso vale, o que
+ * seria creditado — sem poder alterar nada. Numero que decide pagamento e que
+ * so a chefia enxerga cria a suspeita de placar secreto.
+ *
+ * **Esconder o botao e conforto, nunca seguranca.** `calcularSemana`,
+ * `validarCoins` e `fecharSemana` chamam `assertCanManage` no servidor; quem
+ * chamar a action direto bate na mesma linha, com ou sem botao na tela.
  *
  * **O botao que fecha e o unico irreversivel do sistema**, entao ele pede
  * confirmacao e diz, antes, quantas coins vao ser creditadas e para quantas
@@ -46,6 +55,7 @@ export function ClosingTable({
   validadas,
   motivos,
   entryIds,
+  podeEditar,
 }: {
   ymd: string;
   snapshotId: string | null;
@@ -54,6 +64,8 @@ export function ClosingTable({
   validadas: Map<string, number | null>;
   motivos: Map<string, string>;
   entryIds: Map<string, string>;
+  /** Gestor ou acima. Falso deixa a mesa inteira em modo de leitura. */
+  podeEditar: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -61,6 +73,7 @@ export function ClosingTable({
   const [confirmando, setConfirmando] = useState(false);
 
   const fechada = status === "fechado";
+  const somenteLeitura = fechada || !podeEditar;
 
   const aCreditar = entradas.reduce(
     (soma, e) => soma + (validadas.get(e.pessoaId) ?? e.coinsSugeridas),
@@ -87,11 +100,13 @@ export function ClosingTable({
           <p className="mt-1 text-[12px] text-faint">
             {fechada
               ? "Semana fechada. Não recalcula — ela conta a história de quando fechou."
-              : "O sistema sugere; você valida. Nada é creditado até fechar."}
+              : podeEditar
+                ? "O sistema sugere; você valida. Nada é creditado até fechar."
+                : "O sistema sugere; quem gerencia valida. Nada é creditado até fechar."}
           </p>
         </div>
 
-        {!fechada && (
+        {!somenteLeitura && (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="subtle" disabled={pending} onClick={() => roda(() => calcularSemana(ymd))}>
               <RefreshCw size={14} strokeWidth={2} />
@@ -208,7 +223,7 @@ export function ClosingTable({
                     </td>
                     <td className="tnum px-2 py-2 text-right text-faint">{entrada.posicao ?? "—"}</td>
                     <td className="px-4 py-2 text-right">
-                      {fechada || !entryId ? (
+                      {somenteLeitura || !entryId ? (
                         <span className="tnum font-medium text-reward">{coins}</span>
                       ) : (
                         <input
@@ -236,7 +251,7 @@ export function ClosingTable({
                           <span className="shrink-0">
                             Por que {coins} e não {entrada.coinsSugeridas}?
                           </span>
-                          {fechada ? (
+                          {somenteLeitura ? (
                             <span className="text-muted">{motivo || "— sem motivo registrado"}</span>
                           ) : (
                             <input

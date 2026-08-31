@@ -59,11 +59,14 @@ export function WeekCards({
   minha,
   diasRestantes,
   fechada,
+  saldo,
 }: {
   minha: Entrada;
   /** Dias uteis que ainda restam, contando hoje. Zero no fim de semana. */
   diasRestantes: number;
   fechada: boolean;
+  /** Saldo total no extrato, de todas as semanas ja fechadas. */
+  saldo: number;
 }) {
   /*
    * A cor sai do RITMO, nao do percentual cru. A escala de 90/70 foi feita para
@@ -168,6 +171,12 @@ export function WeekCards({
             : minha.coinsAos100 !== null
               ? `${minha.coinsAos100} ao bater 100% · ${teto} ao bater 120% · nada creditado até fechar`
               : "nada creditado até fechar"}
+        </p>
+
+        {/* O saldo do extrato, que sumiu junto com o podio. */}
+        <p className="mt-1 text-[11.5px] text-faint">
+          <span className="tnum text-reward">{saldo}</span> coins no total, somando as semanas
+          fechadas
         </p>
       </Cartao>
     </div>

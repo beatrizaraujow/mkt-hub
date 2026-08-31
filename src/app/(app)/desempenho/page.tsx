@@ -6,10 +6,7 @@ import { db } from "@/db";
 import { snapshotEntries } from "@/db/schema";
 import { canManage, requireUser } from "@/lib/auth";
 import { brtToday } from "@/lib/date";
-import { cn } from "@/lib/utils";
 import { EmptyState, PageHeader } from "@/components/page-header";
-import { TOM } from "@/features/routines/tone";
-import { faixaDoRitmo } from "@/features/performance/pace";
 import { ClosingTable } from "@/features/performance/closing";
 import { saldoDeCoins, semanaNaTela } from "@/features/performance/queries";
 import { diasUteisRestantes, mondayOf, shiftWeek } from "@/lib/week";
@@ -47,21 +44,6 @@ export default async function DesempenhoPage({
    */
   const diasRestantes =
     ymd === estaSemana ? diasUteisRestantes(hoje, dados.semana.fim) : ymd < estaSemana ? 0 : 5;
-
-  /**
-   * Top 3 e a sua posição — nunca a lista completa.
-   *
-   * Com sete pessoas, "7º lugar" é exposição e não motivação, e a comparação
-   * só faz sentido dentro do mesmo grupo de régua. Quem gerencia vê a mesa de
-   * fechamento inteira porque precisa decidir; o resto do time vê o próprio
-   * número e o pódio.
-   */
-  const meuGrupo = minha
-    ? dados.entradas
-        .filter((entrada) => entrada.rule === minha.rule && entrada.posicao !== null)
-        .sort((a, b) => (a.posicao ?? 0) - (b.posicao ?? 0))
-    : [];
-  const podio = meuGrupo.slice(0, 3);
 
   const semanaLink = (delta: number) => {
     const alvo = shiftWeek(ymd, delta);
@@ -120,79 +102,35 @@ export default async function DesempenhoPage({
         ) : (
           <>
             {minha ? (
-              <>
-                <WeekCards minha={minha} diasRestantes={diasRestantes} fechada={fechada} />
-
-                {/* O podio so para quem NAO gerencia: quem gerencia ve a lista
-                    inteira logo abaixo, e o podio viraria o mesmo dado duas vezes. */}
-                {!gerencia && podio.length > 0 && (
-                  <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <p className="label-mono">Entre quem tem a mesma régua</p>
-                      <p className="text-[12.5px] text-muted">
-                        <span className="tnum font-medium text-reward">{meuSaldo}</span> coins no total
-                      </p>
-                    </div>
-                    <ul className="mt-2 flex flex-col gap-1">
-                      {podio.map((entrada) => (
-                        <li key={entrada.pessoaId} className="flex items-center gap-3 text-[13px]">
-                          <span className="tnum w-4 text-faint">{entrada.posicao}º</span>
-                          <span
-                            className={cn(
-                              "min-w-0 flex-1 truncate",
-                              entrada.pessoaId === user.id ? "font-medium text-ink" : "text-muted",
-                            )}
-                          >
-                            {entrada.nome}
-                          </span>
-                          <span className={cn("tnum", TOM[faixaDoRitmo(entrada.percentual, diasRestantes)])}>
-                            {entrada.percentual === null ? "—" : `${entrada.percentual}%`}
-                          </span>
-                        </li>
-                      ))}
-                      {minha.posicao !== null && minha.posicao > 3 && (
-                        <li className="flex items-center gap-3 border-t border-line pt-1 text-[13px]">
-                          <span className="tnum w-4 text-faint">{minha.posicao}º</span>
-                          <span className="min-w-0 flex-1 truncate font-medium text-ink">
-                            {minha.nome}
-                          </span>
-                          <span className={cn("tnum", TOM[faixaDoRitmo(minha.percentual, diasRestantes)])}>
-                            {minha.percentual}%
-                          </span>
-                        </li>
-                      )}
-                    </ul>
-                  </section>
-                )}
-
-                {minha.semPonto > 0 && (
-                  <p className="tnum text-[12.5px] text-warning">
-                    {minha.semPonto} entrega{minha.semPonto > 1 ? "s" : ""} concluída
-                    {minha.semPonto > 1 ? "s" : ""} sem Ponto MKT — elas não somam para ninguém.
-                  </p>
-                )}
-              </>
+              <WeekCards
+                minha={minha}
+                diasRestantes={diasRestantes}
+                fechada={fechada}
+                saldo={meuSaldo}
+              />
             ) : (
               <p className="text-[13px] text-faint">
                 Você não tem régua de desempenho cadastrada, então não aparece no fechamento.
               </p>
             )}
 
-            {gerencia && (
-              <TeamPanel entradas={dados.entradas} meId={user.id} diasRestantes={diasRestantes} />
-            )}
+            {/*
+              Painel e mesa aparecem para todo mundo. O que muda por papel e so
+              o que da para MEXER — e isso o servidor garante em `assertCanManage`,
+              nao o `podeEditar` daqui, que e conforto de tela.
+            */}
+            <TeamPanel entradas={dados.entradas} meId={user.id} diasRestantes={diasRestantes} />
 
-            {gerencia && (
-              <ClosingTable
-                ymd={ymd}
-                snapshotId={dados.fechamento?.id ?? null}
-                status={dados.fechamento?.status ?? null}
-                entradas={dados.entradas}
-                validadas={dados.validadas}
-                motivos={dados.motivos}
-                entryIds={entryIds}
-              />
-            )}
+            <ClosingTable
+              ymd={ymd}
+              snapshotId={dados.fechamento?.id ?? null}
+              status={dados.fechamento?.status ?? null}
+              entradas={dados.entradas}
+              validadas={dados.validadas}
+              motivos={dados.motivos}
+              entryIds={entryIds}
+              podeEditar={gerencia}
+            />
 
             {dados.fechamento?.status === "fechado" && (
               <p className="text-[12px] text-faint">

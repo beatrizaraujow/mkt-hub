@@ -6,11 +6,11 @@ import type { Entrada } from "./snapshot";
 /**
  * O time da semana, separado pelos dois grupos de regua.
  *
- * **So para quem gerencia.** A lista completa aparece aqui pelo mesmo motivo
- * pelo qual a mesa de fechamento aparece: quem decide precisa ver todo mundo.
- * Para o resto do time continua valendo o podio mais a propria posicao — com
- * sete pessoas, "7o lugar" e exposicao e nao motivacao, e essa decisao nao muda
- * por causa de um layout novo.
+ * **Todo mundo ve a lista inteira**, por decisao de 31/08/2026. A versao
+ * anterior mostrava so o podio para quem nao gerencia, com o argumento de que
+ * "7o lugar" e exposicao e nao motivacao. A casa decidiu o contrario: numero
+ * que a chefia ve e o time nao ve cria a suspeita de que existe um placar
+ * secreto, e essa suspeita custa mais do que a exposicao.
  *
  * Os dois grupos ficam lado a lado e nunca no mesmo ranking. Comparar quem
  * entrega pontos com quem entrega presenca produz um numero que nao quer dizer
@@ -112,14 +112,6 @@ function Grupo({
           />
         ))}
       </ul>
-
-      {rule === "rotinas" && (
-        <p className="mt-3 rounded-[var(--radius-control)] border border-dashed border-line px-3 py-2.5 text-[12px] leading-relaxed text-muted">
-          A régua de rotina é <span className="text-ink">rotinas feitas sobre as que venceram</span>,
-          não pontos de tarefa. O denominador muda todo dia, e por isso o número não se compara com
-          o do outro grupo — só a leitura de percentual atravessa.
-        </p>
-      )}
     </div>
   );
 }
