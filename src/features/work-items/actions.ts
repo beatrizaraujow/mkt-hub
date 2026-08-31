@@ -359,11 +359,32 @@ export async function setPriority(id: string, priority: string): Promise<ActionS
 export async function deleteWorkItem(id: string): Promise<ActionState> {
   try {
     const user = await requireUserAction();
-    const item = await loadItem(user, id);
 
-    const canDelete =
-      item.createdById === user.id || user.role === "admin" || user.role === "gestor";
-    if (!canDelete) return fail("Só quem criou a tarefa ou um gestor pode excluí-la.");
+    /*
+     * Chamado pelo que ele garante, nao pelo que devolve: `loadItem` recusa
+     * tarefa de fora da organizacao e de empresa fora do alcance da pessoa.
+     * Tirar esta linha deixaria o master apagar tarefa de empresa que ele nem
+     * enxerga.
+     */
+    await loadItem(user, id);
+
+    /*
+     * Excluir e a unica acao do sistema que apaga trabalho sem deixar rastro:
+     * some a tarefa, o tempo lancado nela, os comentarios e o historico. As
+     * outras "destruicoes" da casa desativam em vez de apagar, justamente por
+     * isso — regra do revisor, pessoa no Time, rotina.
+     *
+     * Por decisao de 31/08/2026, so o **admin master** exclui. Antes bastava
+     * ter criado a tarefa, ou ser gestor: sete pessoas com poder de apagar
+     * historico e, na pratica, sete chances de perde-lo por engano.
+     *
+     * `isMaster` e nao `role`: papel e o teto de acesso, e admin existe mais de
+     * um. Master e o marcador de quem responde pelo que nao volta — e ja era o
+     * criterio para fechar a semana e creditar coin.
+     */
+    if (!user.isMaster) {
+      return fail("Só o admin master pode excluir tarefa. Peça a quem administra o sistema.");
+    }
 
     const children = await db
       .select({ id: workItems.id })

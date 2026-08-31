@@ -50,6 +50,11 @@ permanente — antes de sugerir biblioteca, escreva a função.
   `assertCompanyAccess` / `assertCanManage` em server action. Esconder item de menu no front é UX,
   nunca segurança.
 - **O papel define o teto, o acesso por empresa define o alcance.**
+- **Excluir tarefa é só do admin master** (`user.isMaster`), desde 31/08/2026. É a única ação
+  que apaga trabalho sem deixar rastro — leva junto o tempo lançado, os comentários e o
+  histórico. Todo o resto da casa desativa em vez de apagar. Antes bastava ter criado a tarefa
+  ou ser gestor: sete pessoas com poder de apagar histórico são sete chances de perdê-lo por
+  engano. `isMaster` e não `role`, porque admin existe mais de um.
 - **Rotinas é de quem a rotina alcança.** A seção aparece para quem tem rotina ativa atribuída, e
   para quem gerencia — não para todo colaborador. Papel não resolve isso: quem tem régua de pontos
   é colaborador igual a quem tem régua de rotina, e a diferença não está em `role`.

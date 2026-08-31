@@ -160,6 +160,7 @@ export function DetailPanel({
   runningSubtaskId,
   storageOn,
   meId,
+  souMaster,
 }: {
   item: DetailData;
   people: PersonOption[];
@@ -171,6 +172,12 @@ export function DetailPanel({
   runningSubtaskId: string | null;
   storageOn: boolean;
   meId: string;
+  /**
+   * So o admin master exclui tarefa. Esconder o botao aqui e UX — a regra que
+   * vale esta em `deleteWorkItem`, no servidor. Quem chamar a action direto
+   * bate na mesma linha, com ou sem botao na tela.
+   */
+  souMaster: boolean;
 }) {
   const router = useRouter();
   const openItem = useOpenItem();
@@ -882,20 +889,22 @@ export function DetailPanel({
               />
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (!window.confirm("Excluir esta tarefa? Não dá para desfazer.")) return;
-                run(async () => {
-                  const result = await deleteWorkItem(item.id);
-                  if (result.ok) close();
-                  return result;
-                });
-              }}
-              className="mt-auto self-start text-[12.5px] text-faint transition-colors hover:text-danger"
-            >
-              Excluir tarefa
-            </button>
+            {souMaster && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!window.confirm("Excluir esta tarefa? Não dá para desfazer.")) return;
+                  run(async () => {
+                    const result = await deleteWorkItem(item.id);
+                    if (result.ok) close();
+                    return result;
+                  });
+                }}
+                className="mt-auto self-start text-[12.5px] text-faint transition-colors hover:text-danger"
+              >
+                Excluir tarefa
+              </button>
+            )}
           </aside>
         </div>
       </aside>

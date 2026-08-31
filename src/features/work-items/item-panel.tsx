@@ -46,6 +46,7 @@ export async function ItemPanel({
       runningSince={onThis || onSubtask ? (running?.startedAt ?? null) : null}
       runningSubtaskId={onSubtask}
       storageOn={storageConfigured()}
+      souMaster={user.isMaster}
     />
   );
 }
