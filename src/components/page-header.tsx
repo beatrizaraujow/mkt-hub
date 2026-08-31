@@ -3,11 +3,18 @@ import { cn } from "@/lib/utils";
 export function PageHeader({
   title,
   description,
+  badge,
   actions,
   className,
 }: {
   title: string;
   description?: string;
+  /**
+   * Selo colado no título, para estado que vale para a tela inteira — o modo do
+   * revisor é o caso. Fica aqui e não em `actions` porque não é ação: quem lê
+   * "Medição" precisa saber, na mesma linha, de que sistema veio o número.
+   */
+  badge?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
 }) {
@@ -19,7 +26,10 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="font-display text-[22px] font-semibold text-ink md:text-[26px]">{title}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-[22px] font-semibold text-ink md:text-[26px]">{title}</h1>
+          {badge}
+        </div>
         {description ? <p className="mt-0.5 text-[13.5px] text-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex items-center gap-2">{actions}</div> : null}

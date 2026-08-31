@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   attachments,
@@ -250,22 +250,8 @@ export async function diagnose(user: CurrentUser, workItemId: string): Promise<D
   };
 }
 
-/** Candidatos para apontar o revisor. Os mais recentes bastam. */
-export async function diagnosableItems(user: CurrentUser) {
-  if (!user.companyIds.length) return [];
-
-  return db
-    .select({
-      id: workItems.id,
-      title: workItems.title,
-      companyName: companies.name,
-      skill: workItems.skill,
-    })
-    .from(workItems)
-    .innerJoin(companies, eq(companies.id, workItems.companyId))
-    .where(
-      and(eq(workItems.orgId, user.orgId), inArray(workItems.companyId, user.companyIds)),
-    )
-    .orderBy(desc(workItems.updatedAt))
-    .limit(40);
-}
+/*
+ * `diagnosableItems` morreu aqui em 31/08/2026: eram as 40 tarefas mais
+ * recentes para encher um `<select>`. Quem escolhe entrega agora passa por
+ * `pick.ts`, que busca por texto e filtra por empresa, etapa e dono.
+ */

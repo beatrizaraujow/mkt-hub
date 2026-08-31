@@ -8,6 +8,7 @@ import { FORMAT_GROUPS, SKILL_GROUPS } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Modal, ModalFooter } from "@/components/ui/modal";
+import { PopoverPanel, useAnchoredPopover } from "@/components/ui/popover";
 import {
   addChecklistBatch,
   saveChecklistItem,
@@ -39,6 +40,33 @@ const VERIFIER_LABEL = {
   fora: "Fora de escopo",
 } as const;
 
+type Verifier = keyof typeof VERIFIER_LABEL;
+
+/**
+ * As três respostas para "quem consegue verificar", com o custo de cada uma.
+ *
+ * Eram três linhas de um `<select>`, e num select a diferença entre elas
+ * desaparece: as três viram nomes. É a decisão mais consequente do formulário —
+ * ela define se a regra vira pedido ao modelo, item de checklist, ou nada.
+ */
+const VERIFIER_CARDS: Array<{ value: Verifier; title: string; hint: string }> = [
+  {
+    value: "pessoa",
+    title: "Pessoa, depende de contexto que só alguém tem",
+    hint: "Vira item de checklist, não entra no pedido do modelo.",
+  },
+  {
+    value: "maquina",
+    title: "Máquina, está escrito na peça",
+    hint: "Entra no pedido do modelo. Pede o campo “como a máquina confere”.",
+  },
+  {
+    value: "fora",
+    title: "Fora de escopo, não é sobre a entrega",
+    hint: "Fica registrada e não é conferida por ninguém automaticamente.",
+  },
+];
+
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
@@ -55,6 +83,20 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       {children}
       {hint ? <span className="text-[11.5px] text-faint">{hint}</span> : null}
     </label>
+  );
+}
+
+/** O selo de quem confere, do tamanho de um código. */
+function VerifierTag({ verifier }: { verifier: Verifier }) {
+  return (
+    <span
+      className={cn(
+        "rounded-[4px] border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em]",
+        verifier === "maquina" ? "border-accent/35 text-accent" : "border-line text-faint",
+      )}
+    >
+      {VERIFIER_LABEL[verifier]}
+    </span>
   );
 }
 
@@ -134,6 +176,13 @@ function RuleForm({
   onClose: () => void;
 }) {
   const router = useRouter();
+  /**
+   * O tipo do verificador vive no cliente porque ele decide o que a tela mostra:
+   * "como a máquina confere" só existe para regra de máquina. Mostrar o campo
+   * sempre, com um aviso de que não vale, é pedir para alguém preenchê-lo.
+   */
+  const [verifier, setVerifier] = useState<Verifier>(rule?.verifier ?? "pessoa");
+
   const [state, action] = useActionState<RulesState, FormData>(async (prev, form) => {
     const result = await saveRule(prev, form);
     if (result.ok) {
@@ -151,34 +200,54 @@ function RuleForm({
       width={620}
       onClose={onClose}
     >
-      <form action={action} className="flex flex-col gap-3.5 px-5 py-4">
+      <form action={action} className="flex flex-col gap-4 px-5 py-4">
         <input type="hidden" name="id" value={rule?.id ?? ""} />
 
-        <div className="grid gap-3.5 sm:grid-cols-[160px_1fr]">
-          <Field label="Código" hint="Curto e estável: é o que aparece no parecer.">
-            <input
-              name="code"
-              defaultValue={rule?.code ?? ""}
-              required
-              placeholder="CARB-01"
-              className={cn(field, "font-mono")}
-            />
-          </Field>
+        <Field label="Código" hint="Curto e estável: é o que aparece no parecer.">
+          <input
+            name="code"
+            defaultValue={rule?.code ?? ""}
+            required
+            placeholder="CARB-01"
+            className={cn(field, "font-mono")}
+          />
+        </Field>
 
-          <Field label="Quem consegue verificar" hint="Na dúvida entre máquina e pessoa, é pessoa.">
-            <select
-              name="verifier"
-              defaultValue={rule?.verifier ?? "pessoa"}
-              className={cn(field, "cursor-pointer")}
-            >
-              <option value="maquina">Máquina — dá para conferir olhando a entrega</option>
-              <option value="pessoa">Pessoa — depende de contexto que só alguém tem</option>
-              <option value="fora">Fora de escopo — não é sobre a entrega</option>
-            </select>
-          </Field>
+        <div className="flex flex-col gap-2">
+          <span className="label-mono">Quem consegue verificar</span>
+          <div className="flex flex-col gap-2">
+            {VERIFIER_CARDS.map((option) => (
+              <label
+                key={option.value}
+                className={cn(
+                  "flex cursor-pointer gap-3 rounded-[var(--radius-control)] border px-3.5 py-3 transition-colors",
+                  verifier === option.value
+                    ? "border-accent/45 bg-accent-soft"
+                    : "border-line hover:bg-hover",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="verifier"
+                  value={option.value}
+                  checked={verifier === option.value}
+                  onChange={() => setVerifier(option.value)}
+                  className="mt-[3px] accent-[var(--accent)]"
+                />
+                <span>
+                  <span className="block text-[13px] text-ink">{option.title}</span>
+                  <span className="mt-0.5 block text-[11.5px] text-faint">{option.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <span className="text-[11.5px] text-faint">
+            Na dúvida entre máquina e pessoa, é pessoa: uma reprovação errada custa muito mais caro
+            que uma verificação a menos.
+          </span>
         </div>
 
-        <Field label="A regra">
+        <Field label="A regra" hint="Uma frase, no imperativo, que dá para conferir olhando a peça.">
           <textarea name="text" defaultValue={rule?.text ?? ""} required rows={3} className={area} />
         </Field>
 
@@ -191,17 +260,28 @@ function RuleForm({
           />
         </Field>
 
-        <Field
-          label="Como a máquina confere"
-          hint="Só vale para regra de máquina. O que procurar, em uma frase."
-        >
-          <textarea
-            name="machineHint"
-            defaultValue={rule?.machineHint ?? ""}
-            rows={2}
-            className={area}
-          />
-        </Field>
+        {verifier === "maquina" ? (
+          <Field label="Como a máquina confere" hint="O que procurar, em uma frase.">
+            <textarea
+              name="machineHint"
+              defaultValue={rule?.machineHint ?? ""}
+              rows={2}
+              className={area}
+            />
+          </Field>
+        ) : (
+          <>
+            {/*
+              O valor continua indo no formulário para não sumir do banco quando
+              alguém troca o tipo e volta atrás.
+            */}
+            <input type="hidden" name="machineHint" value={rule?.machineHint ?? ""} />
+            <p className="rounded-[var(--radius-control)] border border-dashed border-line px-3.5 py-3 text-[11.5px] text-faint">
+              “Como a máquina confere” não aparece: esta regra é de{" "}
+              {verifier === "pessoa" ? "pessoa" : "fora de escopo"}.
+            </p>
+          </>
+        )}
 
         <div className="grid gap-3.5 sm:grid-cols-3">
           <ScopeSelects
@@ -243,7 +323,7 @@ function RuleForm({
           <span>
             <span className="block text-[13px] text-ink">Inegociável</span>
             <span className="block text-[11.5px] text-faint">
-              Violou, reprova. Sem isso o achado vira ajuste.
+              Reprova sozinha, sem ponderar com o resto. Sem isso o achado vira ajuste.
             </span>
           </span>
         </label>
@@ -449,7 +529,7 @@ function Toggle({ active, onToggle }: { active: boolean; onToggle: () => void })
       type="button"
       disabled={pending}
       onClick={() => start(onToggle)}
-      className="text-[12px] text-faint transition-colors hover:text-ink disabled:opacity-50"
+      className="text-[11.5px] text-faint transition-colors hover:text-ink disabled:opacity-50"
     >
       {active ? "desativar" : "reativar"}
     </button>
@@ -464,26 +544,60 @@ function scopeOf(row: { companyName: string | null; skill: string | null; format
 }
 
 /**
- * O que muda sem deploy: o modo e o botao de desligar por marca.
+ * O que muda sem deploy: o modo e o alcance por marca.
  *
  * Fica no topo porque e a primeira pergunta de quem abre esta tela quando algo
  * deu errado — "isso esta ligado?" —, e porque uma revisao automatica que so
  * se desliga com deploy fica ligada errada por um dia inteiro.
+ *
+ * **As empresas sao retangulos retos, nao chips arredondados.** O arredondado
+ * ficou reservado para filtro, que so existe na Medicao. Estes retangulos
+ * descrevem escopo: tirar um daqui desliga o revisor naquela marca de verdade,
+ * e nao esconde linha nenhuma da tela.
  */
 function OperationPanel({ data }: { data: RulesData }) {
   const router = useRouter();
   const [busy, start] = useTransition();
+  const { open: incluirAberto, setOpen: setIncluir, rect, triggerRef, panelRef } =
+    useAnchoredPopover(260);
   const silent = data.mode === "silencioso";
+
+  const dentro = data.companies.filter((company) => !data.disabled.includes(company.id));
+  const fora = data.companies.filter((company) => data.disabled.includes(company.id));
+
+  const alternar = (companyId: string, ligar: boolean) =>
+    start(async () => {
+      await setCompanyReview(companyId, ligar);
+      setIncluir(false);
+      router.refresh();
+    });
 
   return (
     <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-[18rem] flex-1">
           <h2 className="label-mono">Operação</h2>
-          <p className="mt-1 max-w-[52ch] text-[12px] text-faint">
+
+          <p className="mt-2.5 flex items-start gap-2.5 text-[13px] text-ink">
+            <span
+              aria-hidden
+              className={cn(
+                "mt-[7px] h-[6px] w-[6px] shrink-0 rounded-full",
+                silent ? "bg-warning" : "bg-accent",
+              )}
+            />
             {silent
-              ? "Silencioso: o revisor emite parecer e não move nada. É a fase de comparar o que ele acha com o que o time decide."
-              : "Ativo: só a reprovação anda sozinha, para Ajustar. Aprovado continua esperando alguém clicar."}
+              ? "Silencioso — emite parecer e não move nada no pipeline."
+              : "Ativo — só a reprovação anda sozinha, para Ajustar. Aprovado continua esperando alguém clicar."}
+          </p>
+
+          <p className="mt-2.5 text-[12px] text-faint">
+            Quem responde: <span className="text-ink">{PROVIDER_LABEL[data.model.provider]}</span>
+            {" · "}
+            <span className="font-mono text-[11.5px]">{data.model.name}</span>
+            {data.model.configured ? null : (
+              <span className="text-danger"> · sem chave configurada: o revisor falha ao julgar</span>
+            )}
           </p>
         </div>
 
@@ -496,51 +610,92 @@ function OperationPanel({ data }: { data: RulesData }) {
               router.refresh();
             })
           }
-          className="h-8 rounded-[var(--radius-control)] border border-line px-3 text-[12.5px] text-ink transition-colors hover:bg-hover disabled:opacity-50"
+          className="h-9 shrink-0 rounded-[var(--radius-control)] border border-line px-3.5 text-[12.5px] text-ink transition-colors hover:bg-hover disabled:opacity-50"
         >
           {silent ? "Deixar o revisor mover reprovados" : "Voltar para silencioso"}
         </button>
       </div>
 
-      <p className="mt-2.5 text-[12px] text-faint">
-        Quem responde:{" "}
-        <span className="text-ink">{PROVIDER_LABEL[data.model.provider]}</span>
-        {" · "}
-        <span className="font-mono text-[11.5px]">{data.model.name}</span>
-        {data.model.configured ? null : (
-          <span className="text-danger"> · sem chave configurada: o revisor falha ao julgar</span>
-        )}
-      </p>
+      <div className="mt-4 border-t border-line pt-3.5">
+        <p className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+          Empresas em escopo · <span className="tnum">{dentro.length}</span> de{" "}
+          <span className="tnum">{data.companies.length}</span>
+        </p>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {data.companies.map((company) => {
-          const off = data.disabled.includes(company.id);
-          return (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {dentro.map((company) => (
             <button
               key={company.id}
               type="button"
               disabled={busy}
-              onClick={() =>
-                start(async () => {
-                  await setCompanyReview(company.id, off);
-                  router.refresh();
-                })
-              }
-              className={cn(
-                "rounded-[var(--radius-control)] border px-2.5 py-1 text-[12.5px] transition-colors disabled:opacity-50",
-                off
-                  ? "border-line bg-sunk text-faint line-through"
-                  : "border-accent/40 bg-accent-soft text-accent",
-              )}
-              title={off ? "Ligar o revisor nesta marca" : "Desligar o revisor nesta marca"}
+              onClick={() => alternar(company.id, false)}
+              title="Desligar o revisor nesta marca"
+              className="rounded-[6px] border border-line px-2.5 py-1.5 text-[12px] text-ink transition-colors hover:border-line-strong hover:bg-hover disabled:opacity-50"
             >
               {company.name}
             </button>
-          );
-        })}
+          ))}
+
+          {fora.length > 0 && (
+            <>
+              <button
+                ref={triggerRef}
+                type="button"
+                disabled={busy}
+                onClick={() => setIncluir(!incluirAberto)}
+                className="rounded-[6px] border border-dashed border-line px-2.5 py-1.5 text-[12px] text-faint transition-colors hover:text-ink disabled:opacity-50"
+              >
+                + incluir empresa
+              </button>
+
+              {incluirAberto && (
+                <PopoverPanel rect={rect} panelRef={panelRef}>
+                  <p className="border-b border-line px-3 py-2 text-[11.5px] text-faint">
+                    Fora de escopo hoje
+                  </p>
+                  {fora.map((company) => (
+                    <button
+                      key={company.id}
+                      type="button"
+                      onClick={() => alternar(company.id, true)}
+                      className="block w-full px-3 py-2 text-left text-[13px] text-ink transition-colors hover:bg-hover"
+                    >
+                      {company.name}
+                    </button>
+                  ))}
+                </PopoverPanel>
+              )}
+            </>
+          )}
+        </div>
+
+        <p className="mt-2.5 text-[11px] leading-relaxed text-faint">
+          Estes retângulos descrevem escopo, não filtram nada. Clicar num deles desliga o revisor
+          naquela marca. Filtro só existe na Medição, e lá é arredondado.
+        </p>
       </div>
     </section>
   );
+}
+
+/* ------------------------------------------------------------------- abas */
+
+type Aba = "ativas" | "desativadas" | "fora";
+
+const ABA_LABEL: Record<Aba, string> = {
+  ativas: "Ativas",
+  desativadas: "Desativadas",
+  fora: "Fora de escopo",
+};
+
+/**
+ * Regra desativada não some: parecer antigo continua citando o código, e um
+ * código sem texto vira um parecer que não se explica. Ela sai da lista de
+ * trabalho e vai para a aba ao lado.
+ */
+function abaDe(rule: RuleRow): Aba {
+  if (!rule.isActive) return "desativadas";
+  return rule.verifier === "fora" ? "fora" : "ativas";
 }
 
 export function RulesEditor({ data }: { data: RulesData }) {
@@ -554,8 +709,13 @@ export function RulesEditor({ data }: { data: RulesData }) {
     item: null,
   });
   const [batchOpen, setBatchOpen] = useState(false);
+  const [aba, setAba] = useState<Aba>("ativas");
+
+  const porAba: Record<Aba, RuleRow[]> = { ativas: [], desativadas: [], fora: [] };
+  for (const rule of data.rules) porAba[abaDe(rule)].push(rule);
 
   const total = data.counts.maquina + data.counts.pessoa + data.counts.fora;
+  const visiveis = porAba[aba];
 
   return (
     <div className="flex flex-col gap-4">
@@ -564,7 +724,7 @@ export function RulesEditor({ data }: { data: RulesData }) {
       {data.gaps.length > 0 && (
         <section className="rounded-[var(--radius-card)] border border-warning/40 bg-warning-soft p-4">
           <h2 className="label-mono text-warning">Recortes sem regra</h2>
-          <p className="mb-2.5 mt-1 text-[12px] text-ink">
+          <p className="mb-2.5 mt-1.5 text-[12px] text-ink">
             Combinações que o time entrega e que o revisor não tem como conferir. Onde não há
             regra, o sistema não inventa uma: o buraco fica visível e quem decide é você.
           </p>
@@ -581,9 +741,7 @@ export function RulesEditor({ data }: { data: RulesData }) {
                   {gap.items} entrega{gap.items === 1 ? "" : "s"}
                 </span>
                 {gap.hasChecklist ? (
-                  <span className="ml-auto text-[11.5px] text-faint">
-                    tem checklist humano
-                  </span>
+                  <span className="ml-auto text-[11.5px] text-faint">tem checklist humano</span>
                 ) : null}
               </div>
             ))}
@@ -591,14 +749,14 @@ export function RulesEditor({ data }: { data: RulesData }) {
         </section>
       )}
 
-      <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <section className="rounded-[var(--radius-card)] border border-line bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-3.5">
           <div>
             <h2 className="label-mono">Regras</h2>
-            <p className="mt-1 text-[12px] text-faint">
+            <p className="mt-1.5 text-[12px] text-faint">
               {total === 0
                 ? "Nenhuma regra ainda. Enquanto não houver, o revisor não emite parecer."
-                : `${data.counts.maquina} de máquina · ${data.counts.pessoa} de pessoa · ${data.counts.fora} fora de escopo`}
+                : `${porAba.ativas.length} ativa${porAba.ativas.length === 1 ? "" : "s"} · ${data.counts.maquina} de máquina · ${data.counts.pessoa} de pessoa`}
             </p>
           </div>
           <Button size="sm" onClick={() => setRuleForm({ open: true, rule: null })}>
@@ -607,40 +765,49 @@ export function RulesEditor({ data }: { data: RulesData }) {
           </Button>
         </div>
 
-        {data.rules.length === 0 ? (
-          <p className="rounded-[var(--radius-control)] border border-dashed border-line px-3 py-6 text-center text-[13px] text-faint">
-            Comece pelas regras que já existem na prática: as correções que se repetem.
+        <div className="flex gap-5 border-b border-line px-4">
+          {(Object.keys(ABA_LABEL) as Aba[]).map((chave) => (
+            <button
+              key={chave}
+              type="button"
+              onClick={() => setAba(chave)}
+              className={cn(
+                "-mb-px border-b-2 pb-2.5 text-[12.5px] transition-colors",
+                aba === chave
+                  ? "border-accent text-ink"
+                  : "border-transparent text-muted hover:text-ink",
+              )}
+            >
+              {ABA_LABEL[chave]}{" "}
+              <span className="tnum text-faint">{porAba[chave].length}</span>
+            </button>
+          ))}
+        </div>
+
+        {visiveis.length === 0 ? (
+          <p className="px-4 py-8 text-center text-[13px] text-faint">
+            {aba === "ativas"
+              ? "Comece pelas regras que já existem na prática: as correções que se repetem."
+              : `Nenhuma regra ${aba === "fora" ? "fora de escopo" : "desativada"}.`}
           </p>
         ) : (
           <div className="flex flex-col">
-            {data.rules.map((rule) => (
+            {visiveis.map((rule) => (
               <div
                 key={rule.id}
                 className={cn(
-                  "border-b border-line py-2.5 last:border-b-0",
-                  !rule.isActive && "opacity-50",
+                  "border-b border-line px-4 py-3.5 last:border-b-0",
+                  !rule.isActive && "opacity-60",
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <code className="rounded-[5px] bg-sunk px-1.5 py-0.5 font-mono text-[11.5px] text-muted">
-                    {rule.code}
-                  </code>
-                  <span
-                    className={cn(
-                      "rounded-[5px] px-1.5 py-0.5 text-[11px]",
-                      rule.verifier === "maquina"
-                        ? "bg-accent-soft text-accent"
-                        : "bg-sunk text-faint",
-                    )}
-                  >
-                    {VERIFIER_LABEL[rule.verifier]}
-                  </span>
+                  <code className="font-mono text-[11.5px] font-medium text-ink">{rule.code}</code>
+                  <VerifierTag verifier={rule.verifier} />
                   {rule.isBlocking && (
-                    <span className="rounded-[5px] border border-danger/40 px-1.5 py-0.5 text-[11px] text-danger">
+                    <span className="rounded-[4px] border border-danger/35 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-danger">
                       inegociável
                     </span>
                   )}
-                  <span className="text-[11.5px] text-faint">{scopeOf(rule)}</span>
                   {rule.version > 1 && (
                     <span className="text-[11px] text-faint" title="Quantas vezes o texto mudou.">
                       v{rule.version}
@@ -648,6 +815,16 @@ export function RulesEditor({ data }: { data: RulesData }) {
                   )}
 
                   <span className="ml-auto flex items-center gap-3">
+                    <span className="text-[11.5px] text-faint">{scopeOf(rule)}</span>
+                    <button
+                      type="button"
+                      aria-label={`Editar ${rule.code}`}
+                      onClick={() => setRuleForm({ open: true, rule })}
+                      className="flex items-center gap-1 text-[11.5px] text-faint transition-colors hover:text-ink"
+                    >
+                      <Pencil size={12} />
+                      editar
+                    </button>
                     <Toggle
                       active={rule.isActive}
                       onToggle={async () => {
@@ -655,34 +832,31 @@ export function RulesEditor({ data }: { data: RulesData }) {
                         router.refresh();
                       }}
                     />
-                    <button
-                      type="button"
-                      aria-label={`Editar ${rule.code}`}
-                      onClick={() => setRuleForm({ open: true, rule })}
-                      className="text-faint transition-colors hover:text-ink"
-                    >
-                      <Pencil size={13} />
-                    </button>
                   </span>
                 </div>
 
-                <p className="mt-1 text-[13px] leading-relaxed text-ink">{rule.text}</p>
+                <p className="mt-2 text-[13px] leading-relaxed text-ink">{rule.text}</p>
                 {rule.rationale && (
-                  <p className="mt-0.5 text-[12px] text-faint">{rule.rationale}</p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-faint">{rule.rationale}</p>
                 )}
               </div>
             ))}
           </div>
         )}
+
+        <p className="border-t border-line px-4 py-3 text-[11px] leading-relaxed text-faint">
+          Desativar, nunca apagar: parecer antigo continua citando a regra pelo código, e código sem
+          texto vira parecer que não se explica.
+        </p>
       </section>
 
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="mb-3.5 flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="label-mono">Checklist da pessoa</h2>
-            <p className="mt-1 text-[12px] text-faint">
-              Entre quatro e oito itens por combinação. Pedir o que a máquina já confere faz a
-              pessoa marcar tudo no automático em duas semanas.
+            <p className="mt-1.5 max-w-[62ch] text-[12px] text-faint">
+              Entre quatro e oito itens por combinação. Acima disso ninguém lê, e pedir o que a
+              máquina já confere faz a pessoa marcar tudo no automático em duas semanas.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -703,45 +877,49 @@ export function RulesEditor({ data }: { data: RulesData }) {
           </p>
         ) : (
           <div className="flex flex-col">
-            {data.checklist.map((item) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "flex flex-wrap items-baseline gap-2 border-b border-line py-2 last:border-b-0",
-                  !item.isActive && "opacity-50",
-                )}
-              >
-                <span className="text-[13px] text-ink">{item.text}</span>
-                <span className="text-[11.5px] text-faint">{scopeOf(item)}</span>
-                {item.isReliabilityProbe && (
-                  <span className="rounded-[5px] bg-sunk px-1.5 py-0.5 text-[11px] text-faint">
-                    medidor
+            {data.checklist.map((item) => {
+              const codigo = item.ruleId
+                ? (data.rules.find((rule) => rule.id === item.ruleId)?.code ?? null)
+                : null;
+
+              return (
+                <div
+                  key={item.id}
+                  className={cn(
+                    "flex flex-wrap items-baseline gap-3 border-b border-line py-2.5 first:pt-0 last:border-b-0",
+                    !item.isActive && "opacity-60",
+                  )}
+                >
+                  <span className="min-w-[16rem] flex-1 text-[13px] leading-relaxed text-ink">
+                    {item.text}
+                    {item.isReliabilityProbe && (
+                      <span className="ml-2 whitespace-nowrap rounded-[4px] border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-faint">
+                        medidor{codigo ? ` · ${codigo}` : ""}
+                      </span>
+                    )}
                   </span>
-                )}
-                {item.ruleId && (
-                  <code className="rounded-[5px] bg-sunk px-1.5 py-0.5 font-mono text-[11px] text-muted">
-                    {data.rules.find((rule) => rule.id === item.ruleId)?.code ?? "—"}
-                  </code>
-                )}
-                <span className="ml-auto flex items-center gap-3">
-                  <Toggle
-                    active={item.isActive}
-                    onToggle={async () => {
-                      await setChecklistActive(item.id, !item.isActive);
-                      router.refresh();
-                    }}
-                  />
-                  <button
-                    type="button"
-                    aria-label="Editar item"
-                    onClick={() => setItemForm({ open: true, item })}
-                    className="text-faint transition-colors hover:text-ink"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                </span>
-              </div>
-            ))}
+                  <span className="text-[11.5px] text-faint">{scopeOf(item)}</span>
+                  <span className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      aria-label="Editar item"
+                      onClick={() => setItemForm({ open: true, item })}
+                      className="flex items-center gap-1 text-[11.5px] text-faint transition-colors hover:text-ink"
+                    >
+                      <Pencil size={12} />
+                      editar
+                    </button>
+                    <Toggle
+                      active={item.isActive}
+                      onToggle={async () => {
+                        await setChecklistActive(item.id, !item.isActive);
+                        router.refresh();
+                      }}
+                    />
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

@@ -270,7 +270,7 @@ errado com aparência de conferência feita.
 | 27/08 | Rotinas: grade da semana, filtros, análise por empresa e por pessoa, import por colagem |
 | 28/08 | Bloco C inteiro — pontuação, metas, snapshot, coins — e a tela Desempenho. Import das 90 tarefas vivas do ClickUp |
 | 30/08 | Coluna do quadro para de esticar e rola por dentro. Conta desativada deixava a pessoa presa num laço de redirecionamento (`/sair`) |
-| 31/08 | Convite por e-mail (SMTP); o tempo escrito como se fala; e o placar do dia — o último bloco da V1.5 |
+| 31/08 | Convite por e-mail (SMTP); o tempo escrito como se fala; o placar do dia — o último bloco da V1.5; domínio próprio `www.mkthub.space`; e a seção Revisor redesenhada |
 
 ## Pendências
 
@@ -373,6 +373,17 @@ e um trecho literal — achado que inventa regra ou inventa citação é descart
 veredito sai de função pura com teste, o checklist humano trava a saída de `APROVAÇÃO`, e a
 medição mostra a taxa de reversão. Nasce em silencioso: emite parecer e não move nada.
 Ver [04-revisor.md](04-revisor.md).
+
+**A seção foi redesenhada em 31/08/2026.** O `<select>` de quarenta entregas virou busca com
+filtro por empresa, etapa e dono, e escolher já diagnostica — o botão "Diagnosticar" existia só
+para submeter um formulário desnecessário. O porteiro subiu para a primeira dobra com uma saída
+por pendência (cada motivo do porteiro agora tem código, não só texto, e o código é o que sabe
+para onde mandar quem quer resolver); "O que o sistema vê" desceu e virou recolhível com contador
+de campos. O selo do modo passou a ficar no cabeçalho das três telas, em âmbar de aviso (nunca
+`--reward`, que é de coin). Na Medição, taxa de reversão com menos de dez decisões humanas mostra
+"amostra insuficiente" em vez de um percentual de amostra dois. Em Regras, o arredondado ficou
+reservado para filtro: escopo de empresa virou retângulo reto. No parecer, cobertura virou bloco
+fixo, as rodadas ganharam faixa comparativa, e falha técnica saiu do vermelho de reprovação.
 
 O que falta não é código: é a chave do modelo e as regras escritas e classificadas. Sem regra
 cadastrada o porteiro barra e diz exatamente isso, em vez de inventar parecer.

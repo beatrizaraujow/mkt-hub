@@ -18,15 +18,33 @@ import { disabledCompanies } from "./settings";
  * usa. IA é cara, lenta e não repete a mesma resposta duas vezes — fica só
  * para o que exige julgamento.
  */
+/**
+ * O motivo, identificado.
+ *
+ * O texto continua sendo o que a pessoa lê e o que fica gravado no ciclo. O
+ * código existe só para a tela saber **para onde mandar quem quer resolver** —
+ * "falta a copy" sem um caminho até o campo da copy é diagnóstico sem saída.
+ * Casar por prefixo de frase resolveria hoje e quebraria no dia em que alguém
+ * melhorasse a redação.
+ */
+export type GateCode = "sumiu" | "desligado" | "sem_tipo" | "sem_copy" | "copy_curta" | "sem_regra";
+
+export type GateReason = { code: GateCode; text: string };
+
 export type GateResult =
   | { ok: true; ruleCount: number; skill: string; copyLength: number }
-  | { ok: false; missing: string[] };
+  | { ok: false; pending: GateReason[]; missing: string[] };
+
+/** O texto é a verdade gravada; o código só acompanha. */
+function barra(pending: GateReason[]): GateResult {
+  return { ok: false, pending, missing: pending.map((reason) => reason.text) };
+}
 
 export async function runGate(workItemId: string): Promise<GateResult> {
   const [item] = await db.select().from(workItems).where(eq(workItems.id, workItemId)).limit(1);
-  if (!item) return { ok: false, missing: ["A tarefa não existe mais."] };
+  if (!item) return barra([{ code: "sumiu", text: "A tarefa não existe mais." }]);
 
-  const missing: string[] = [];
+  const pending: GateReason[] = [];
 
   /**
    * O desligamento por marca vem primeiro e sozinho: se o revisor está
@@ -35,11 +53,13 @@ export async function runGate(workItemId: string): Promise<GateResult> {
    * revisar.
    */
   if ((await disabledCompanies(item.orgId)).includes(item.companyId)) {
-    return { ok: false, missing: ["A revisão automática está desligada para esta empresa."] };
+    return barra([
+      { code: "desligado", text: "A revisão automática está desligada para esta empresa." },
+    ]);
   }
 
   // Sem o tipo de peça não há como escolher as regras: é o recorte.
-  if (!item.skill) missing.push("Falta o tipo da peça (campo Tipo).");
+  if (!item.skill) pending.push({ code: "sem_tipo", text: "Falta o tipo da peça (campo Tipo)." });
 
   /**
    * A copy é a entrada desta versão. A descrição **não** serve de substituta:
@@ -50,12 +70,17 @@ export async function runGate(workItemId: string): Promise<GateResult> {
   const min = minCopyFor(item.skill, item.format);
 
   if (!copy) {
-    missing.push("Falta a copy da entrega — é o texto que o revisor lê.");
+    pending.push({
+      code: "sem_copy",
+      text: "Falta a copy da entrega — é o texto que o revisor lê.",
+    });
   } else if (copy.length < min) {
-    missing.push(
-      `A copy tem ${copy.length} caracteres e este tipo de peça pede pelo menos ${min}. ` +
+    pending.push({
+      code: "copy_curta",
+      text:
+        `A copy tem ${copy.length} caracteres e este tipo de peça pede pelo menos ${min}. ` +
         "Parece rascunho ou link colado no campo errado.",
-    );
+    });
   }
 
   const rules = item.skill
@@ -78,13 +103,15 @@ export async function runGate(workItemId: string): Promise<GateResult> {
    * negócio decide.
    */
   if (item.skill && rules.length === 0) {
-    missing.push(
-      `Nenhuma regra de máquina cadastrada para "${item.skill}" nesta empresa. ` +
+    pending.push({
+      code: "sem_regra",
+      text:
+        `Nenhuma regra de máquina cadastrada para "${item.skill}" nesta empresa. ` +
         "Enquanto não houver, o revisor não emite parecer.",
-    );
+    });
   }
 
-  if (missing.length > 0) return { ok: false, missing };
+  if (pending.length > 0) return barra(pending);
 
   return {
     ok: true,

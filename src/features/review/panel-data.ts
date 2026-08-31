@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { reviewCycles, reviewFindings, reviewRuns, type WorkItem } from "@/db/schema";
 import { checklistOf, type ChecklistLine } from "./checklist";
@@ -26,6 +26,23 @@ export type ReviewFindingLine = {
   isBlocking: boolean;
 };
 
+/**
+ * O resumo de uma rodada, para a faixa de histórico.
+ *
+ * Sem ela o parecer só sabe falar do presente, e "reprovado" pela terceira vez
+ * lê igual a "reprovado" pela primeira — quando a diferença entre as duas é
+ * exatamente o que decide se o problema é a peça ou a regra.
+ */
+export type ReviewRound = {
+  id: string;
+  round: number;
+  status: string;
+  verdict: string | null;
+  /** Os códigos que reprovaram naquela rodada. */
+  codes: string[];
+  createdAt: Date;
+};
+
 export type ReviewPanel = {
   enabled: boolean;
   cycle: {
@@ -41,7 +58,11 @@ export type ReviewPanel = {
     finishedAt: Date | null;
     attempts: number;
     lastError: string | null;
+    /** Quem respondeu. Parecer sem autor não se audita. */
+    model: string | null;
   } | null;
+  /** Todas as rodadas desta entrega, da primeira para a última. */
+  rounds: ReviewRound[];
   findings: ReviewFindingLine[];
   language: Array<{ trecho: string; correcao: string; tipo: string }>;
   applied: string[];
@@ -68,12 +89,13 @@ export async function reviewPanelFor(item: WorkItem | undefined): Promise<Review
     ...outOfScopeRules(rules).map((rule) => ({ code: rule.code, text: rule.text, who: "fora" as const })),
   ];
 
-  const [cycle] = await db
+  const todas = await db
     .select()
     .from(reviewCycles)
     .where(eq(reviewCycles.workItemId, item.id))
-    .orderBy(desc(reviewCycles.round))
-    .limit(1);
+    .orderBy(asc(reviewCycles.round));
+
+  const cycle = todas.at(-1);
 
   const checklist = await checklistOf(item);
 
@@ -81,6 +103,7 @@ export async function reviewPanelFor(item: WorkItem | undefined): Promise<Review
     return {
       enabled: !off.includes(item.companyId),
       cycle: null,
+      rounds: [],
       findings: [],
       language: [],
       applied: [],
@@ -91,17 +114,38 @@ export async function reviewPanelFor(item: WorkItem | undefined): Promise<Review
     };
   }
 
-  const [findings, runs] = await Promise.all([
+  const [findings, runs, todosAchados] = await Promise.all([
     db.select().from(reviewFindings).where(eq(reviewFindings.cycleId, cycle.id)),
     db
       .select()
       .from(reviewRuns)
       .where(eq(reviewRuns.cycleId, cycle.id))
       .orderBy(desc(reviewRuns.attempt)),
+    db
+      .select({ cycleId: reviewFindings.cycleId, ruleCode: reviewFindings.ruleCode })
+      .from(reviewFindings)
+      .where(
+        inArray(
+          reviewFindings.cycleId,
+          todas.map((row) => row.id),
+        ),
+      ),
   ]);
 
   return {
     enabled: !off.includes(item.companyId),
+    rounds: todas.map((row) => ({
+      id: row.id,
+      round: row.round,
+      status: row.status,
+      verdict: row.verdict,
+      codes: [
+        ...new Set(
+          todosAchados.filter((a) => a.cycleId === row.id).map((a) => a.ruleCode),
+        ),
+      ],
+      createdAt: row.createdAt,
+    })),
     cycle: {
       id: cycle.id,
       round: cycle.round,
@@ -115,6 +159,7 @@ export async function reviewPanelFor(item: WorkItem | undefined): Promise<Review
       finishedAt: cycle.finishedAt,
       attempts: runs.length,
       lastError: runs.find((run) => run.error)?.error ?? null,
+      model: runs.find((run) => run.model)?.model ?? null,
     },
     findings: findings.map((row) => ({
       id: row.id,
