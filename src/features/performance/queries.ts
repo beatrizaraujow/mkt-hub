@@ -198,6 +198,8 @@ export async function semanaNaTela(user: CurrentUser, ymd: string): Promise<Sema
         percentual: linha.percent,
         posicao: linha.position,
         coinsSugeridas: linha.coinsSuggested,
+        coinsAos100: null,
+        coinsAos120: null,
       })),
       fechamento: snapshot,
       validadas: new Map(linhas.map((linha) => [linha.userId, linha.coinsValidated])),

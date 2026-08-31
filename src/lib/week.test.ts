@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { dentroDa, mondayOf, semanaDe, shiftWeek, sundayOf, weekIdOf } from "./week";
+import { dentroDa, mondayOf, semanaDe, shiftWeek, sundayOf, weekIdOf , diasUteisRestantes } from "./week";
 
 /*
   A fronteira da semana é onde este tipo de cálculo erra, e o erro não aparece:
@@ -67,4 +67,13 @@ test("dentroDa inclui as duas pontas", () => {
   assert.equal(dentroDa(semana, "2026-08-30"), true);
   assert.equal(dentroDa(semana, "2026-08-23"), false);
   assert.equal(dentroDa(semana, "2026-08-31"), false);
+});
+
+test("diasUteisRestantes conta de hoje ate sexta, sem fim de semana", () => {
+  // Semana de 31/08 (seg) a 06/09 (dom) de 2026.
+  assert.equal(diasUteisRestantes("2026-08-31", "2026-09-06"), 5); // segunda
+  assert.equal(diasUteisRestantes("2026-09-02", "2026-09-06"), 3); // quarta
+  assert.equal(diasUteisRestantes("2026-09-04", "2026-09-06"), 1); // sexta
+  assert.equal(diasUteisRestantes("2026-09-05", "2026-09-06"), 0); // sabado
+  assert.equal(diasUteisRestantes("2026-09-06", "2026-09-06"), 0); // domingo
 });

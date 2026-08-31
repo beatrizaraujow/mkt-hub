@@ -8,11 +8,13 @@ import { canManage, requireUser } from "@/lib/auth";
 import { brtToday } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { EmptyState, PageHeader } from "@/components/page-header";
-import { faixaDe } from "@/features/routines/stats";
 import { TOM } from "@/features/routines/tone";
+import { faixaDoRitmo } from "@/features/performance/pace";
 import { ClosingTable } from "@/features/performance/closing";
 import { saldoDeCoins, semanaNaTela } from "@/features/performance/queries";
-import { mondayOf, shiftWeek } from "@/lib/week";
+import { diasUteisRestantes, mondayOf, shiftWeek } from "@/lib/week";
+import { WeekCards } from "@/features/performance/week-cards";
+import { TeamPanel } from "@/features/performance/team-panel";
 
 export const metadata: Metadata = { title: "Desempenho · MKT Hub" };
 
@@ -36,6 +38,15 @@ export default async function DesempenhoPage({
 
   const minha = dados.entradas.find((entrada) => entrada.pessoaId === user.id) ?? null;
   const meuSaldo = saldos.get(user.id) ?? 0;
+  const fechada = dados.fechamento?.status === "fechado";
+
+  /*
+   * Semana passada nao tem dia restante, e semana futura tem a semana inteira.
+   * Sem isso, abrir uma semana antiga diria "3 dias uteis restantes" sobre um
+   * periodo que ja acabou.
+   */
+  const diasRestantes =
+    ymd === estaSemana ? diasUteisRestantes(hoje, dados.semana.fim) : ymd < estaSemana ? 0 : 5;
 
   /**
    * Top 3 e a sua posição — nunca a lista completa.
@@ -109,46 +120,20 @@ export default async function DesempenhoPage({
         ) : (
           <>
             {minha ? (
-              <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
-                <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-                  <p className="flex items-baseline gap-2">
-                    <span
-                      className={cn("tnum text-[28px] font-medium leading-none", TOM[faixaDe(minha.percentual)])}
-                    >
-                      {minha.percentual === null ? "—" : `${minha.percentual}%`}
-                    </span>
-                    <span className="text-[13px] text-muted">da sua semana</span>
-                  </p>
+              <>
+                <WeekCards minha={minha} diasRestantes={diasRestantes} fechada={fechada} />
 
-                  <p className="text-[13px] text-muted">
-                    {minha.rule === "pontos" ? (
-                      <>
-                        <span className="tnum font-medium text-ink">{minha.pontos}</span> de{" "}
-                        <span className="tnum">{minha.meta ?? "—"}</span> pontos
-                      </>
-                    ) : (
-                      <>
-                        <span className="tnum font-medium text-ink">{minha.rotinasFeitas}</span> de{" "}
-                        <span className="tnum">{minha.rotinasCobradas}</span> rotinas que venceram
-                      </>
-                    )}
-                  </p>
-
-                  <p className="text-[13px] text-muted">
-                    <span className="tnum font-medium text-reward">{meuSaldo}</span> coins no total
-                  </p>
-
-                  {minha.semPonto > 0 && (
-                    <p className="tnum text-[12.5px] text-warning">
-                      {minha.semPonto} entrega{minha.semPonto > 1 ? "s" : ""} sem Ponto MKT
-                    </p>
-                  )}
-                </div>
-
-                {podio.length > 0 && (
-                  <div className="mt-3.5 border-t border-line pt-3">
-                    <p className="label-mono">Entre quem tem a mesma régua</p>
-                    <ul className="mt-1.5 flex flex-col gap-1">
+                {/* O podio so para quem NAO gerencia: quem gerencia ve a lista
+                    inteira logo abaixo, e o podio viraria o mesmo dado duas vezes. */}
+                {!gerencia && podio.length > 0 && (
+                  <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <p className="label-mono">Entre quem tem a mesma régua</p>
+                      <p className="text-[12.5px] text-muted">
+                        <span className="tnum font-medium text-reward">{meuSaldo}</span> coins no total
+                      </p>
+                    </div>
+                    <ul className="mt-2 flex flex-col gap-1">
                       {podio.map((entrada) => (
                         <li key={entrada.pessoaId} className="flex items-center gap-3 text-[13px]">
                           <span className="tnum w-4 text-faint">{entrada.posicao}º</span>
@@ -160,8 +145,8 @@ export default async function DesempenhoPage({
                           >
                             {entrada.nome}
                           </span>
-                          <span className={cn("tnum", TOM[faixaDe(entrada.percentual)])}>
-                            {entrada.percentual}%
+                          <span className={cn("tnum", TOM[faixaDoRitmo(entrada.percentual, diasRestantes)])}>
+                            {entrada.percentual === null ? "—" : `${entrada.percentual}%`}
                           </span>
                         </li>
                       ))}
@@ -171,19 +156,30 @@ export default async function DesempenhoPage({
                           <span className="min-w-0 flex-1 truncate font-medium text-ink">
                             {minha.nome}
                           </span>
-                          <span className={cn("tnum", TOM[faixaDe(minha.percentual)])}>
+                          <span className={cn("tnum", TOM[faixaDoRitmo(minha.percentual, diasRestantes)])}>
                             {minha.percentual}%
                           </span>
                         </li>
                       )}
                     </ul>
-                  </div>
+                  </section>
                 )}
-              </section>
+
+                {minha.semPonto > 0 && (
+                  <p className="tnum text-[12.5px] text-warning">
+                    {minha.semPonto} entrega{minha.semPonto > 1 ? "s" : ""} concluída
+                    {minha.semPonto > 1 ? "s" : ""} sem Ponto MKT — elas não somam para ninguém.
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-[13px] text-faint">
                 Você não tem régua de desempenho cadastrada, então não aparece no fechamento.
               </p>
+            )}
+
+            {gerencia && (
+              <TeamPanel entradas={dados.entradas} meId={user.id} diasRestantes={diasRestantes} />
             )}
 
             {gerencia && (

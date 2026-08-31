@@ -74,6 +74,31 @@ export function diaDe(ymd: string): Semana {
   return { id: ymd, inicio: ymd, fim: ymd };
 }
 
+/**
+ * Dias uteis que ainda restam na semana, contando hoje.
+ *
+ * Segunda a sexta. Sabado e domingo estao dentro da semana para efeito de
+ * pontuacao — quem entregar no sabado pontua —, mas nao entram nesta conta:
+ * ela existe para responder "quanto por dia eu preciso fazer", e ninguem
+ * planeja o proprio fim de semana como dia util.
+ *
+ * **Nao sabe de feriado.** A semana do corte, com 07/09 no meio, vai contar
+ * cinco onde ha quatro. Calendario de feriados e assunto de V2; enquanto nao
+ * existir, a conta erra para mais, o que faz a meta parecer mais facil do que
+ * e — e esse e o erro menos danoso dos dois.
+ */
+export function diasUteisRestantes(hoje: string, fimDaSemana: string): number {
+  let dias = 0;
+  const cursor = parseYmd(hoje);
+  const fim = parseYmd(fimDaSemana);
+  while (cursor <= fim) {
+    const dia = cursor.getDay();
+    if (dia >= 1 && dia <= 5) dias++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dias;
+}
+
 /** Se o dia cai dentro da semana. Inclusivo nas duas pontas. */
 export function dentroDa(semana: Semana, ymd: string): boolean {
   return ymd >= semana.inicio && ymd <= semana.fim;

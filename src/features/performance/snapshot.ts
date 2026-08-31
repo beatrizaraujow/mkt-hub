@@ -53,6 +53,15 @@ export type Entrada = {
   percentual: number | null;
   posicao: number | null;
   coinsSugeridas: number;
+  /**
+   * O teto da regua desta pessoa, para a tela dizer "2 de 5" e nao so "2".
+   *
+   * **Nulo em semana fechada**, e de proposito: o snapshot guarda o que foi
+   * creditado, nao a regua vigente. Semana fechada nao tem previsao — ela ja
+   * aconteceu —, entao o cartao de previsao simplesmente nao aparece.
+   */
+  coinsAos100: number | null;
+  coinsAos120: number | null;
 };
 
 const VAZIO: Omit<Bruto, "pessoaId"> = {
@@ -151,6 +160,8 @@ export function montarFechamento(reguas: Regua[], brutos: Bruto[]): Entrada[] {
       percentual,
       posicao: null,
       coinsSugeridas: coinsSugeridas(regua, percentual),
+      coinsAos100: regua.coinsAos100,
+      coinsAos120: regua.coinsAos120,
     };
   });
 

@@ -20,6 +20,16 @@ import type { Entrada } from "./snapshot";
 
 const REGUA_LABEL = { pontos: "pontos", rotinas: "rotinas" } as const;
 
+/**
+ * O percentual da mesa e **absoluto**, e nao relativo ao ritmo como nos
+ * cartoes do topo.
+ *
+ * Nao e inconsistencia: sao perguntas diferentes. Os cartoes respondem "como a
+ * semana esta indo" — la, 33% na segunda e bom sinal. A mesa responde "o que
+ * seria creditado se eu fechasse agora" — e coin sai de percentual da meta, sem
+ * desconto por ser cedo. A mesma pessoa aparecer verde em cima e vermelha aqui
+ * e a informacao, nao o defeito.
+ */
 function Percentual({ valor }: { valor: number | null }) {
   return (
     <span className={cn("tnum font-medium", TOM[faixaDe(valor)])}>
@@ -251,6 +261,22 @@ export function ClosingTable({
               })}
             </tbody>
           </table>
+
+          {/*
+            O total no rodape existe para nao precisar somar sete linhas de
+            cabeca antes de clicar num botao que credita de verdade. O mesmo
+            numero aparece na confirmacao — aqui ele fica visivel o tempo todo.
+          */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-2.5 text-[11.5px] text-faint">
+            <span>
+              A semana fecha no domingo · {entradas.length}{" "}
+              {entradas.length === 1 ? "pessoa com régua" : "pessoas com régua"}
+            </span>
+            <span>
+              <span className="tnum text-reward">{aCreditar}</span>{" "}
+              {fechada ? "coins creditadas" : "coins a creditar"}
+            </span>
+          </div>
         </div>
       )}
     </section>
