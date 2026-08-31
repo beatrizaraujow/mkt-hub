@@ -29,22 +29,9 @@ import fs from "node:fs";
 import { eq } from "drizzle-orm";
 import { client, db } from "./index";
 import { companies, users, workItemStages, workItems } from "./schema";
+import { ETAPAS_DE_FIM, chave, etapaDe } from "@/features/work-items/clickup-map";
 
 const ORIGEM = process.env.CLICKUP_JSON ?? "./.cu-limpo.json";
-
-/** Status do ClickUp que contam como vivo, e onde cada um cai aqui. */
-const ETAPA_DE: Record<string, string> = {
-  "solicitado form": "solicitado",
-  pendente: "pendente",
-  "em progresso": "em_andamento",
-  alterar: "ajustar",
-  "pré revisão": "pre_revisao",
-  "revisão ia": "revisao_ia",
-  aprovar: "aprovacao",
-  "aprovação líder": "aprovacao_lider",
-  publicar: "publicar",
-  "banco de criativos": "banco_criativos",
-};
 
 /**
  * `pendente` so atravessa com prazo no futuro.
@@ -129,12 +116,11 @@ type Bruta = {
   prio: string | null;
   empresa: string[] | null;
   pontos: number | null;
-  /** Ultima movimentacao no ClickUp. Vira `completedAt` no banco de criativos. */
+  /** Quando foi fechada no ClickUp. Vira `completedAt` em etapa de fim. */
+  fechada?: string | null;
+  /** Ultima movimentacao. Serve de conclusao quando nao houve fechamento. */
   atualizada?: string | null;
 };
-
-const chave = (v: string) =>
-  v.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 
 function empresaDe(tarefa: Bruta): string | null {
   const decidida = EMPRESA_DECIDIDA[tarefa.id];
@@ -157,7 +143,7 @@ async function main() {
   const aplicar = process.argv.includes("--aplicar");
   const brutas: Bruta[] = JSON.parse(fs.readFileSync(ORIGEM, "utf-8"));
   const hoje = new Date().toISOString().slice(0, 10);
-  const conhecidas = brutas.filter((t) => ETAPA_DE[chave(t.status)]);
+  const conhecidas = brutas.filter((t) => etapaDe(t.status));
   const vivas = conhecidas.filter((t) => atravessa(t, hoje));
   const cemiterio = conhecidas.length - vivas.length;
 
@@ -207,7 +193,7 @@ async function main() {
     const pessoa = email ? porEmail.get(email) : undefined;
     if (tarefa.resp.length && !pessoa) semPessoa.push(`${tarefa.nome} → ${tarefa.resp[0]}`);
 
-    const slugEtapa = ETAPA_DE[chave(tarefa.status)];
+    const slugEtapa = etapaDe(tarefa.status)!;
     const etapa = porEtapa.get(slugEtapa);
     if (!etapa) throw new Error(`Etapa ${slugEtapa} não existe no pipeline de tarefa.`);
 
@@ -229,8 +215,8 @@ async function main() {
        * no banco — nao hoje, que somaria trabalho velho na semana corrente.
        */
       completedAt:
-        slugEtapa === "banco_criativos" && tarefa.atualizada
-          ? new Date(Number(tarefa.atualizada))
+        ETAPAS_DE_FIM.has(slugEtapa) && (tarefa.fechada ?? tarefa.atualizada)
+          ? new Date(Number(tarefa.fechada ?? tarefa.atualizada))
           : null,
       meta: { clickupId: tarefa.id, origem: "clickup", statusOriginal: tarefa.status.trim() },
     });

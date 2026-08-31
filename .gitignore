@@ -44,3 +44,7 @@ next-env.d.ts
 !.env.example
 
 .vercel
+
+# Despejo do board do ClickUp (npm run clickup:baixar). Sao 3.500 tarefas com
+# briefing de cliente dentro — dado de terceiro nao entra no repositorio.
+.cu-limpo.json
