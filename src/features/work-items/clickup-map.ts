@@ -26,6 +26,33 @@ export const ETAPA_DE: Record<string, string> = {
 };
 
 /**
+ * Os status que **criam item novo** no import.
+ *
+ * Nao e o mesmo conjunto de `ETAPA_DE`, e a diferenca ja custou um susto. O
+ * de-para precisa conhecer `completo` para a sincronizacao poder MOVER uma
+ * tarefa que ja existe aqui para a etapa final. O import, se conhecesse o mesmo
+ * conjunto, passaria a CRIAR as 3.234 concluidas do board — historico que, por
+ * decisao de 31/08/2026, nao atravessa enquanto a lista de Trabalho nao souber
+ * esconder o que terminou, e enquanto ninguem decidir a empresa das 556 sem
+ * `Empresa Tag`.
+ *
+ * Mover o que existe e criar o que nao existe sao operacoes diferentes. Este
+ * conjunto e o que separa as duas.
+ */
+export const NASCE_NO_IMPORT = new Set([
+  "solicitado",
+  "pendente",
+  "em_andamento",
+  "pre_revisao",
+  "revisao_ia",
+  "ajustar",
+  "aprovacao",
+  "aprovacao_lider",
+  "publicar",
+  "banco_criativos",
+]);
+
+/**
  * As etapas de fim. Item que chega numa delas ganha data de conclusao.
  *
  * Sao as mesmas que pontuam (`ETAPAS_QUE_PONTUAM`), e nao por acaso: pontuar

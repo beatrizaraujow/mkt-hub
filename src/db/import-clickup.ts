@@ -29,7 +29,7 @@ import fs from "node:fs";
 import { eq } from "drizzle-orm";
 import { client, db } from "./index";
 import { companies, users, workItemStages, workItems } from "./schema";
-import { ETAPAS_DE_FIM, chave, etapaDe } from "@/features/work-items/clickup-map";
+import { ETAPAS_DE_FIM, NASCE_NO_IMPORT, chave, etapaDe } from "@/features/work-items/clickup-map";
 
 const ORIGEM = process.env.CLICKUP_JSON ?? "./.cu-limpo.json";
 
@@ -88,6 +88,13 @@ const EMPRESA_DECIDIDA: Record<string, string> = {
   // Decidido por Anny em 27/08/2026: as duas sao da SeuBone.
   "86ak2jayq": "seubone", // placa "sujeito a guincho"
   "86ajqfqtb": "seubone", // [SISTEMA] Melhorias no agendamento de captacao
+
+  // Decidido por Anny em 31/08/2026: as tres sao da SeuBone. "SBP" e "SB
+  // Personalizados" sao a mesma casa escrita de dois jeitos, e nenhum dos dois
+  // e o slug — por isso nem regex de titulo resolveria sem chutar.
+  "86afxn48f": "seubone", // Criativos SBP - Preco (Segunda leva)
+  "86afxhxrb": "seubone", // Criativos SBP - Preco (Primeira leva)
+  "86aevcz6e": "seubone", // ADS RH - SB Personalizados
 };
 
 const PESSOA_DE: Record<string, string> = {
@@ -143,7 +150,15 @@ async function main() {
   const aplicar = process.argv.includes("--aplicar");
   const brutas: Bruta[] = JSON.parse(fs.readFileSync(ORIGEM, "utf-8"));
   const hoje = new Date().toISOString().slice(0, 10);
-  const conhecidas = brutas.filter((t) => etapaDe(t.status));
+  /*
+   * `NASCE_NO_IMPORT`, e nao `etapaDe` sozinho. O de-para conhece `completo`
+   * porque a sincronizacao precisa mover tarefa para la; usar so ele aqui faria
+   * o import CRIAR as 3.234 concluidas do board, que por decisao nao atravessam.
+   */
+  const conhecidas = brutas.filter((t) => {
+    const slug = etapaDe(t.status);
+    return slug !== null && NASCE_NO_IMPORT.has(slug);
+  });
   const vivas = conhecidas.filter((t) => atravessa(t, hoje));
   const cemiterio = conhecidas.length - vivas.length;
 
