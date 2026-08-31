@@ -200,6 +200,50 @@
   100% { transform: translateX(400%); }
 }
 
+/* ---------------------------------------------------------------
+   Tela de entrada
+   A unica que nao usa os tokens: e um desenho fechado em preto e
+   ouro, e quem chega nela ainda nao tem sessao nem tema.
+   --------------------------------------------------------------- */
+@keyframes loginSobe {
+  from { transform: translateY(18px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes loginEntra {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* O degrade respira devagar. Vinte e seis segundos: no limite de nao se notar. */
+@keyframes loginBrilho {
+  0%, 100% { transform: scale(1);   opacity: 0.82; }
+  50%      { transform: scale(1.1); opacity: 1; }
+}
+
+.login-entra { animation: loginEntra 1.2s ease both; }
+.login-brilho { animation: loginBrilho 26s ease-in-out infinite; }
+
+/* A escada de entrada. O atraso e o unico que muda de um para o outro. */
+.login-sobe { animation: loginSobe 1s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both; }
+.login-sobe-2 { animation-delay: 0.5s; }
+.login-sobe-3 { animation-delay: 0.68s; }
+.login-sobe-4 { animation-delay: 0.95s; }
+
+/*
+  O preenchimento automatico do Chrome pinta a caixa de branco e ignora
+  `background`. A sombra interna de mil pixels e o unico jeito de cobrir, e o
+  `text-fill-color` e o unico jeito de o texto nao sair preto sobre preto.
+*/
+.login-field:-webkit-autofill,
+.login-field:-webkit-autofill:hover,
+.login-field:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff;
+  -webkit-box-shadow: inset 0 0 0 1000px #171717;
+  caret-color: #ffffff;
+  transition: background-color 9999s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

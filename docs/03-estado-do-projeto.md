@@ -270,7 +270,7 @@ errado com aparência de conferência feita.
 | 27/08 | Rotinas: grade da semana, filtros, análise por empresa e por pessoa, import por colagem |
 | 28/08 | Bloco C inteiro — pontuação, metas, snapshot, coins — e a tela Desempenho. Import das 90 tarefas vivas do ClickUp |
 | 30/08 | Coluna do quadro para de esticar e rola por dentro. Conta desativada deixava a pessoa presa num laço de redirecionamento (`/sair`) |
-| 31/08 | Convite por e-mail (SMTP); o tempo escrito como se fala; o placar do dia — o último bloco da V1.5; domínio próprio `www.mkthub.space`; e a seção Revisor redesenhada |
+| 31/08 | Convite por e-mail (SMTP); o tempo escrito como se fala; o placar do dia — o último bloco da V1.5; domínio próprio `www.mkthub.space`; a seção Revisor redesenhada; e a tela de entrada nova |
 
 ## Pendências
 
