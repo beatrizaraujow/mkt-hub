@@ -7,12 +7,9 @@ import { formatDueDate, startOfBrtDay } from "@/lib/date";
 import { completeWorkItem, reopenWorkItem } from "./actions";
 import { useOpenItem } from "./use-open-item";
 import { TimerButton } from "@/features/time/timer-button";
-import { CopyLink } from "./copy-link";
 
 export type RowItem = {
   id: string;
-  /** O numero curto, para copiar o link sem abrir a tarefa. */
-  number: number;
   title: string;
   priority: "urgente" | "alta" | "media" | "baixa";
   dueDate: Date | null;
@@ -167,21 +164,6 @@ export function ItemRow({
           {item.assigneeName ? initials(item.assigneeName) : "—"}
         </span>
       ) : null}
-
-      {/*
-        Aparece ao passar o mouse, como o icone de reabrir logo abaixo. Botao
-        fixo aqui empurraria o titulo em cada uma das trinta linhas da tela, e o
-        titulo e a unica coisa que a pessoa esta lendo.
-
-        `sm:` e nao `hidden` no celular por acaso: sem mouse nao ha hover, e a
-        linha ja e apertada demais. No telefone o caminho e abrir a tarefa, onde
-        o codigo fica a mostra.
-      */}
-      <CopyLink
-        numero={item.number}
-        mostrarCodigo={false}
-        className="hidden shrink-0 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 sm:inline-flex"
-      />
 
       {done ? (
         <RotateCcw
