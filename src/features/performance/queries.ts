@@ -147,6 +147,15 @@ export type SemanaNaTela = {
   fechamento: { id: string; status: "pendente" | "fechado"; fechadoEm: Date | null; fechadoPor: string | null } | null;
   /** Coins ja validadas por pessoa, quando existe fechamento. */
   validadas: Map<string, number | null>;
+  /**
+   * O motivo de cada correcao de coin, por pessoa.
+   *
+   * Vive separado de `validadas` porque responde outra pergunta: aquele diz
+   * quanto ficou, este diz por que. Sem o porque, uma semana como a do corte —
+   * feriado no meio, teto real de 80% — vira numero estranho que ninguem
+   * explica seis meses depois.
+   */
+  motivos: Map<string, string>;
 };
 
 export async function semanaNaTela(user: CurrentUser, ymd: string): Promise<SemanaNaTela> {
@@ -192,6 +201,7 @@ export async function semanaNaTela(user: CurrentUser, ymd: string): Promise<Sema
       })),
       fechamento: snapshot,
       validadas: new Map(linhas.map((linha) => [linha.userId, linha.coinsValidated])),
+      motivos: new Map(linhas.filter((l) => l.note).map((l) => [l.userId, l.note])),
     };
   }
 
@@ -201,12 +211,20 @@ export async function semanaNaTela(user: CurrentUser, ymd: string): Promise<Sema
   ]);
 
   const validadas = new Map<string, number | null>();
+  const motivos = new Map<string, string>();
   if (snapshot) {
     const linhas = await db
-      .select({ userId: snapshotEntries.userId, coins: snapshotEntries.coinsValidated })
+      .select({
+        userId: snapshotEntries.userId,
+        coins: snapshotEntries.coinsValidated,
+        note: snapshotEntries.note,
+      })
       .from(snapshotEntries)
       .where(eq(snapshotEntries.snapshotId, snapshot.id));
-    for (const linha of linhas) validadas.set(linha.userId, linha.coins);
+    for (const linha of linhas) {
+      validadas.set(linha.userId, linha.coins);
+      if (linha.note) motivos.set(linha.userId, linha.note);
+    }
   }
 
   return {
@@ -214,6 +232,7 @@ export async function semanaNaTela(user: CurrentUser, ymd: string): Promise<Sema
     entradas: montarFechamento(reguas, brutos),
     fechamento: snapshot ?? null,
     validadas,
+    motivos,
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Lock, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,7 @@ export function ClosingTable({
   status,
   entradas,
   validadas,
+  motivos,
   entryIds,
 }: {
   ymd: string;
@@ -41,6 +42,7 @@ export function ClosingTable({
   status: "pendente" | "fechado" | null;
   entradas: Entrada[];
   validadas: Map<string, number | null>;
+  motivos: Map<string, string>;
   entryIds: Map<string, string>;
 }) {
   const router = useRouter();
@@ -158,9 +160,19 @@ export function ClosingTable({
                 const validada = validadas.get(entrada.pessoaId);
                 const coins = validada ?? entrada.coinsSugeridas;
                 const entryId = entryIds.get(entrada.pessoaId);
+                const motivo = motivos.get(entrada.pessoaId) ?? "";
+                /*
+                 * A linha do motivo so existe quando alguem mexeu no numero.
+                 * Sete campos de texto vazios numa mesa de sete pessoas seriam
+                 * sete convites a preencher nada — e o campo perderia o peso
+                 * justo quando ele importa.
+                 */
+                const corrigida = validada !== null && validada !== undefined
+                  && validada !== entrada.coinsSugeridas;
 
                 return (
-                  <tr key={entrada.pessoaId} className="border-b border-line last:border-b-0">
+                  <Fragment key={entrada.pessoaId}>
+                  <tr className={corrigida ? "" : "border-b border-line last:border-b-0"}>
                     <td className="px-4 py-2">
                       <span className="text-ink">{entrada.nome}</span>
                       {entrada.semPonto > 0 && (
@@ -198,13 +210,43 @@ export function ClosingTable({
                           onBlur={(event) => {
                             const valor = Number(event.target.value);
                             if (valor === coins) return;
-                            roda(() => validarCoins(entryId, valor, ""));
+                            // Sem terceiro argumento: a nota que ja existir fica.
+                            roda(() => validarCoins(entryId, valor));
                           }}
                           className="tnum h-7 w-14 rounded-[var(--radius-control)] border border-line bg-surface px-1.5 text-right text-[13px] text-ink focus:border-accent focus:outline-none"
                         />
                       )}
                     </td>
                   </tr>
+
+                  {corrigida && (
+                    <tr className="border-b border-line last:border-b-0">
+                      <td colSpan={7} className="px-4 pb-2">
+                        <label className="flex flex-wrap items-center gap-2 text-[12px] text-faint">
+                          <span className="shrink-0">
+                            Por que {coins} e não {entrada.coinsSugeridas}?
+                          </span>
+                          {fechada ? (
+                            <span className="text-muted">{motivo || "— sem motivo registrado"}</span>
+                          ) : (
+                            <input
+                              defaultValue={motivo}
+                              disabled={pending}
+                              maxLength={300}
+                              placeholder="semana de quatro dias úteis, feriado no meio"
+                              onBlur={(event) => {
+                                const texto = event.target.value;
+                                if (texto.trim() === motivo.trim()) return;
+                                roda(() => validarCoins(entryId!, coins, texto));
+                              }}
+                              className="h-7 min-w-[240px] flex-1 rounded-[var(--radius-control)] border border-line bg-surface px-2 text-[12.5px] text-ink focus:border-accent focus:outline-none"
+                            />
+                          )}
+                        </label>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

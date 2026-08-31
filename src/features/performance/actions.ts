@@ -107,7 +107,15 @@ export async function calcularSemana(ymd: string): Promise<FechamentoState> {
 export async function validarCoins(
   entryId: string,
   coins: number,
-  nota: string,
+  /**
+   * O porque da correcao. **Omitir preserva o que ja estava escrito.**
+   *
+   * Antes a tela mandava string vazia toda vez que o numero mudava, e isso
+   * apagava o motivo anterior sem ninguem pedir: quem escrevia "semana de
+   * quatro dias uteis" e depois corrigia a coin de novo perdia a explicacao.
+   * `undefined` e "nao mexi nisso"; string vazia continua sendo "apague".
+   */
+  nota?: string,
 ): Promise<FechamentoState> {
   try {
     const user = await requireUserAction();
@@ -118,7 +126,11 @@ export async function validarCoins(
     }
 
     const [entrada] = await db
-      .select({ id: snapshotEntries.id, snapshotId: snapshotEntries.snapshotId })
+      .select({
+        id: snapshotEntries.id,
+        snapshotId: snapshotEntries.snapshotId,
+        note: snapshotEntries.note,
+      })
       .from(snapshotEntries)
       .where(eq(snapshotEntries.id, entryId))
       .limit(1);
@@ -136,7 +148,10 @@ export async function validarCoins(
 
     await db
       .update(snapshotEntries)
-      .set({ coinsValidated: coins, note: nota.trim().slice(0, 300) })
+      .set({
+        coinsValidated: coins,
+        note: nota === undefined ? entrada.note : nota.trim().slice(0, 300),
+      })
       .where(eq(snapshotEntries.id, entryId));
 
     revalidatePath("/desempenho");

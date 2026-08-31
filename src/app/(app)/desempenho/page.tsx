@@ -193,6 +193,7 @@ export default async function DesempenhoPage({
                 status={dados.fechamento?.status ?? null}
                 entradas={dados.entradas}
                 validadas={dados.validadas}
+                motivos={dados.motivos}
                 entryIds={entryIds}
               />
             )}
