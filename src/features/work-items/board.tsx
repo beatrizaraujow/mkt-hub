@@ -10,6 +10,7 @@ import { StagePill } from "./stage-pill";
 import { ReasonPrompt } from "./reason-prompt";
 import { needsReason } from "./rework";
 import { useOpenItem } from "./use-open-item";
+import { CopyLink } from "./copy-link";
 import type { UserRole } from "@/db/schema";
 import type { RowItem } from "./item-row";
 
@@ -40,7 +41,7 @@ function Card({ item, today }: { item: BoardItem; today: string }) {
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "cursor-grab rounded-[var(--radius-control)] border border-line bg-surface p-2.5",
+        "group/card cursor-grab rounded-[var(--radius-control)] border border-line bg-surface p-2.5",
         "transition-colors duration-150 hover:border-line-strong active:cursor-grabbing",
       )}
     >
@@ -86,6 +87,17 @@ function Card({ item, today }: { item: BoardItem; today: string }) {
         >
           {item.assigneeName ? initials(item.assigneeName) : "—"}
         </span>
+
+        {/*
+          `group/card` nomeado: o cartao ja vive dentro da coluna, e um `group`
+          sem nome faria o icone acender ao passar o mouse em qualquer cartao
+          da coluna, nao neste.
+        */}
+        <CopyLink
+          numero={item.number}
+          mostrarCodigo={false}
+          className="shrink-0 opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100"
+        />
       </div>
     </article>
   );

@@ -23,6 +23,8 @@ import { isImage } from "@/lib/upload-rules";
 
 export type WorkItemRow = {
   id: string;
+  /** O numero curto — `mkt-123` — para copiar o link direto da lista. */
+  number: number;
   title: string;
   type: WorkItemType;
   priority: Priority;

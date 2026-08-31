@@ -13,14 +13,24 @@ import { caminhoDaTarefa, codigoDaTarefa } from "@/lib/task-code";
  * junto o filtro e a visualizacao de quem copiou, entao quem abria caia numa
  * tela recortada por outra pessoa. Aqui o link e sempre o mesmo e sempre curto.
  *
- * O codigo fica **a mostra ao lado do botao**, e nao escondido dentro dele:
- * "mkt-123" e para ser falado no corredor e escrito no comentario, nao so
- * clicado.
+ * No detalhe o codigo fica **a mostra ao lado do botao**, e nao escondido
+ * dentro dele: "mkt-123" e para ser falado no corredor e escrito no
+ * comentario, nao so clicado. Na linha da lista e no cartao do quadro sobra so
+ * o icone (`mostrarCodigo={false}`) — ali cada elemento a mais empurra o
+ * titulo, que e a unica coisa que a pessoa esta lendo.
  *
  * A origem vem de `window.location` porque so o navegador sabe por qual
  * endereco a pessoa chegou — em producao, em `localhost` ou pela URL do deploy.
  */
-export function CopyLink({ numero }: { numero: number }) {
+export function CopyLink({
+  numero,
+  mostrarCodigo = true,
+  className,
+}: {
+  numero: number;
+  mostrarCodigo?: boolean;
+  className?: string;
+}) {
   const [copiado, setCopiado] = useState(false);
 
   const codigo = codigoDaTarefa(numero);
@@ -31,14 +41,23 @@ export function CopyLink({ numero }: { numero: number }) {
    * cliente e o console enche de erro de hidratacao.
    */
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <code className="font-mono text-[11.5px] text-faint">{codigo}</code>
+    <span className={cn("inline-flex items-center gap-1.5", className)}>
+      {mostrarCodigo && (
+        <code className="font-mono text-[11.5px] text-faint">{codigo}</code>
+      )}
 
       <button
         type="button"
         aria-label={`Copiar link da ${codigo}`}
         title={copiado ? "Link copiado" : "Copiar link"}
-        onClick={async () => {
+        onClick={async (event) => {
+          /*
+           * Na lista e no quadro o botao vive dentro de algo clicavel — a linha
+           * abre a tarefa, o cartao arrasta. Sem isto, copiar o link abria a
+           * tarefa junto.
+           */
+          event.stopPropagation();
+
           try {
             await navigator.clipboard.writeText(
               `${window.location.origin}${caminhoDaTarefa(numero)}`,
