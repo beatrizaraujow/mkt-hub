@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run db:check && next build",
+    "db:check": "tsx src/db/check-migrations.ts",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
