@@ -272,19 +272,6 @@ export const workItems = pgTable(
     projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
     parentId: uuid("parent_id"),
 
-    /**
-     * O numero curto da tarefa — o que vira `mkt-123` no link e na conversa.
-     *
-     * Sai de uma **sequencia do Postgres**, e nao de `max(number) + 1`: duas
-     * criacoes ao mesmo tempo leriam o mesmo maximo e a segunda bateria no
-     * indice unico. A sequencia entrega numero sem ninguem ler nada antes.
-     *
-     * Buraco na contagem e esperado e nao se conserta: tarefa apagada leva o
-     * numero junto, e reaproveitar numero faria um link antigo abrir a tarefa
-     * errada de alguem.
-     */
-    number: integer("number").notNull().default(sql`nextval('work_item_number_seq')`),
-
     type: workItemType("type").notNull().default("task"),
     title: text("title").notNull(),
     description: text("description"),
@@ -357,8 +344,6 @@ export const workItems = pgTable(
     index("wi_parent_idx").on(t.parentId),
     index("wi_type_idx").on(t.orgId, t.type),
     index("wi_asset_idx").on(t.orgId, t.isAsset),
-    /* O codigo tem de ser unico dentro da organizacao — e por ele que o link abre. */
-    uniqueIndex("wi_org_number_unique").on(t.orgId, t.number),
   ],
 );
 

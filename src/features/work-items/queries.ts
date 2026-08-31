@@ -1,7 +1,6 @@
 import "server-only";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { numeroDoCodigo } from "@/lib/task-code";
 import {
   activityLog,
   attachments,
@@ -44,8 +43,6 @@ export type WorkItemRow = {
 
 const SELECTION = {
   id: workItems.id,
-  /** O numero curto — vira `mkt-123` no link e na conversa. */
-  number: workItems.number,
   title: workItems.title,
   type: workItems.type,
   priority: workItems.priority,
@@ -330,36 +327,6 @@ export type ItemDetail = NonNullable<Awaited<ReturnType<typeof getItemDetail>>>;
  * Devolve null quando o item nao existe ou esta fora do alcance da pessoa —
  * o painel trata os dois casos igual, de proposito: nao revela existencia.
  */
-/** O formato de UUID que o Postgres aceita. Ver `resolverItemRef`. */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * O que veio em `?item=` vira o id de verdade.
- *
- * Duas formas atravessam: o UUID, que e como a busca e o quadro linkam por
- * dentro, e o codigo `mkt-123`, que e o que uma pessoa manda para a outra.
- *
- * **Qualquer outra coisa vira `null` aqui e o painel nao monta.** Sem esta
- * checagem, `?item=qualquercoisa` chegava com aquele texto num `where` de
- * coluna `uuid` e o Postgres derrubava a pagina inteira com erro de sintaxe —
- * um link velho ou digitado errado quebrava a tela em vez de nao abrir nada.
- */
-export async function resolverItemRef(user: CurrentUser, ref: string): Promise<string | null> {
-  const numero = numeroDoCodigo(ref);
-
-  if (numero === null) return UUID.test(ref.trim()) ? ref.trim() : null;
-
-  const [achado] = await db
-    .select({ id: workItems.id })
-    .from(workItems)
-    .where(and(eq(workItems.orgId, user.orgId), eq(workItems.number, numero)))
-    .limit(1);
-
-  // O alcance por empresa nao e conferido aqui: `getItemDetail` ja faz isso, e
-  // duplicar a regra em dois lugares e como ela para de valer num deles.
-  return achado?.id ?? null;
-}
-
 export async function getItemDetail(user: CurrentUser, id: string) {
   const [item] = await baseQuery()
     .where(and(eq(workItems.orgId, user.orgId), eq(workItems.id, id)))

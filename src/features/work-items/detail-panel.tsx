@@ -17,7 +17,6 @@ import { formatarDuracao, relogio } from "@/lib/duration";
 import { FORMAT_GROUPS, SKILL_GROUPS } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { TimerButton } from "@/features/time/timer-button";
-import { CopyLink } from "./copy-link";
 import { useNowSeconds } from "@/features/time/use-now";
 import { TimeTab } from "@/features/time/time-tab";
 import type { TimeEntryRow, TimeSummary } from "@/features/time/queries";
@@ -60,8 +59,6 @@ import type { RequestInfo } from "./queries";
 
 export type DetailData = {
   id: string;
-  /** O numero curto. Vira `mkt-123` no link que a pessoa copia daqui. */
-  number: number;
   title: string;
   description: string | null;
   /** O texto entregue. E o unico que a revisao automatica le. */
@@ -313,16 +310,6 @@ export function DetailPanel({
                     <span>{item.projectName}</span>
                   </>
                 ) : null}
-
-                {/*
-                  O codigo e o link ficam na linha da empresa e do projeto, e
-                  nao junto de Concluir: sao identidade, nao acao. Na direita,
-                  onde o dedo vai fechar ou concluir, um botao a mais so aumenta
-                  a chance de clicar no errado.
-                */}
-                <span className="ml-auto shrink-0">
-                  <CopyLink numero={item.number} />
-                </span>
               </p>
               <textarea
                 ref={tituloRef}
