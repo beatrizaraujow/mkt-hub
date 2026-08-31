@@ -14,7 +14,7 @@ import {
   workItems,
 } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth";
-import { semanaDe, type Semana } from "@/lib/week";
+import { diaDe, semanaDe, type Semana } from "@/lib/week";
 import { pontuar, ETAPAS_QUE_PONTUAM } from "./score";
 import { montarFechamento, type Bruto, type Entrada, type Regua } from "./snapshot";
 
@@ -237,4 +237,54 @@ export async function temAlgumaEmpresa(user: CurrentUser): Promise<boolean> {
     .where(inArray(companies.id, user.companyIds))
     .limit(1);
   return Boolean(linha);
+}
+
+/* ------------------------------------------------------------- placar do dia */
+
+export type MeuDia = {
+  /** Pontos concluidos hoje, nas mesmas etapas que contam na semana. */
+  pontos: number;
+  /** Meta do dia. `null` desliga o placar para esta pessoa. */
+  meta: number | null;
+  /** Entregas concluidas hoje sem Ponto MKT. O buraco, contado. */
+  semPonto: number;
+};
+
+/**
+ * O placar do dia de quem esta olhando.
+ *
+ * Reusa `brutosDaSemana` com um intervalo de um dia so — o dia e uma semana de
+ * um dia. Nao existe uma segunda conta de pontos no sistema, entao nao existe
+ * o dia em que as duas discordam.
+ *
+ * **So a parcela de pontos.** O sistema antigo compunha a nota do dia com mais
+ * duas: tarefas concluidas sobre o total, e horas sobre dezesseis. As duas sao
+ * gamificacao por volume — a de horas se burla deixando o cronometro ligado, e
+ * a de tarefas se burla fatiando o trabalho em cartoes pequenos. A regra da
+ * casa e explicita sobre isso, entao elas nao atravessaram.
+ */
+export async function meuDia(user: CurrentUser, ymd: string): Promise<MeuDia | null> {
+  const [linha] = await db
+    .select({ meta: performanceGoals.dailyTarget, rule: performanceGoals.rule })
+    .from(performanceGoals)
+    .where(
+      and(
+        eq(performanceGoals.userId, user.id),
+        eq(performanceGoals.orgId, user.orgId),
+        eq(performanceGoals.isActive, true),
+      ),
+    )
+    .limit(1);
+
+  // Sem regua, ou com regua de rotinas: o placar de pontos nao diz nada.
+  if (!linha || linha.rule !== "pontos") return null;
+
+  const brutos = await brutosDaSemana(user, diaDe(ymd));
+  const meu = brutos.find((b) => b.pessoaId === user.id);
+
+  return {
+    pontos: meu?.pontos ?? 0,
+    meta: linha.meta,
+    semPonto: meu?.semPonto ?? 0,
+  };
 }

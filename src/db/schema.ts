@@ -865,6 +865,20 @@ export const performanceGoals = pgTable(
     /** Pontos por semana para 120%. Guardado, nao derivado — ver acima. */
     weeklyTarget120: integer("weekly_target_120"),
 
+    /**
+     * Pontos por dia. Nulo desliga o placar diario para a pessoa.
+     *
+     * **Guardado, e nao `weeklyTarget / 5`.** Os numeros que a casa ja usa nao
+     * sao divisiveis assim — no sistema antigo eram 26, 16, 16 e 6 por pessoa,
+     * e o proprio arquivo registrava que sobem para 26 em dia de captacao de
+     * manha. Derivar apagaria essa diferenca e passaria a cobrar de todo mundo
+     * a mesma fatia da semana, que nao e como o trabalho acontece.
+     *
+     * Nulo, e nao zero: zero e uma meta de zero pontos, que qualquer um bate
+     * sem fazer nada e que o placar mostraria como 100%.
+     */
+    dailyTarget: integer("daily_target"),
+
     /** Coins sugeridas ao bater cada faixa. O sistema sugere, alguem valida. */
     coinsAt100: smallint("coins_at_100").notNull().default(3),
     coinsAt120: smallint("coins_at_120").notNull().default(5),

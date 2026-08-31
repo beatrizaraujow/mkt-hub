@@ -270,7 +270,7 @@ errado com aparência de conferência feita.
 | 27/08 | Rotinas: grade da semana, filtros, análise por empresa e por pessoa, import por colagem |
 | 28/08 | Bloco C inteiro — pontuação, metas, snapshot, coins — e a tela Desempenho. Import das 90 tarefas vivas do ClickUp |
 | 30/08 | Coluna do quadro para de esticar e rola por dentro. Conta desativada deixava a pessoa presa num laço de redirecionamento (`/sair`) |
-| 31/08 | Convite por e-mail (SMTP), e o tempo escrito como se fala — com corrigir, apagar e nota no lançamento |
+| 31/08 | Convite por e-mail (SMTP); o tempo escrito como se fala; e o placar do dia — o último bloco da V1.5 |
 
 ## Pendências
 
@@ -331,13 +331,16 @@ Decisão pendente desde 24/08/2026.
 
 **V1.5** — o objetivo é desligar o MKT Hub 1, não somar funcionalidade.
 
+**Construída em 31/08/2026**, com o F movido para a V2. O que separa "construída" de "ligada"
+continua não sendo feature: é o acesso do time e a data de corte.
+
 | Bloco | Estado |
 |---|---|
 | A · Rotinas | **No ar desde 27/08/2026.** Migration `0010` aplicada e conferida no banco de produção antes do push |
 | B · Ponte de leitura | Não construída, por decisão — ver abaixo |
 | C · Motor de pontuação, metas, snapshot, coins, ranking | **No ar desde 28/08/2026.** Semana fechada não recalcula; coin creditada não se despaga |
 | D · Tela Desempenho | **No ar desde 28/08/2026.** Pódio e a própria posição para o time; mesa de fechamento para quem gerencia |
-| E · Daily | **Levantado em 31/08/2026** e menor do que parecia: no `mktimer` a daily é meta de pontos **por dia** por pessoa (`samuel=26, thiago=16, klenio=16, bia=6`), não reunião. Reusa o motor do bloco C |
+| E · Daily | **No ar desde 31/08/2026.** É meta de pontos **por dia**, não reunião: não existe daily assíncrona em lugar nenhum do `mktimer`. O placar aparece em Hoje |
 | F · Notificações | Recomendado **mover para a V2**: não bloqueia desligar o sistema antigo, que é o objetivo declarado da V1.5, e ainda não há rotina de uso que diga quais valeriam a pena |
 
 **A ponte não vai ser construída agora.** Em 27/08/2026 ficou sabido que a tarefa nasce **nos dois

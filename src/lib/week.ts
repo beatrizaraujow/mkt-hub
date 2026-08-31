@@ -62,6 +62,18 @@ export function shiftWeek(ymd: string, deltaSemanas: number): string {
   return toYmd(date);
 }
 
+/**
+ * Um dia, no formato de intervalo.
+ *
+ * O motor de pontuacao recebe `Semana` e so pergunta se a entrega caiu entre
+ * `inicio` e `fim`. Um dia e o intervalo em que os dois sao iguais — entao o
+ * placar diario reusa `pontuar()` inteiro, sem uma linha de logica nova e sem
+ * a chance de as duas contas discordarem no dia em que a regra mudar.
+ */
+export function diaDe(ymd: string): Semana {
+  return { id: ymd, inicio: ymd, fim: ymd };
+}
+
 /** Se o dia cai dentro da semana. Inclusivo nas duas pontas. */
 export function dentroDa(semana: Semana, ymd: string): boolean {
   return ymd >= semana.inicio && ymd <= semana.fim;

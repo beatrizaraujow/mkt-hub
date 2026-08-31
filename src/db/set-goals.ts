@@ -11,8 +11,10 @@
  * dois, e o que separa e o `postgres.<ref>` antes do `@`.
  *
  * Os numeros vem de `sql/update_user_goals.sql` do MKT Hub 1, que e o modelo
- * que roda hoje. O time pensa em pontos por dia; a coluna guarda a semana,
- * porque e a semana que fecha. A conta e por cinco dias uteis.
+ * que roda hoje. O time pensa em pontos por dia, e desde 31/08/2026 as duas
+ * colunas existem: `daily_target` para o placar do dia e `weekly_target` para
+ * o fechamento. A semana nao e o dia vezes cinco por acaso — ela e o acordo,
+ * e o dia e o ritmo; guardar as duas evita que mudar uma reescreva a outra.
  *
  * **A meta de 120% e digitada, nao derivada.** Parece 1,2x ate voce conferir:
  * 130 vira 156 e 80 vira 96, mas 60 vira 70 e nao 72. Sao acordos individuais,
@@ -69,6 +71,10 @@ async function main() {
       rule: regua.rule,
       weeklyTarget: regua.rule === "pontos" ? regua.semanal : null,
       weeklyTarget120: regua.rule === "pontos" ? regua.semanal120 : null,
+      // O `porDia` ja existia aqui e era descartado depois de virar semana.
+      // Agora ele e gravado: o placar do dia le esta coluna, e nao a semana
+      // dividida por cinco — os numeros da casa nao dividem assim.
+      dailyTarget: regua.rule === "pontos" ? regua.porDia : null,
       isActive: true,
       updatedAt: new Date(),
     };

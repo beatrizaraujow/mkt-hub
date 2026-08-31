@@ -1,0 +1,1 @@
+ALTER TABLE "performance_goals" ADD COLUMN "daily_target" integer;

@@ -9,6 +9,8 @@ import { quickCreateOptions } from "@/features/work-items/queries";
 import { ItemPanel } from "@/features/work-items/item-panel";
 import { closeStaleTimers, runningTimer, unconfirmedEntries } from "@/features/time/queries";
 import { ConfirmBanner } from "@/features/time/confirm-banner";
+import { meuDia } from "@/features/performance/queries";
+import { cn } from "@/lib/utils";
 
 function greeting(hour: number) {
   if (hour < 12) return "Bom dia";
@@ -90,14 +92,16 @@ export default async function HojePage({
   // Em paralelo, a primeira carga do dia perderia o aviso.
   await closeStaleTimers(user.id);
 
-  const [board, seconds, options, running, pendentes] = await Promise.all([
+  const [board, seconds, options, running, pendentes, dia] = await Promise.all([
     todayBoard(user),
     secondsTrackedToday(user.id),
     quickCreateOptions(user),
     runningTimer(user.id),
     unconfirmedEntries(user.id),
+    meuDia(user, today),
   ]);
   const runningItemId = running?.workItemId ?? null;
+  const batida = dia !== null && dia.meta !== null && dia.pontos >= dia.meta;
 
   const nothingAtAll =
     board.atrasado.length + board.hoje.length + board.depois.length + board.semPrazo.length === 0;
@@ -176,10 +180,43 @@ export default async function HojePage({
               {board.atrasado.length + board.hoje.length + board.depois.length + board.semPrazo.length}
             </p>
           </div>
-          <div>
-            <p className="label-mono mb-1">Meta da semana</p>
-            <p className="text-[13.5px] text-faint">Entra na V1.5</p>
-          </div>
+          {dia && (
+            <div>
+              <p className="label-mono mb-1">Pontos hoje</p>
+              {dia.meta === null ? (
+                <>
+                  <p className="tnum font-display text-[26px] font-semibold text-ink">
+                    {dia.pontos}
+                  </p>
+                  <p className="text-[12px] text-faint">sem meta diária definida</p>
+                </>
+              ) : (
+                <>
+                  {/*
+                    O dia em curso nao ganha cor de estado. A escala de 90/70
+                    foi feita para aderencia fechada, e aplicada ao dia deixaria
+                    todo mundo vermelho as nove da manha — um numero que nasce
+                    vermelho todo dia ensina o time a ignorar o numero. Ambar so
+                    quando a meta bate, que e a regra da casa para recompensa.
+                  */}
+                  <p className="font-display text-[26px] font-semibold leading-none">
+                    <span className={cn("tnum", batida ? "text-reward" : "text-ink")}>
+                      {dia.pontos}
+                    </span>
+                    <span className="tnum text-[17px] font-normal text-faint"> / {dia.meta}</span>
+                  </p>
+                  <p className={cn("mt-1 text-[12px]", batida ? "text-reward" : "text-faint")}>
+                    {batida ? "meta do dia batida" : `faltam ${dia.meta - dia.pontos}`}
+                  </p>
+                </>
+              )}
+              {dia.semPonto > 0 && (
+                <p className="tnum mt-1 text-[12px] text-warning">
+                  {dia.semPonto} entrega{dia.semPonto > 1 ? "s" : ""} sem Ponto MKT
+                </p>
+              )}
+            </div>
+          )}
         </aside>
       </div>
 
