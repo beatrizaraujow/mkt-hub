@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { ProgressRing } from "@/components/progress-ring";
 import { TOM } from "@/features/routines/tone";
 import { faixaDoRitmo, textoDoRitmo } from "./pace";
 import type { Entrada } from "./snapshot";
@@ -23,34 +24,6 @@ function Cartao({ titulo, children }: { titulo: string; children: React.ReactNod
     <div className="bg-surface p-4">
       <p className="label-mono">{titulo}</p>
       <div className="mt-3">{children}</div>
-    </div>
-  );
-}
-
-/**
- * O anel de progresso, em CSS puro.
- *
- * `conic-gradient` em vez de SVG: sao duas linhas, nao entra no bundle, e o
- * unico dado que ele precisa e um percentual. Acima de 100% o anel fecha e
- * para — anel dando a volta duas vezes nao se le.
- */
-function Anel({ percentual, tom }: { percentual: number | null; tom: string }) {
-  const volta = Math.min(Math.max(percentual ?? 0, 0), 100) / 100;
-
-  return (
-    <div
-      className="grid h-13 w-13 shrink-0 place-items-center rounded-full"
-      style={{
-        width: "3.25rem",
-        height: "3.25rem",
-        background: `conic-gradient(currentColor 0turn ${volta}turn, var(--line) ${volta}turn 1turn)`,
-      }}
-    >
-      <span className="grid h-10 w-10 place-items-center rounded-full bg-surface">
-        <span className={cn("tnum text-[13px] font-medium", tom)}>
-          {percentual === null ? "—" : `${percentual}%`}
-        </span>
-      </span>
     </div>
   );
 }
@@ -91,7 +64,7 @@ export function WeekCards({
       <Cartao titulo={fechada ? "Sua semana" : "Sua meta"}>
         <div className="flex items-center gap-3.5">
           <span className={tom}>
-            <Anel percentual={minha.percentual} tom={tom} />
+            <ProgressRing percentual={minha.percentual} tom={tom} />
           </span>
           <div className="min-w-0">
             <p className="text-[14.5px] text-ink">

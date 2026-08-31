@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { ProgressRing } from "@/components/progress-ring";
 import { faixaDe, porEmpresa, porPessoa, type Fatia, type Ocorrencia, type Resumo } from "./stats";
 import { BARRA, TOM } from "./tone";
 
@@ -88,9 +89,19 @@ export function RoutineSummary({
 
   return (
     <div className="mb-5 flex flex-col gap-3">
-      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-        <p className="flex items-baseline gap-2">
-          <Percentual resumo={geral} className="text-[22px] leading-none" />
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        {/*
+          O mesmo anel de Desempenho. Aqui ele substitui o numero grande e nao
+          se soma a ele: dois lugares dizendo 33% na mesma linha e repeticao, e
+          o anel diz a mesma coisa mostrando tambem o que falta para fechar.
+
+          `bg-bg` no miolo porque este bloco fica solto na pagina, fora de
+          cartao — com `bg-surface` sobraria um disco claro no meio do anel.
+        */}
+        <p className="flex items-center gap-3">
+          <span className={TOM[faixaDe(geral.pct)]}>
+            <ProgressRing percentual={geral.pct} tom={TOM[faixaDe(geral.pct)]} miolo="bg-bg" />
+          </span>
           <span className="text-[13px] text-muted">
             do que venceu nesta semana{" "}
             <span className="tnum text-faint">
