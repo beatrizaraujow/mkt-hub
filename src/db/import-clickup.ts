@@ -35,6 +35,7 @@ const ORIGEM = process.env.CLICKUP_JSON ?? "./.cu-limpo.json";
 /** Status do ClickUp que contam como vivo, e onde cada um cai aqui. */
 const ETAPA_DE: Record<string, string> = {
   "solicitado form": "solicitado",
+  pendente: "pendente",
   "em progresso": "em_andamento",
   alterar: "ajustar",
   "pré revisão": "pre_revisao",
@@ -42,7 +43,24 @@ const ETAPA_DE: Record<string, string> = {
   aprovar: "aprovacao",
   "aprovação líder": "aprovacao_lider",
   publicar: "publicar",
+  "banco de criativos": "banco_criativos",
 };
+
+/**
+ * `pendente` so atravessa com prazo no futuro.
+ *
+ * Sao duas coisas com o mesmo rotulo. Das 199 pendentes do board, 126 sao
+ * calendario ja programado — a serie de catalogo da SeuBone, com prazo ate
+ * dezembro de 2027 — e 73 estao vencidas ou sem prazo nenhum, muitas desde
+ * junho. Trazer as 73 e arrastar um cemiterio para o sistema novo e destruir o
+ * que ele tem de melhor: um quadro em que estar aberto significa alguma coisa.
+ * Se ainda forem necessarias, alguem pede de novo, e ai nascem com prazo.
+ */
+function atravessa(tarefa: Bruta, hoje: string): boolean {
+  if (chave(tarefa.status) !== "pendente") return true;
+  if (!tarefa.prazo) return false;
+  return new Date(Number(tarefa.prazo)).toISOString().slice(0, 10) > hoje;
+}
 
 /** O rotulo da "Empresa Tag" do board para o slug daqui. */
 const EMPRESA_DE: Record<string, string> = {
@@ -111,6 +129,8 @@ type Bruta = {
   prio: string | null;
   empresa: string[] | null;
   pontos: number | null;
+  /** Ultima movimentacao no ClickUp. Vira `completedAt` no banco de criativos. */
+  atualizada?: string | null;
 };
 
 const chave = (v: string) =>
@@ -136,7 +156,10 @@ function empresaDe(tarefa: Bruta): string | null {
 async function main() {
   const aplicar = process.argv.includes("--aplicar");
   const brutas: Bruta[] = JSON.parse(fs.readFileSync(ORIGEM, "utf-8"));
-  const vivas = brutas.filter((t) => ETAPA_DE[t.status]);
+  const hoje = new Date().toISOString().slice(0, 10);
+  const conhecidas = brutas.filter((t) => ETAPA_DE[chave(t.status)]);
+  const vivas = conhecidas.filter((t) => atravessa(t, hoje));
+  const cemiterio = conhecidas.length - vivas.length;
 
   const [empresas, pessoas, etapas, jaImportadas] = await Promise.all([
     db.select({ id: companies.id, slug: companies.slug, orgId: companies.orgId }).from(companies),
@@ -184,8 +207,9 @@ async function main() {
     const pessoa = email ? porEmail.get(email) : undefined;
     if (tarefa.resp.length && !pessoa) semPessoa.push(`${tarefa.nome} → ${tarefa.resp[0]}`);
 
-    const etapa = porEtapa.get(ETAPA_DE[tarefa.status]);
-    if (!etapa) throw new Error(`Etapa ${ETAPA_DE[tarefa.status]} não existe no pipeline de tarefa.`);
+    const slugEtapa = ETAPA_DE[chave(tarefa.status)];
+    const etapa = porEtapa.get(slugEtapa);
+    if (!etapa) throw new Error(`Etapa ${slugEtapa} não existe no pipeline de tarefa.`);
 
     novas.push({
       orgId: empresa.orgId,
@@ -197,7 +221,18 @@ async function main() {
       dueDate: tarefa.prazo ? new Date(Number(tarefa.prazo)) : null,
       priority: tarefa.prio ? (PRIORIDADE_DE[tarefa.prio] ?? "media") : "media",
       points: tarefa.pontos,
-      meta: { clickupId: tarefa.id, origem: "clickup", statusOriginal: tarefa.status },
+      /*
+       * Peca no banco de criativos ja terminou — a etapa e de fim, e conta na
+       * pontuacao. Sem `completedAt` ela entraria com o prazo antigo e cairia
+       * como ATRASADA na fila de alguem: 46 das 47 tem prazo ja vencido.
+       * A data e a ultima movimentacao no ClickUp, que e quando a peca entrou
+       * no banco — nao hoje, que somaria trabalho velho na semana corrente.
+       */
+      completedAt:
+        slugEtapa === "banco_criativos" && tarefa.atualizada
+          ? new Date(Number(tarefa.atualizada))
+          : null,
+      meta: { clickupId: tarefa.id, origem: "clickup", statusOriginal: tarefa.status.trim() },
     });
   }
 
@@ -214,7 +249,7 @@ async function main() {
   const criadas = novas.length;
 
   console.log(aplicar ? "Aplicado." : "Simulacao — nada foi escrito. Use -- --aplicar.");
-  console.log(`  vivas no board: ${vivas.length}`);
+  console.log(`  vivas no board: ${vivas.length}   deixadas para tras (pendente vencida): ${cemiterio}`);
   console.log(`  importadas: ${criadas}   ja estavam aqui: ${puladas}   sem empresa: ${semEmpresa.length}`);
   for (const nome of semEmpresa) console.log(`  ! sem empresa: ${nome}`);
   for (const nome of semPessoa) console.log(`  ! sem conta aqui: ${nome}`);
