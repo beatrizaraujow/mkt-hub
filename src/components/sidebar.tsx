@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
+import { ThemeButton } from "@/components/theme-button";
 import type { NavIcon, NavItem } from "@/components/nav-config";
 import { TimerWidget } from "@/features/time/timer-widget";
 import { GlobalSearch } from "@/features/search/global-search";
@@ -61,8 +62,14 @@ export function Sidebar({ items, user, running, logoutAction }: Props) {
         tambem a restauracao de posicao ao voltar de uma tela para outra.
       */}
       <aside className="sticky top-0 hidden h-dvh w-[212px] shrink-0 flex-col border-r border-line bg-surface md:flex">
-        <div className="flex h-14 items-center px-4">
-          <Logo className="w-[124px]" />
+        <div className="flex h-14 items-center justify-between gap-2 px-4">
+          <Logo className="w-[112px]" />
+          {/*
+            O tema fica aqui e nao no rodape: la ele dividia a linha com o
+            avatar e o botao de sair, e sobravam setenta pixels para o nome de
+            quem esta logado — "Maria Clara" ja virava reticencias.
+          */}
+          <ThemeButton />
         </div>
 
         {/* A caixa fica montada aqui e o atalho vale em qualquer tela. */}
@@ -150,13 +157,19 @@ export function Sidebar({ items, user, running, logoutAction }: Props) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
+                /*
+                 * `min-w-0` importa: sem ele, `flex-1` nao encolhe abaixo do
+                 * tamanho do texto, e "Desempenho" a 10,5px passava do sexto de
+                 * tela que lhe cabe. Os itens iam empurrando um ao outro ate o
+                 * ultimo — Ajustes — sair cortado pela borda direita.
+                 */
                 className={cn(
-                  "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10.5px]",
+                  "flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5 text-[10px]",
                   active ? "text-brand-ink" : "text-faint",
                 )}
               >
-                <Icon size={19} strokeWidth={1.75} />
-                {item.label}
+                <Icon size={19} strokeWidth={1.75} className="shrink-0" />
+                <span className="w-full truncate text-center tracking-[-0.015em]">{item.label}</span>
               </Link>
             );
           })}

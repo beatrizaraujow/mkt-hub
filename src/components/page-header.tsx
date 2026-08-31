@@ -32,7 +32,12 @@ export function PageHeader({
         </div>
         {description ? <p className="mt-0.5 text-[13.5px] text-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {/*
+        `flex-wrap` aqui e o que impede o corte no celular. Em Trabalho as acoes
+        sao o alternador de tres visualizacoes mais "Nova tarefa": juntos passam
+        de 390px, e sem quebra o botao saia pela borda direita da tela.
+      */}
+      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
   );
 }

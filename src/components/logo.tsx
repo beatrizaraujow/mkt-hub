@@ -9,10 +9,9 @@ import { cn } from "@/lib/utils";
  * Os dois pintam com `fill-current`, entao a cor vem do `text-*` de quem chama
  * e o ouro nunca fica escrito duas vezes no projeto.
  *
- * O padrao e `--brand-line`, nao `--brand`: o ouro da marca tem 1.7:1 contra o
- * branco, e no tema claro a marca sumiria no fundo do menu. O `--brand-line` e
- * o mesmo ouro puro no escuro e um ouro fechado no claro, entao a marca se le
- * nos dois. Na entrada, que e preta sempre, quem chama passa o ouro cheio.
+ * O padrao e `--logo`, o cinza neutro: dentro da aplicacao a marca fica na tela
+ * o dia inteiro, e marca gritando o dia inteiro vira ruido. O ouro cheio e da
+ * porta de entrada, que se ve uma vez — e la quem chama passa a cor.
  */
 
 const MARCA =
@@ -28,7 +27,7 @@ export function Logo({ className }: { className?: string }) {
       viewBox="0 0 336 42"
       role="img"
       aria-label="MKT Hub"
-      className={cn("block h-auto w-full fill-current text-brand-line", className)}
+      className={cn("block h-auto w-full fill-current text-logo", className)}
     >
       <path fillRule="evenodd" clipRule="evenodd" d={MARCA} />
       <path d={LETTERING} />
@@ -42,7 +41,7 @@ export function LogoMark({ className }: { className?: string }) {
     <svg
       viewBox="0 0 38 42"
       aria-hidden="true"
-      className={cn("block h-auto fill-current text-brand-line", className)}
+      className={cn("block h-auto fill-current text-logo", className)}
     >
       <path fillRule="evenodd" clipRule="evenodd" d={MARCA} />
     </svg>

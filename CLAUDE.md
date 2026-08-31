@@ -59,8 +59,10 @@ permanente — antes de sugerir biblioteca, escreva a função.
   empresa na V2.
 - **Cor codifica camada:** neutro para trabalho, petróleo para ação/foco/progresso, semânticas só
   para estado, âmbar (`--reward`) só para coins/ranking/meta batida.
-- **O ouro da marca (`--brand`) é a cor do que a pessoa escolheu.** Logo, botão primário, item ativo
-  do menu, aba aberta, filtro com valor, opção marcada, dia de hoje. Ele **não** substitui o
+- **O ouro da marca (`--brand`) é a cor do que a pessoa escolheu.** Botão primário, item ativo do
+  menu, aba aberta, filtro com valor, opção marcada, dia de hoje. **O logo dentro da aplicação é
+  cinza (`--logo`)**, não ouro: no menu ele fica na tela o dia inteiro, e marca gritando o dia
+  inteiro vira ruído. O ouro cheio é da porta de entrada, que se vê uma vez. Ele **não** substitui o
   petróleo: cronômetro rodando, barra de progresso, links, identidade (iniciais de quem é
   responsável) e as onze cores de etapa continuam petróleo e suas próprias cores — senão a
   codificação de camada some junto. Semânticas e prioridade nunca viram ouro.

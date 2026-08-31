@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -170,6 +178,34 @@ export function DetailPanel({
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("trabalho");
   const [draftTitle, setDraftTitle] = useState(item.title);
+
+  /**
+   * O titulo cresce pela altura que o texto realmente ocupa.
+   *
+   * Antes a quantidade de linhas era chutada pelo numero de caracteres
+   * (`length > 62 ? 2 : 1`), o que so vale numa largura. No celular a caixa tem
+   * 176px, e "Peca de teste do revisor" — vinte e quatro caracteres — quebrava
+   * em duas linhas dentro de uma caixa de uma, cortando a segunda no meio.
+   *
+   * O `ResizeObserver` pega os dois casos de uma vez: o texto mudou e a janela
+   * mudou de largura.
+   */
+  const tituloRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const campo = tituloRef.current;
+    if (!campo) return;
+
+    const medir = () => {
+      campo.style.height = "auto";
+      campo.style.height = `${campo.scrollHeight}px`;
+    };
+
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(campo);
+    return () => observador.disconnect();
+  }, [draftTitle]);
   const [draftDesc, setDraftDesc] = useState(item.description ?? "");
   const [draftCopy, setDraftCopy] = useState(item.copy ?? "");
   const [newCheck, setNewCheck] = useState("");
@@ -276,13 +312,14 @@ export function DetailPanel({
                 ) : null}
               </p>
               <textarea
+                ref={tituloRef}
                 value={draftTitle}
                 onChange={(e) => setDraftTitle(e.target.value)}
                 onBlur={() => {
                   if (draftTitle.trim() !== item.title) run(() => setTitle(item.id, draftTitle));
                 }}
-                rows={draftTitle.length > 62 ? 2 : 1}
-                className="w-full resize-none border-0 bg-transparent font-display text-[20px] font-semibold leading-tight text-ink focus:outline-none"
+                rows={1}
+                className="w-full resize-none overflow-hidden border-0 bg-transparent font-display text-[20px] font-semibold leading-tight text-ink focus:outline-none"
               />
             </div>
 

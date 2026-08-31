@@ -167,115 +167,127 @@ export function ClosingTable({
           Ninguém tem régua de desempenho cadastrada.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-[13px]">
-            <thead>
-              <tr className="border-b border-line text-left">
-                <th className="label-mono px-4 py-2 font-normal">Pessoa</th>
-                <th className="label-mono px-2 py-2 font-normal">Régua</th>
-                <th className="label-mono px-2 py-2 text-right font-normal">Entregue</th>
-                <th className="label-mono px-2 py-2 text-right font-normal">Meta</th>
-                <th className="label-mono px-2 py-2 text-right font-normal">%</th>
-                <th className="label-mono px-2 py-2 text-right font-normal">Pos.</th>
-                <th className="label-mono px-4 py-2 text-right font-normal">Coins</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entradas.map((entrada) => {
-                const validada = validadas.get(entrada.pessoaId);
-                const coins = validada ?? entrada.coinsSugeridas;
-                const entryId = entryIds.get(entrada.pessoaId);
-                const motivo = motivos.get(entrada.pessoaId) ?? "";
-                /*
-                 * A linha do motivo so existe quando alguem mexeu no numero.
-                 * Sete campos de texto vazios numa mesa de sete pessoas seriam
-                 * sete convites a preencher nada — e o campo perderia o peso
-                 * justo quando ele importa.
-                 */
-                const corrigida = validada !== null && validada !== undefined
-                  && validada !== entrada.coinsSugeridas;
+        <>
+          {/*
+            A tabela tem sete colunas e nao cabe num celular. Ela rola por
+            dentro, mas rolagem sem aviso parece corte: quem abre no telefone ve
+            "ENTREGU..." na borda e conclui que a tela quebrou. O aviso fica
+            fora do container de rolagem, senao ele sai da tela junto.
+          */}
+          <p className="px-4 pb-2 text-[11.5px] text-faint sm:hidden">
+            Sete colunas — arraste a tabela para o lado para ver o resto.
+          </p>
 
-                return (
-                  <Fragment key={entrada.pessoaId}>
-                  <tr className={corrigida ? "" : "border-b border-line last:border-b-0"}>
-                    <td className="px-4 py-2">
-                      <span className="text-ink">{entrada.nome}</span>
-                      {entrada.semPonto > 0 && (
-                        <span
-                          className="tnum ml-2 text-[11.5px] text-warning"
-                          title="Entregas concluídas sem Ponto MKT preenchido"
-                        >
-                          {entrada.semPonto} sem ponto
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2 py-2 text-muted">{REGUA_LABEL[entrada.rule]}</td>
-                    <td className="tnum px-2 py-2 text-right">
-                      {entrada.rule === "pontos"
-                        ? entrada.pontos
-                        : `${entrada.rotinasFeitas}/${entrada.rotinasCobradas}`}
-                    </td>
-                    <td className="tnum px-2 py-2 text-right text-faint">
-                      {entrada.rule === "pontos" ? (entrada.meta ?? "—") : "rotinas"}
-                    </td>
-                    <td className="px-2 py-2 text-right">
-                      <Percentual valor={entrada.percentual} />
-                    </td>
-                    <td className="tnum px-2 py-2 text-right text-faint">{entrada.posicao ?? "—"}</td>
-                    <td className="px-4 py-2 text-right">
-                      {somenteLeitura || !entryId ? (
-                        <span className="tnum font-medium text-reward">{coins}</span>
-                      ) : (
-                        <input
-                          type="number"
-                          min={0}
-                          max={6}
-                          defaultValue={coins}
-                          disabled={pending}
-                          onBlur={(event) => {
-                            const valor = Number(event.target.value);
-                            if (valor === coins) return;
-                            // Sem terceiro argumento: a nota que ja existir fica.
-                            roda(() => validarCoins(entryId, valor));
-                          }}
-                          className="tnum h-7 w-14 rounded-[var(--radius-control)] border border-line bg-surface px-1.5 text-right text-[13px] text-ink focus:border-accent focus:outline-none"
-                        />
-                      )}
-                    </td>
-                  </tr>
+          <div className="scroll-thin overflow-x-auto">
+            <table className="w-full min-w-[680px] text-[13px]">
+              <thead>
+                <tr className="border-b border-line text-left">
+                  <th className="label-mono px-4 py-2 font-normal">Pessoa</th>
+                  <th className="label-mono px-2 py-2 font-normal">Régua</th>
+                  <th className="label-mono px-2 py-2 text-right font-normal">Entregue</th>
+                  <th className="label-mono px-2 py-2 text-right font-normal">Meta</th>
+                  <th className="label-mono px-2 py-2 text-right font-normal">%</th>
+                  <th className="label-mono px-2 py-2 text-right font-normal">Pos.</th>
+                  <th className="label-mono px-4 py-2 text-right font-normal">Coins</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entradas.map((entrada) => {
+                  const validada = validadas.get(entrada.pessoaId);
+                  const coins = validada ?? entrada.coinsSugeridas;
+                  const entryId = entryIds.get(entrada.pessoaId);
+                  const motivo = motivos.get(entrada.pessoaId) ?? "";
+                  /*
+                   * A linha do motivo so existe quando alguem mexeu no numero.
+                   * Sete campos de texto vazios numa mesa de sete pessoas seriam
+                   * sete convites a preencher nada — e o campo perderia o peso
+                   * justo quando ele importa.
+                   */
+                  const corrigida = validada !== null && validada !== undefined
+                    && validada !== entrada.coinsSugeridas;
 
-                  {corrigida && (
-                    <tr className="border-b border-line last:border-b-0">
-                      <td colSpan={7} className="px-4 pb-2">
-                        <label className="flex flex-wrap items-center gap-2 text-[12px] text-faint">
-                          <span className="shrink-0">
-                            Por que {coins} e não {entrada.coinsSugeridas}?
+                  return (
+                    <Fragment key={entrada.pessoaId}>
+                    <tr className={corrigida ? "" : "border-b border-line last:border-b-0"}>
+                      <td className="px-4 py-2">
+                        <span className="text-ink">{entrada.nome}</span>
+                        {entrada.semPonto > 0 && (
+                          <span
+                            className="tnum ml-2 text-[11.5px] text-warning"
+                            title="Entregas concluídas sem Ponto MKT preenchido"
+                          >
+                            {entrada.semPonto} sem ponto
                           </span>
-                          {somenteLeitura ? (
-                            <span className="text-muted">{motivo || "— sem motivo registrado"}</span>
-                          ) : (
-                            <input
-                              defaultValue={motivo}
-                              disabled={pending}
-                              maxLength={300}
-                              placeholder="semana de quatro dias úteis, feriado no meio"
-                              onBlur={(event) => {
-                                const texto = event.target.value;
-                                if (texto.trim() === motivo.trim()) return;
-                                roda(() => validarCoins(entryId!, coins, texto));
-                              }}
-                              className="h-7 min-w-[240px] flex-1 rounded-[var(--radius-control)] border border-line bg-surface px-2 text-[12.5px] text-ink focus:border-accent focus:outline-none"
-                            />
-                          )}
-                        </label>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-muted">{REGUA_LABEL[entrada.rule]}</td>
+                      <td className="tnum px-2 py-2 text-right">
+                        {entrada.rule === "pontos"
+                          ? entrada.pontos
+                          : `${entrada.rotinasFeitas}/${entrada.rotinasCobradas}`}
+                      </td>
+                      <td className="tnum px-2 py-2 text-right text-faint">
+                        {entrada.rule === "pontos" ? (entrada.meta ?? "—") : "rotinas"}
+                      </td>
+                      <td className="px-2 py-2 text-right">
+                        <Percentual valor={entrada.percentual} />
+                      </td>
+                      <td className="tnum px-2 py-2 text-right text-faint">{entrada.posicao ?? "—"}</td>
+                      <td className="px-4 py-2 text-right">
+                        {somenteLeitura || !entryId ? (
+                          <span className="tnum font-medium text-reward">{coins}</span>
+                        ) : (
+                          <input
+                            type="number"
+                            min={0}
+                            max={6}
+                            defaultValue={coins}
+                            disabled={pending}
+                            onBlur={(event) => {
+                              const valor = Number(event.target.value);
+                              if (valor === coins) return;
+                              // Sem terceiro argumento: a nota que ja existir fica.
+                              roda(() => validarCoins(entryId, valor));
+                            }}
+                            className="tnum h-7 w-14 rounded-[var(--radius-control)] border border-line bg-surface px-1.5 text-right text-[13px] text-ink focus:border-accent focus:outline-none"
+                          />
+                        )}
                       </td>
                     </tr>
-                  )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+
+                    {corrigida && (
+                      <tr className="border-b border-line last:border-b-0">
+                        <td colSpan={7} className="px-4 pb-2">
+                          <label className="flex flex-wrap items-center gap-2 text-[12px] text-faint">
+                            <span className="shrink-0">
+                              Por que {coins} e não {entrada.coinsSugeridas}?
+                            </span>
+                            {somenteLeitura ? (
+                              <span className="text-muted">{motivo || "— sem motivo registrado"}</span>
+                            ) : (
+                              <input
+                                defaultValue={motivo}
+                                disabled={pending}
+                                maxLength={300}
+                                placeholder="semana de quatro dias úteis, feriado no meio"
+                                onBlur={(event) => {
+                                  const texto = event.target.value;
+                                  if (texto.trim() === motivo.trim()) return;
+                                  roda(() => validarCoins(entryId!, coins, texto));
+                                }}
+                                className="h-7 min-w-[240px] flex-1 rounded-[var(--radius-control)] border border-line bg-surface px-2 text-[12.5px] text-ink focus:border-accent focus:outline-none"
+                              />
+                            )}
+                          </label>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           {/*
             O total no rodape existe para nao precisar somar sete linhas de
@@ -292,7 +304,7 @@ export function ClosingTable({
               {fechada ? "coins creditadas" : "coins a creditar"}
             </span>
           </div>
-        </div>
+        </>
       )}
     </section>
   );
