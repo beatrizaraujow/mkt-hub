@@ -7,14 +7,57 @@ import { z } from "zod";
 import { db } from "@/db";
 import { companies, userCompanyAccess, users } from "@/db/schema";
 import { assertCanManage, requireUserAction } from "@/lib/auth";
-import { hashInvite, newInviteToken, sameHash } from "@/lib/invite";
+import { hashInvite, inviteUrl, newInviteToken, sameHash } from "@/lib/invite";
+import { sendMail } from "@/lib/mail";
+import { appOrigin } from "@/lib/origin";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSession } from "@/lib/session";
+import { inviteEmail } from "./invite-email";
 
-export type PeopleState = { error?: string; ok?: boolean; token?: string; name?: string };
+export type PeopleState = {
+  error?: string;
+  ok?: boolean;
+  token?: string;
+  name?: string;
+  /** Para onde o convite foi mandado, quando foi. */
+  sentTo?: string;
+  /** Por que o envio falhou. O link continua válido — só não saiu daqui. */
+  mailError?: string;
+};
 
 function fail(message: string): PeopleState {
   return { error: message };
+}
+
+/**
+ * Manda o convite e conta o que aconteceu — **sem nunca derrubar quem chamou**.
+ *
+ * O convite já está gravado quando esta função roda. Se o SMTP recusar, o que
+ * a gente perde é o envio, não o acesso: a tela mostra o link do mesmo jeito e
+ * alguém entrega na mão, como era antes de existir e-mail nenhum. Trocar isso
+ * por uma exceção transformaria "o e-mail não saiu" em "não consegui convidar".
+ */
+async function entregarConvite(destino: {
+  name: string;
+  email: string;
+  token: string;
+  expiresAt: Date;
+  inviterName: string;
+}): Promise<Pick<PeopleState, "sentTo" | "mailError">> {
+  try {
+    const url = inviteUrl(await appOrigin(), destino.token);
+    const mensagem = inviteEmail({
+      name: destino.name,
+      inviterName: destino.inviterName,
+      url,
+      expiresAt: destino.expiresAt,
+    });
+
+    const resultado = await sendMail({ to: destino.email, ...mensagem });
+    return resultado.sent ? { sentTo: destino.email } : { mailError: resultado.reason };
+  } catch (error) {
+    return { mailError: error instanceof Error ? error.message : "não foi possível enviar" };
+  }
 }
 
 const ROLES = ["admin", "gestor", "colaborador", "observador"] as const;
@@ -48,11 +91,10 @@ function readForm(formData: FormData) {
 }
 
 /**
- * Cria a pessoa **sem senha** e devolve o link de convite uma única vez.
+ * Cria a pessoa **sem senha**, manda o convite e devolve o link uma única vez.
  *
- * O link não é enviado por e-mail ainda: o projeto não tem serviço de envio.
- * Quem convida copia e manda pelo canal que já usa. Quando existir serviço, o
- * envio entra aqui sem mudar mais nada — o link já é o mesmo.
+ * O link continua aparecendo na tela mesmo quando o e-mail sai: é o que
+ * salva o dia em que a mensagem cair no spam de alguém.
  */
 export async function createPerson(_prev: PeopleState, formData: FormData): Promise<PeopleState> {
   try {
@@ -98,8 +140,16 @@ export async function createPerson(_prev: PeopleState, formData: FormData): Prom
         .values(allowed.map((companyId) => ({ userId: created.id, companyId })));
     }
 
+    const entrega = await entregarConvite({
+      name: data.name,
+      email: data.email,
+      token: invite.token,
+      expiresAt: invite.expiresAt,
+      inviterName: user.name,
+    });
+
     revalidatePath("/time");
-    return { ok: true, token: invite.token, name: data.name };
+    return { ok: true, token: invite.token, name: data.name, ...entrega };
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Não foi possível criar a pessoa.");
   }
@@ -195,19 +245,40 @@ export async function setPersonActive(id: string, active: boolean): Promise<Peop
   }
 }
 
-/** Gera um convite novo. O anterior deixa de valer no mesmo instante. */
+/**
+ * Gera um convite novo e manda por e-mail. O anterior deixa de valer no mesmo
+ * instante.
+ *
+ * **Recusa quem já tem senha.** Convite para quem já entrou não substitui a
+ * senha vigente — só acrescenta uma segunda porta para a mesma conta, aberta
+ * por sete dias. Isso sempre foi errado; virou urgente quando o convite passou
+ * a sair por e-mail, porque a segunda porta deixou de morrer na tela de quem
+ * convidou e passou a ficar numa caixa de entrada, encaminhável. Quem esqueceu
+ * a senha troca a dela em Ajustes; quem perdeu o acesso é caso de admin, e
+ * então a conta é desativada e recriada.
+ */
 export async function resendInvite(id: string): Promise<PeopleState> {
   try {
     const user = await requireUserAction();
     assertCanManage(user);
 
     const [target] = await db
-      .select({ orgId: users.orgId, name: users.name })
+      .select({
+        orgId: users.orgId,
+        name: users.name,
+        email: users.email,
+        passwordHash: users.passwordHash,
+        isActive: users.isActive,
+      })
       .from(users)
       .where(eq(users.id, id))
       .limit(1);
 
     if (!target || target.orgId !== user.orgId) return fail("Pessoa não encontrada.");
+    if (target.passwordHash) {
+      return fail(`${target.name.split(" ")[0]} já definiu senha. Convite novo abriria uma segunda porta para a mesma conta.`);
+    }
+    if (!target.isActive) return fail("Conta desativada. Reative antes de convidar.");
 
     const invite = newInviteToken();
     await db
@@ -215,8 +286,16 @@ export async function resendInvite(id: string): Promise<PeopleState> {
       .set({ inviteTokenHash: invite.hash, inviteExpiresAt: invite.expiresAt })
       .where(eq(users.id, id));
 
+    const entrega = await entregarConvite({
+      name: target.name,
+      email: target.email,
+      token: invite.token,
+      expiresAt: invite.expiresAt,
+      inviterName: user.name,
+    });
+
     revalidatePath("/time");
-    return { ok: true, token: invite.token, name: target.name };
+    return { ok: true, token: invite.token, name: target.name, ...entrega };
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Não foi possível gerar o convite.");
   }

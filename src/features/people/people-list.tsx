@@ -45,18 +45,56 @@ function when(date: Date | null) {
   }).format(date);
 }
 
-/** O link aparece uma vez só. Sem cópia, a pessoa convidada não entra. */
-function InviteLink({ token, name, onDone }: { token: string; name: string; onDone: () => void }) {
+/**
+ * O link aparece uma vez só — mesmo quando o e-mail sai.
+ *
+ * Parece redundante e não é: mensagem cai em spam, endereço tem letra trocada,
+ * SMTP fica fora do ar. Enquanto o link estiver na tela, nenhuma dessas coisas
+ * impede a pessoa de entrar hoje.
+ */
+function InviteLink({
+  token,
+  name,
+  sentTo,
+  mailError,
+  onDone,
+}: {
+  token: string;
+  name: string;
+  sentTo?: string;
+  mailError?: string;
+  onDone: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const url = typeof window === "undefined" ? "" : `${window.location.origin}/convite/${token}`;
 
   return (
-    <Modal label="Convite" title="Convite gerado" subtitle={name} width={560} onClose={onDone}>
+    <Modal
+      label="Convite"
+      title={sentTo ? "Convite enviado" : "Convite gerado"}
+      subtitle={name}
+      width={560}
+      onClose={onDone}
+    >
       <div className="flex flex-col gap-3 px-5 py-4">
-        <p className="text-[13.5px] leading-relaxed text-muted">
-          Mande este link para {name.split(" ")[0]}. É por ele que a pessoa define a própria senha —
-          ela não passa por você, e ninguém precisa trocá-la depois.
-        </p>
+        {sentTo ? (
+          <p className="text-[13.5px] leading-relaxed text-muted">
+            Mandei para <span className="text-ink">{sentTo}</span>. Guarde o link abaixo até{" "}
+            {name.split(" ")[0]} confirmar que recebeu — se cair no spam, é por ele que a pessoa
+            entra.
+          </p>
+        ) : (
+          <p className="text-[13.5px] leading-relaxed text-muted">
+            Mande este link para {name.split(" ")[0]}. É por ele que a pessoa define a própria senha
+            — ela não passa por você, e ninguém precisa trocá-la depois.
+          </p>
+        )}
+
+        {mailError && (
+          <p className="rounded-[var(--radius-control)] border border-line bg-sunk px-3 py-2 text-[12.5px] text-warning">
+            O e-mail não saiu: {mailError}. O convite vale do mesmo jeito — entregue o link na mão.
+          </p>
+        )}
 
         <code className="block overflow-x-auto whitespace-nowrap rounded-[var(--radius-control)] border border-line bg-sunk px-3 py-2 font-mono text-[12px] text-ink">
           {url}
@@ -174,7 +212,12 @@ export function PeopleList({
   meId: string;
   canCreateAdmin: boolean;
 }) {
-  const [invite, setInvite] = useState<{ token: string; name: string } | null>(null);
+  const [invite, setInvite] = useState<{
+    token: string;
+    name: string;
+    sentTo?: string;
+    mailError?: string;
+  } | null>(null);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<PersonRow | null>(null);
   const [pending, start] = useTransition();
@@ -184,7 +227,12 @@ export function PeopleList({
   const [createState, createAction] = useActionState<PeopleState, FormData>(async (prev, form) => {
     const result = await createPerson(prev, form);
     if (result.ok && result.token) {
-      setInvite({ token: result.token, name: result.name ?? "" });
+      setInvite({
+        token: result.token,
+        name: result.name ?? "",
+        sentTo: result.sentTo,
+        mailError: result.mailError,
+      });
       setCreating(false);
       setRole("colaborador");
     }
@@ -197,12 +245,19 @@ export function PeopleList({
     return result;
   }, {});
 
-  function run(fn: () => Promise<{ error?: string; token?: string; name?: string }>) {
+  function run(fn: () => Promise<PeopleState>) {
     setError(null);
     start(async () => {
       const result = await fn();
       if (result.error) setError(result.error);
-      else if (result.token) setInvite({ token: result.token, name: result.name ?? "" });
+      else if (result.token) {
+        setInvite({
+          token: result.token,
+          name: result.name ?? "",
+          sentTo: result.sentTo,
+          mailError: result.mailError,
+        });
+      }
     });
   }
 
@@ -465,7 +520,13 @@ export function PeopleList({
       )}
 
       {invite && (
-        <InviteLink token={invite.token} name={invite.name} onDone={() => setInvite(null)} />
+        <InviteLink
+          token={invite.token}
+          name={invite.name}
+          sentTo={invite.sentTo}
+          mailError={invite.mailError}
+          onDone={() => setInvite(null)}
+        />
       )}
 
       <p className="flex items-start gap-2 text-[12px] text-faint">

@@ -3,6 +3,11 @@
  *
  *   npm run invite -- --base https://mkt-hub-wheat.vercel.app
  *   npm run invite -- --base http://localhost:3010 --dry
+ *   npm run invite -- --base ... --enviar   manda por e-mail tambem
+ *
+ * Sem `--enviar` ele so imprime os links, como sempre fez. O envio e opcional
+ * de proposito: o dia em que o SMTP estiver fora, este script precisa
+ * continuar servindo para desbloquear o time.
  *
  * Faz o mesmo que a tela de Time, em lote: cria a pessoa **sem senha**, gera
  * o convite e imprime o link. A senha é definida pela própria pessoa.
@@ -14,6 +19,8 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, userCompanyAccess, users, type UserRole } from "@/db/schema";
 import { inviteUrl, newInviteToken } from "@/lib/invite";
+import { mailConfigured, sendMail } from "@/lib/mail";
+import { inviteEmail } from "@/features/people/invite-email";
 
 type Person = {
   name: string;
@@ -53,6 +60,13 @@ function arg(name: string) {
 async function main() {
   const base = arg("base");
   const dry = process.argv.includes("--dry");
+  const enviar = process.argv.includes("--enviar");
+  const quemConvida = arg("de") ?? "Anny Beatriz";
+
+  if (enviar && !mailConfigured()) {
+    console.error("Pediu --enviar mas falta a configuracao de SMTP. Veja o .env.example.");
+    process.exit(1);
+  }
 
   if (!base) {
     console.error("Falta --base. Ex.: npm run invite -- --base https://mkt-hub-wheat.vercel.app");
@@ -147,9 +161,29 @@ async function main() {
       }
     }
 
+    const url = inviteUrl(base, invite.token);
     const verb = existing ? "convite renovado" : "criada";
-    console.log(`· ${person.name} — ${person.jobTitle} — ${person.role} (${verb})`);
-    links.push(`${person.name}\n  ${person.email}\n  ${inviteUrl(base, invite.token)}`);
+
+    /*
+     * Envia dentro do laco, e nao numa segunda passada no fim. Se o SMTP cair
+     * no meio, quem ja recebeu recebeu — e o console diz exatamente onde
+     * parou. Guardar tudo para mandar no fim transformaria uma falha parcial
+     * em "ninguem recebeu".
+     */
+    let entrega = "";
+    if (enviar && !dry) {
+      const mensagem = inviteEmail({
+        name: person.name,
+        inviterName: quemConvida,
+        url,
+        expiresAt: invite.expiresAt,
+      });
+      const r = await sendMail({ to: person.email, ...mensagem });
+      entrega = r.sent ? " — enviado" : ` — NAO ENVIOU: ${r.reason}`;
+    }
+
+    console.log(`· ${person.name} — ${person.jobTitle} — ${person.role} (${verb})${entrega}`);
+    links.push(`${person.name}\n  ${person.email}\n  ${url}`);
   }
 
   /* -------------------------------------------------------------- avulsos */
