@@ -284,10 +284,16 @@ errado com aparência de conferência feita.
   têm conta ativa e **nenhuma senha**; a conta da Anny tem senha mas nunca foi usada. Resolve em
   uma hora, sem depender de e-mail: `create-user` para o admin e `npm run invite` para os seis,
   entregando os links à mão. É o item mais sério desta lista inteira.
-- **Decidir como o board do ClickUp atravessa.** Não existe importação, e não há nenhuma prevista:
-  hoje toda tarefa nasce à mão. Ou se escreve um importador, ou se marca uma data de corte e o que
-  está em andamento termina no ClickUp. Enquanto isso não for decidido, os dois sistemas divergem
-  todo dia.
+- ~~Decidir como o board do ClickUp atravessa.~~ **Decidido em 31/08/2026: a data de corte é
+  07/09/2026.** A partir dela, tarefa nova nasce só no Hub 2; o que estiver em andamento no
+  ClickUp termina lá. As 258 vivas já atravessaram, e `npm run clickup:sincronizar` alinha a etapa
+  enquanto os dois convivem — o que deixa de ser necessário no dia do corte.
+- **A semana do corte tem quatro dias úteis, não cinco.** 07/09 é feriado da Independência, e as
+  metas semanais (130, 80, 80, 60) pressupõem cinco dias. O teto real de todo mundo naquela semana
+  é **80% da meta** — abaixo da faixa de 90%, por causa do calendário e não do trabalho. Fechar
+  essa semana sem corrigir puniria o time inteiro na primeira semana do sistema novo. A saída
+  prevista no desenho é a mesa de fechamento: o sistema sugere, uma pessoa valida. Meta
+  proporcional a dias úteis é assunto de V2, e exige calendário de feriados.
 - **Rodar a Revisão IA em silencioso por uma semana** e ler a taxa de reversão em
   **Revisor → Medição**. É o número que decide se a ferramenta fica.
 - **As 27 regras de pessoa e os três critérios difusos** da Carbone, na segunda leva
@@ -342,6 +348,10 @@ continua não sendo feature: é o acesso do time e a data de corte.
 | D · Tela Desempenho | **No ar desde 28/08/2026.** Pódio e a própria posição para o time; mesa de fechamento para quem gerencia |
 | E · Daily | **No ar desde 31/08/2026.** É meta de pontos **por dia**, não reunião: não existe daily assíncrona em lugar nenhum do `mktimer`. O placar aparece em Hoje |
 | F · Notificações | Recomendado **mover para a V2**: não bloqueia desligar o sistema antigo, que é o objetivo declarado da V1.5, e ainda não há rotina de uso que diga quais valeriam a pena |
+
+**Data de corte: 07/09/2026.** Decidida em 31/08/2026, encerrando a pendência mais antiga do
+projeto. Com ela, a ponte de leitura deixa de fazer sentido de vez: não há período longo de
+convivência para cobrir.
 
 **A ponte não vai ser construída agora.** Em 27/08/2026 ficou sabido que a tarefa nasce **nos dois
 sistemas** ao mesmo tempo. Nesse cenário a ponte sozinha não resolve e pode piorar: se o `mktimer`

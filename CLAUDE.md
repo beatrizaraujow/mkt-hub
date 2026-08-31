@@ -26,6 +26,10 @@ Mudança relevante de produto nunca acontece em silêncio. Proponha antes:
 
 ## Decisões aprovadas
 
+0. **Data de corte do ClickUp: 07/09/2026.** A partir dela, tarefa nova nasce só aqui. O que estava
+   em andamento lá termina lá. Enquanto os dois convivem, `npm run clickup:sincronizar` alinha a
+   etapa — depois do corte, isso deixa de ser necessário. **Atenção:** 07/09 é feriado, então a
+   semana do corte tem quatro dias úteis e o teto real de todos é 80% da meta semanal.
 1. **Ponte, não big bang.** O sistema novo vai expor leitura no formato que o MKT Hub atual já
    consome do ClickUp, para a pontuação semanal não quebrar durante a migração.
 2. **Tarefas primeiro.** MVP substitui o ClickUp. Rotinas, metas e coins vêm na V1.5.
