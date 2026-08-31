@@ -282,20 +282,6 @@ export const workItems = pgTable(
      * Buraco na contagem e esperado e nao se conserta: tarefa apagada leva o
      * numero junto, e reaproveitar numero faria um link antigo abrir a tarefa
      * errada de alguem.
-     *
-     * **A numeracao e global, nao por organizacao.** A sequencia e uma so, e
-     * nao reinicia em 1 para cada org: se um dia existir uma segunda, a
-     * primeira tarefa dela nasce com o numero seguinte ao ultimo da primeira.
-     * Isso e aceito porque a casa tem **uma** organizacao e o unico lugar do
-     * codigo que cria organizacao e o `seed.ts` — nao ha tela nem action que
-     * crie outra. Reiniciar por org exigiria contador por org, com trava, e
-     * seria construir para um segundo cliente que nao existe.
-     *
-     * O indice unico abaixo e por `(org_id, number)` para acompanhar o padrao
-     * da casa, e nao porque a numeracao seja por org. Ele e uma **garantia**,
-     * nao uma promessa: quem for reiniciar a contagem por organizacao um dia
-     * precisa trocar a sequencia junto, senao o indice passa e a numeracao
-     * continua global.
      */
     number: integer("number").notNull().default(sql`nextval('work_item_number_seq')`),
 
@@ -371,7 +357,7 @@ export const workItems = pgTable(
     index("wi_parent_idx").on(t.parentId),
     index("wi_type_idx").on(t.orgId, t.type),
     index("wi_asset_idx").on(t.orgId, t.isAsset),
-    /* Garantia de que dois links nunca abrem a mesma tarefa. Ver a nota em `number`. */
+    /* O codigo tem de ser unico dentro da organizacao — e por ele que o link abre. */
     uniqueIndex("wi_org_number_unique").on(t.orgId, t.number),
   ],
 );
