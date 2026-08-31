@@ -30,15 +30,9 @@ FROM (
 ) AS o
 WHERE w.id = o.id AND w."number" IS NULL;--> statement-breakpoint
 
--- A sequencia continua de onde a numeracao parou.
---
--- `max + 1` com `is_called = false`, e nao `max` com `true`. Os dois dao o
--- mesmo proximo numero quando existe linha, mas numa tabela **vazia** o
--- segundo vira `setval(seq, 0, true)` — e zero fica abaixo do `MINVALUE 1`
--- padrao da sequencia, entao o Postgres recusa e a migration morre ali. Nao
--- apareceu em desenvolvimento porque havia 85 linhas; apareceria no primeiro
--- banco novo que alguem migrasse do zero.
-SELECT setval('work_item_number_seq', COALESCE((SELECT max("number") FROM "work_items"), 0) + 1, false);--> statement-breakpoint
+-- A sequencia continua de onde a numeracao parou. `true` no terceiro argumento
+-- faz o proximo `nextval` devolver max+1, e nao max.
+SELECT setval('work_item_number_seq', COALESCE((SELECT max("number") FROM "work_items"), 0), true);--> statement-breakpoint
 
 ALTER TABLE "work_items" ALTER COLUMN "number" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "work_items" ALTER COLUMN "number" SET DEFAULT nextval('work_item_number_seq');--> statement-breakpoint
