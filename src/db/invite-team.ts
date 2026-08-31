@@ -1,7 +1,7 @@
 /**
  * Cadastro inicial do time, por convite.
  *
- *   npm run invite -- --base https://mkt-hub-wheat.vercel.app
+ *   npm run invite -- --base https://www.mkthub.space
  *   npm run invite -- --base http://localhost:3010 --dry
  *   npm run invite -- --base ... --enviar   manda por e-mail tambem
  *
@@ -69,7 +69,7 @@ async function main() {
   }
 
   if (!base) {
-    console.error("Falta --base. Ex.: npm run invite -- --base https://mkt-hub-wheat.vercel.app");
+    console.error("Falta --base. Ex.: npm run invite -- --base https://www.mkthub.space");
     process.exit(1);
   }
 

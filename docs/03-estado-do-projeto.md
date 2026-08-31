@@ -10,7 +10,7 @@ Para o revisor de entregas, [04-revisor.md](04-revisor.md).
 
 | | |
 |---|---|
-| Produção | https://mkt-hub-wheat.vercel.app |
+| Produção | https://www.mkthub.space (desde 31/08/2026) |
 | Código | `D:\mkt-hub` |
 | Repositório | github.com/beatrizaraujow/mkt-hub (privado) |
 | Banco de produção | Supabase `mkt-hub` (`tnfjjaxrmatuovwjiptz`) · sa-east-1 · org mktimer45 |

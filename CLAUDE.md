@@ -102,8 +102,15 @@ para sozinho se achar dado dentro.
 
 ## Deploy
 
-Vercel (`mkt-hub`), produção em https://mkt-hub-wheat.vercel.app, conectada ao GitHub.
+Vercel (`mkt-hub`), produção em https://www.mkthub.space, conectada ao GitHub.
 Push em `main` dispara build de produção.
+
+**Domínio próprio desde 31/08/2026.** `mkthub.space` redireciona (308) para `www.mkthub.space`, e
+os endereços antigos (`mkt-hub-wheat.vercel.app`, `mkt-hub-beatrizaraujows-projects.vercel.app`)
+continuam apontando para o mesmo deploy — convite emitido antes da troca não morreu. O cookie de
+sessão é *host-only*: quem estava logado pelo endereço antigo entra de novo no novo, uma vez.
+`APP_URL` na Vercel guarda o endereço que sai por e-mail; trocar essa variável **só vale no próximo
+deploy**.
 
 **A autoria do commit precisa bater com uma conta do GitHub.** A Vercel bloqueia o deploy com
 *"could not associate the committer with a GitHub user"* — e o deploy fica em BLOCKED sem log de

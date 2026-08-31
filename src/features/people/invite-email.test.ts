@@ -5,7 +5,7 @@ import { inviteEmail } from "./invite-email";
 const base = {
   name: "Zion Bagatoli",
   inviterName: "Anny Beatriz",
-  url: "https://mkt-hub-wheat.vercel.app/convite/abc123",
+  url: "https://www.mkthub.space/convite/abc123",
   expiresAt: new Date("2026-09-06T21:44:00Z"),
 };
 

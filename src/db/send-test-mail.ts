@@ -62,7 +62,7 @@ async function main() {
   const mensagem = inviteEmail({
     name: "Fulano de Tal",
     inviterName: "Teste do MKT Hub",
-    url: "https://mkt-hub-wheat.vercel.app/convite/ISTO-E-UM-TESTE-NAO-FUNCIONA",
+    url: "https://www.mkthub.space/convite/ISTO-E-UM-TESTE-NAO-FUNCIONA",
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
 
