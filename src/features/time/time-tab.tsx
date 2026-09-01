@@ -211,12 +211,21 @@ export function TimeTab({
   hoje,
   resumo,
   entradas,
+  minutosNoClickUp,
 }: {
   itemId: string;
   meId: string;
   hoje: string;
   resumo: TimeSummary;
   entradas: TimeEntryRow[];
+  /**
+   * O tempo que a tarefa acumulou no ClickUp, se veio de la.
+   *
+   * Fica **fora** do total: o total soma o que foi registrado aqui, com autor e
+   * hora. Somar os dois criaria um numero que ninguem consegue auditar, porque
+   * metade dele nao tem de quem nem de quando.
+   */
+  minutosNoClickUp?: number | null;
 }) {
   const [pendente, iniciar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -263,6 +272,26 @@ export function TimeTab({
         <span className="label-mono">Tempo registrado</span>
         <span className="tnum text-[15px] font-medium text-ink">{formatarDuracao(total)}</span>
       </div>
+
+      {/*
+        O tempo herdado do ClickUp aparece separado, e nunca somado ao total.
+        Ele veio da migracao de 01/09/2026 como um numero por tarefa — o ClickUp
+        nao informa quem lancou nem quando, e sem essas duas coisas ele nao e um
+        lancamento: e um dado de origem. Misturado ao total, contaminaria o
+        relatorio de horas, que alimenta a pontuacao semanal.
+      */}
+      {minutosNoClickUp ? (
+        <div className="flex flex-col gap-1 rounded-[var(--radius-card)] border border-dashed border-line px-3 py-2">
+          <div className="flex items-baseline justify-between text-[12.5px]">
+            <span className="text-muted">Tempo no ClickUp</span>
+            <span className="tnum text-muted">{formatarDuracao(minutosNoClickUp * 60)}</span>
+          </div>
+          <p className="text-[11px] leading-relaxed text-faint">
+            Veio na migração do board. Não entra no total porque o ClickUp não guarda quem
+            registrou nem em que dia.
+          </p>
+        </div>
+      ) : null}
 
       {dividir && (
         <div className="-mt-2 flex flex-col gap-1 text-[12.5px]">

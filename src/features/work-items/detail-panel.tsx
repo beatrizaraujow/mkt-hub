@@ -58,6 +58,8 @@ import { BriefingCard } from "@/features/requests/briefing-card";
 import type { RequestInfo } from "./queries";
 
 export type DetailData = {
+  /** Minutos herdados do ClickUp; nulo em tarefa nascida aqui. */
+  minutosNoClickUp?: number | null;
   id: string;
   title: string;
   description: string | null;
@@ -692,6 +694,7 @@ export function DetailPanel({
                   hoje={today}
                   resumo={summary}
                   entradas={entries}
+                  minutosNoClickUp={item.minutosNoClickUp}
                 />
               )}
 

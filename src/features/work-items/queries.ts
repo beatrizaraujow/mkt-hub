@@ -468,6 +468,7 @@ export async function getItemDetail(user: CurrentUser, id: string) {
     skill: full?.skill ?? null,
     format: full?.format ?? null,
     request: full ? requestOf(full) : null,
+    minutosNoClickUp: minutosNoClickUpDe(full),
     checklist,
     subtasks,
     files: filesWithPreview,
@@ -529,6 +530,23 @@ export type RequestInfo = {
 
 function str(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+/**
+ * O tempo que a tarefa acumulou no ClickUp, em minutos.
+ *
+ * Fica em `meta` e **nao** vira lancamento em `time_entries`: o ClickUp devolve
+ * so o total por tarefa, sem dizer quem lancou nem quando, e as duas colunas sao
+ * obrigatorias la. Inventar autor e data para 3.307 tarefas mexeria, de forma
+ * retroativa, no relatorio de horas de gente real — e `time_entries` alimenta a
+ * pontuacao semanal.
+ *
+ * Entao o numero existe, aparece na tarefa como informacao de origem, e nao se
+ * mistura com hora registrada aqui dentro.
+ */
+function minutosNoClickUpDe(row: { meta: Record<string, unknown> } | undefined): number | null {
+  const bruto = row?.meta?.minutosNoClickUp;
+  return typeof bruto === "number" && bruto > 0 ? bruto : null;
 }
 
 /**
