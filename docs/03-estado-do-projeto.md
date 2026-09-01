@@ -293,7 +293,23 @@ cumpre a promessa. Pela mesma razão o recorte de formato é uma **lista** numa 
 Como o universal nasce sem empresa, ela já fica coberta sem uma linha com o nome dela.
 
 **O item da usina mora na Onevo mãe**, não em Investimentos e Energia separados: é a mesma frase
-nos dois blocos, e a cadeia de empresas já alcança as sub-marcas.
+nos dois blocos, e a cadeia de empresas já alcança as sub-marcas. **Os itens da Carbone moram na
+Carbone Educação**, pela mesma razão — os blocos de Educação e Club são idênticos palavra por
+palavra, e Club é sub-marca de Educação. Isso alcança também `Pedro Galvão P2P` (27 tarefas), que
+não tem bloco no documento; se um dia não valer lá, o caminho é uma linha própria na sub-marca, não
+duplicar tudo nas outras duas.
+
+**O checklist da Carbone é o mais longo da casa, e vale acompanhar.** Depois dos blocos, uma peça
+estática da Carbone mostra 13 itens e um vídeo mostra 14, contra 6 no SeuBoné e 4 na Weevo. Não é
+duplicação: são os seis itens antigos da Carbone (conta certa, data, nomes, tom, citação, promessa
+de resultado) somados aos três do documento. O teto do próprio editor é 12, e a razão está escrita
+lá: *"checklist longo vira marcação automática, e aí ele deixa de valer justamente para os poucos
+itens em que era a única defesa"*. Quem decide o que sai é quem escreveu os itens; o botão de
+desligar item está em Revisor → Regras.
+
+Dos seis antigos, só *"Confirmei que a peça não promete resultado a quem está lendo"* tem regra de
+máquina equivalente (`E1`) — e ela é **medidor de propósito**, a duplicação deliberada que mede se
+o checklist está sendo levado a sério. Os outros cinco não têm regra que os cubra.
 
 **"O vídeo tem gancho claro nos 3 primeiros segundos" não foi cadastrado duas vezes.** O documento
 o repete no bloco de captação, e o bloco de vídeo já o carrega para os mesmos formatos — uma tarefa

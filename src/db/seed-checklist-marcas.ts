@@ -120,6 +120,27 @@ const ITENS: Item[] = [
    * para corrigir a mesma frase.
    */
   { marca: "Onevo", texto: "A usina que aparece é do porte que a Onevo vende, não uma usina gigante.", formatos: `${ESTATICO}, ${CARROSSEL}, ${VIDEO}` },
+
+  /* -------------------------------------------------------------- Carbone */
+
+  /*
+   * Uma linha na mae, pela mesma razao da Onevo: os blocos de Carbone Educacao
+   * e Carbone Club tem exatamente os mesmos itens de marca, palavra por
+   * palavra, e Carbone Club e sub-marca de Carbone Educacao.
+   *
+   * **Isto alcanca tambem Pedro Galvao P2P**, a outra sub-marca (27 tarefas em
+   * producao). O documento nao tem bloco para ela, e a heranca e a leitura mais
+   * provavel: e uma marca pessoal dentro da Carbone, e "nenhum membro que
+   * aparece na peca cancelou" vale la igual. Se um dia nao valer, o caminho e
+   * uma linha propria na sub-marca, nao duplicar tudo nas outras duas.
+   */
+  { marca: "Carbone Educação", texto: "As fotos de membros são de empresários relevantes ou de muita gente junta.", formatos: `${ESTATICO}, ${CARROSSEL}, ${OFF}` },
+  { marca: "Carbone Educação", texto: "A imagem é intencional e entrega o objetivo que foi pedido.", formatos: `${ESTATICO}, ${CARROSSEL}, ${OFF}` },
+  { marca: "Carbone Educação", texto: "Se tem membro na imagem, ele é relevante.", formatos: VIDEO },
+  { marca: "Carbone Educação", texto: "Se tem depoimento, aparece nome e empresa de quem fala.", formatos: VIDEO },
+
+  /* O unico que o documento repete nos quatro blocos da Carbone. */
+  { marca: "Carbone Educação", texto: "Nenhum membro que aparece na peça cancelou, conferi na área de membros.", formatos: `${ESTATICO}, ${CARROSSEL}, ${VIDEO}, ${OFF}` },
 ];
 
 const argumentos = process.argv.slice(2);
