@@ -34,24 +34,34 @@ const PIPELINE_LABEL: Record<string, string> = {
 export function StageGroups({
   stages,
   items,
+  totais,
   today,
   runningItemId,
 }: {
   stages: GroupStage[];
   items: Array<RowItem & { stageId: string }>;
+  /**
+   * Quantas tarefas cada etapa tem no banco.
+   *
+   * Nao se conta `items`: ele traz no maximo as primeiras de cada etapa, e usar
+   * o tamanho dele como total faz o limite de pagina virar numero exibido.
+   */
+  totais: Map<string, number>;
   today: string;
   runningItemId: string | null;
 }) {
   const collapsed = useCollapsed(recolhidas);
 
   const visible = stages.filter(
-    (stage) => stage.type === "task" || items.some((item) => item.stageId === stage.id),
+    (stage) => stage.type === "task" || (totais.get(stage.id) ?? 0) > 0,
   );
 
   return (
     <div className="flex flex-col gap-3">
       {visible.map((stage) => {
         const list = items.filter((item) => item.stageId === stage.id);
+        const total = totais.get(stage.id) ?? list.length;
+        const cortada = total > list.length;
         const open = !collapsed.includes(stage.id);
 
         return (
@@ -77,7 +87,7 @@ export function StageGroups({
                   {PIPELINE_LABEL[stage.type]}
                 </span>
               ) : null}
-              <span className="tnum text-[12px] text-faint">{list.length}</span>
+              <span className="tnum text-[12px] text-faint">{total}</span>
             </button>
 
             {open &&
@@ -98,6 +108,20 @@ export function StageGroups({
                   ))}
                 </div>
               ))}
+
+            {open && cortada && (
+              /*
+               * Quando a etapa tem mais do que coube, o numero do cabecalho e o
+               * total e a lista e um pedaco dele. Dizer isso e obrigatorio: sem
+               * a linha, a etapa parece completa e quem procura uma tarefa que
+               * existe conclui que ela sumiu.
+               */
+              <p className="px-3 py-1.5 text-[11.5px] text-faint">
+                mostrando <span className="tnum">{list.length}</span> de{" "}
+                <span className="tnum">{total}</span> — refine por empresa ou responsavel para ver
+                as demais
+              </p>
+            )}
           </section>
         );
       })}

@@ -104,10 +104,11 @@ export type WorkFilters = {
 /** Item gerado por rotina tem ocorrencia de origem; item feito a mao, nao. */
 const NOT_FROM_ROUTINE = isNull(workItems.sourceOccurrenceId);
 
-export async function listWorkItems(
-  user: CurrentUser,
-  filters: WorkFilters = {},
-): Promise<WorkItemRow[]> {
+/** Quantas linhas de cada etapa a pagina carrega. */
+const POR_ETAPA = 60;
+
+/** As condicoes da listagem, num lugar so — a contagem precisa das mesmas. */
+function condicoes(user: CurrentUser, filters: WorkFilters) {
   const where = [scope(user)];
 
   if (filters.type) where.push(eq(workItems.type, filters.type));
@@ -117,15 +118,74 @@ export async function listWorkItems(
   if (!filters.includeDone) where.push(isNull(workItems.completedAt));
   if (!filters.includeRoutine) where.push(NOT_FROM_ROUTINE);
 
+  return and(...where);
+}
+
+/**
+ * A listagem do quadro, com teto **por etapa** e nao por pagina.
+ *
+ * Antes eram as 300 primeiras do total, ordenadas por prazo. Com o ClickUp
+ * dentro do sistema — 4.548 tarefas, 3.995 delas concluidas — ligar "mostrar
+ * concluidas" fazia as 300 vagas serem tomadas so por tarefa pronta, e todas as
+ * outras etapas apareciam vazias. Nao estavam: tinham ficado fora da pagina.
+ *
+ * Uma etapa vazia e uma afirmacao sobre o trabalho ("nao ha nada aqui"), e ela
+ * estava sendo feita por um limite de paginacao. Com `row_number` particionado
+ * por etapa, cada coluna traz as suas primeiras — nenhuma some porque outra tem
+ * muito volume.
+ */
+export async function listWorkItems(
+  user: CurrentUser,
+  filters: WorkFilters = {},
+): Promise<WorkItemRow[]> {
+  const ordem = sql`${workItems.dueDate} asc nulls last, ${workItemStages.position} asc, ${workItems.createdAt} desc`;
+
+  const janela = db
+    .select({
+      id: workItems.id,
+      posicao: sql<number>`row_number() over (partition by ${workItems.stageId} order by ${ordem})`.as(
+        "posicao",
+      ),
+    })
+    .from(workItems)
+    .innerJoin(workItemStages, eq(workItemStages.id, workItems.stageId))
+    .where(condicoes(user, filters))
+    .as("janela");
+
+  const escolhidos = await db
+    .select({ id: janela.id })
+    .from(janela)
+    .where(sql`${janela.posicao} <= ${POR_ETAPA}`);
+
+  if (!escolhidos.length) return [];
+
   return baseQuery()
-    .where(and(...where))
+    .where(inArray(workItems.id, escolhidos.map((e) => e.id)))
     .orderBy(
       // Sem prazo vai para o fim; entre os que tem prazo, o mais proximo primeiro.
       sql`${workItems.dueDate} asc nulls last`,
       asc(workItemStages.position),
       desc(workItems.createdAt),
-    )
-    .limit(300);
+    );
+}
+
+/**
+ * Quantas tarefas cada etapa tem **no banco**, sob os mesmos filtros.
+ *
+ * O cabecalho de cada etapa contava o que a pagina havia carregado, o que
+ * transformava o corte de paginacao em numero exibido como se fosse o total.
+ */
+export async function countByStage(
+  user: CurrentUser,
+  filters: WorkFilters = {},
+): Promise<Map<string, number>> {
+  const linhas = await db
+    .select({ stageId: workItems.stageId, n: sql<number>`count(*)::int` })
+    .from(workItems)
+    .where(condicoes(user, filters))
+    .groupBy(workItems.stageId);
+
+  return new Map(linhas.map((l) => [l.stageId, l.n]));
 }
 
 /**

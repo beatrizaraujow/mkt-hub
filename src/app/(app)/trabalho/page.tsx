@@ -11,6 +11,7 @@ import {
   allDefaultStages,
   countWithoutDueDate,
   listInRange,
+  countByStage,
   listWorkItems,
   quickCreateOptions,
   stagesFor,
@@ -64,6 +65,7 @@ export default async function TrabalhoPage({
     running,
     monthItems,
     noDueDate,
+    totaisPorEtapa,
   ] = await Promise.all([
     // O calendário busca pela faixa do mês; a lista, pelo limite de página.
     isCalendar
@@ -95,6 +97,19 @@ export default async function TrabalhoPage({
     runningTimer(user.id),
     isCalendar ? listInRange(user, scope, range.from, range.to) : Promise.resolve([]),
     isCalendar ? countWithoutDueDate(user, scope) : Promise.resolve(0),
+    /*
+     * A contagem de cada etapa vem do banco, nao da pagina. A lista traz no
+     * maximo as primeiras de cada etapa; contar o que ela trouxe exibiria o
+     * limite de paginacao como se fosse o total.
+     */
+    isCalendar
+      ? Promise.resolve(new Map<string, number>())
+      : countByStage(user, {
+          ...scope,
+          includeDone: true,
+          // O quadro so mostra `task`; contar os outros pipelines inflaria o rodape.
+          ...(isBoard ? { type: "task" as const } : {}),
+        }),
   ]);
 
   const runningItemId = running?.workItemId ?? null;
@@ -102,6 +117,12 @@ export default async function TrabalhoPage({
   const filtered = Boolean(params.empresa || params.responsavel || params.concluidas);
   const taskItems = items.filter((i) => i.type === "task");
   const visible = isBoard ? taskItems : items;
+
+  /*
+   * O total no rodape soma o que ha no banco, nao o que a pagina trouxe. Com o
+   * ClickUp dentro do sistema a diferenca entre os dois e de milhares.
+   */
+  const totalNoBanco = [...totaisPorEtapa.values()].reduce((a, b) => a + b, 0);
 
   return (
     <>
@@ -162,13 +183,19 @@ export default async function TrabalhoPage({
             <StageGroups
               stages={allStages}
               items={visible}
+              totais={totaisPorEtapa}
               today={today}
               runningItemId={runningItemId}
             />
             <p className="mt-3 text-[12px] text-faint">
-              <span className="tnum">{visible.length}</span>{" "}
-              {visible.length === 1 ? "tarefa" : "tarefas"}
-              {visible.length === 300 ? " (limite da página)" : ""}
+              <span className="tnum">{totalNoBanco}</span>{" "}
+              {totalNoBanco === 1 ? "tarefa" : "tarefas"}
+              {totalNoBanco > visible.length ? (
+                <>
+                  {" · mostrando "}
+                  <span className="tnum">{visible.length}</span>
+                </>
+              ) : null}
             </p>
           </>
         )}
