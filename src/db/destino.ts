@@ -17,7 +17,7 @@ export const DESENVOLVIMENTO = "hqohquknxgiywpokmndp";
  * Ele aparece em dois lugares diferentes conforme o tipo de conexao, e por isso
  * os dois sao procurados:
  *
- *   pooler   postgresql://postgres.<ref>:senha@aws-0-sa-east-1.pooler.supabase.com:6543/...
+ *   pooler   postgresql://<usuario>.<ref>:senha@aws-0-sa-east-1.pooler.supabase.com:6543/...
  *   direta   postgresql://postgres:senha@db.<ref>.supabase.co:5432/...
  *
  * No pooler o host e o mesmo para todos os projetos da regiao — quem identifica
@@ -29,7 +29,9 @@ export const DESENVOLVIMENTO = "hqohquknxgiywpokmndp";
 export function refDaConexao(url: string | undefined): string | null {
   if (!url) return null;
 
-  const noUsuario = url.match(/postgres\.([a-z0-9]{16,})/i);
+  // Qualquer usuario, nao so `postgres`: um usuario temporario criado para uma
+  // tarefa pontual usa o mesmo formato, `<usuario>.<ref>`.
+  const noUsuario = url.match(/\/\/[a-z0-9_]+\.([a-z0-9]{20})[:@]/i);
   if (noUsuario) return noUsuario[1];
 
   const noHost = url.match(/@(?:db\.)?([a-z0-9]{16,})\.supabase\.(?:co|com)/i);
