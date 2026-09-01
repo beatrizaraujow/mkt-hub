@@ -26,7 +26,7 @@
  * alguma coisa.
  */
 import fs from "node:fs";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { client, db } from "./index";
 import { companies, users, workItemStages, workItems } from "./schema";
 import { ETAPAS_DE_FIM, chave, etapaDe } from "@/features/work-items/clickup-map";
@@ -112,6 +112,10 @@ type Bruta = {
   prio: string | null;
   empresa: string[] | null;
   pontos: number | null;
+  /** Rotulos de `Tarefas SKILL` no board. Lidos a partir de 02/09/2026. */
+  skill?: string[] | null;
+  /** Rotulos de `Formato SKILL` no board. Lidos a partir de 02/09/2026. */
+  formato?: string[] | null;
   /** Quando foi fechada no ClickUp. Vira `completedAt` em etapa de fim. */
   fechada?: string | null;
   /** Ultima movimentacao. Serve de conclusao quando nao houve fechamento. */
@@ -266,6 +270,14 @@ async function main() {
       stageId: etapa,
       assigneeId: pessoa ?? null,
       estimateMinutes: tarefa.estimativa ?? null,
+      /*
+       * `Tarefas SKILL` e `Formato SKILL` chegam como lista de rotulos e as
+       * colunas sao texto. Varios rotulos viram uma linha separada por virgula:
+       * uma tarefa pode ser "Edicao de video, Captacao", e escolher um so
+       * apagaria metade do que a pessoa registrou.
+       */
+      skill: tarefa.skill?.join(", ") ?? null,
+      format: tarefa.formato?.join(", ") ?? null,
       createdAt: tarefa.criada ? new Date(Number(tarefa.criada)) : undefined,
       dueDate: tarefa.prazo ? new Date(Number(tarefa.prazo)) : null,
       priority: tarefa.prio ? (PRIORIDADE_DE[tarefa.prio] ?? "media") : "media",
@@ -333,18 +345,47 @@ async function main() {
    * definiu aqui: o ClickUp e a origem do historico, nao a autoridade sobre o
    * que o time fez depois.
    */
-  const paraConsertar: Array<{ clickupId: string; pessoaId: string }> = [];
+  type Conserto = {
+    clickupId: string;
+    pessoaId?: string;
+    skill?: string;
+    format?: string;
+  };
+
+  const paraConsertar: Conserto[] = [];
 
   if (vistas.size) {
     const jaCom = await db
-      .select({ meta: workItems.meta, assigneeId: workItems.assigneeId })
+      .select({
+        meta: workItems.meta,
+        assigneeId: workItems.assigneeId,
+        skill: workItems.skill,
+        format: workItems.format,
+      })
       .from(workItems);
 
     for (const linha of jaCom) {
-      if (linha.assigneeId) continue;
-
       const clickupId = (linha.meta as { clickupId?: string })?.clickupId;
       if (!clickupId) continue;
+
+      const bruta0 = porClickupId.get(clickupId);
+      if (!bruta0) continue;
+
+      const conserto: Conserto = { clickupId };
+
+      /*
+       * `Tarefas SKILL` e `Formato SKILL` so passaram a ser lidos em 02/09/2026.
+       * As 4.266 tarefas que ja atravessaram entraram sem eles, e reimportar nao
+       * as alcanca — o import pula quem ja esta aqui. Sem esta passada, os dois
+       * campos ficariam preenchidos so no que entrasse dali para a frente.
+       */
+      if (!linha.skill && bruta0.skill?.length) conserto.skill = bruta0.skill.join(", ");
+      if (!linha.format && bruta0.formato?.length) conserto.format = bruta0.formato.join(", ");
+
+      if (linha.assigneeId) {
+        if (conserto.skill || conserto.format) paraConsertar.push(conserto);
+        continue;
+      }
 
       /*
        * O nome vem do **arquivo baixado**, e nao do `meta` da linha. As 2.500
@@ -353,22 +394,52 @@ async function main() {
        * fora — que sao as que mais precisam do conserto. O arquivo tem o
        * responsavel de todas.
        */
-      const bruta = porClickupId.get(clickupId);
-      const nome = bruta?.resp?.[0];
-      if (!nome) continue;
-
-      const email = PESSOA_DE[nome.toLowerCase().trim()];
+      const nome = bruta0.resp?.[0];
+      const email = nome ? PESSOA_DE[nome.toLowerCase().trim()] : undefined;
       const pessoa = email ? porEmail.get(email) : undefined;
-      if (pessoa) paraConsertar.push({ clickupId, pessoaId: pessoa });
+      if (pessoa) conserto.pessoaId = pessoa;
+
+      if (conserto.pessoaId || conserto.skill || conserto.format) paraConsertar.push(conserto);
     }
   }
 
   if (aplicar) {
+    /*
+     * Agrupado por valor, e nao uma consulta por tarefa.
+     *
+     * Um `UPDATE` por linha eram 2.107 idas ao banco em sequencia — a primeira
+     * tentativa morreu na 592a, sem dizer por que, deixando o conserto pela
+     * metade. E como isso nao e transacao, "pela metade" fica pela metade.
+     *
+     * As tarefas repetem muito o mesmo valor ("Edicao de video" aparece 233
+     * vezes), entao agrupar pelo conjunto de campos reduz milhares de consultas
+     * a algumas dezenas — e cada uma cobre todas as suas de uma vez.
+     */
+    const grupos = new Map<string, { campos: Record<string, string>; ids: string[] }>();
+
     for (const conserto of paraConsertar) {
-      await db
-        .update(workItems)
-        .set({ assigneeId: conserto.pessoaId })
-        .where(sql`${workItems.meta}->>'clickupId' = ${conserto.clickupId}`);
+      const campos: Record<string, string> = {};
+      if (conserto.pessoaId) campos.assigneeId = conserto.pessoaId;
+      if (conserto.skill) campos.skill = conserto.skill;
+      if (conserto.format) campos.format = conserto.format;
+
+      const chave = JSON.stringify(campos);
+      const grupo = grupos.get(chave) ?? { campos, ids: [] };
+      grupo.ids.push(conserto.clickupId);
+      grupos.set(chave, grupo);
+    }
+
+    console.log(`  consertando em ${grupos.size} grupos...`);
+
+    for (const grupo of grupos.values()) {
+      // Em fatias: uma lista de milhares de ids numa clausula so e pedir problema.
+      for (let i = 0; i < grupo.ids.length; i += 500) {
+        const fatia = grupo.ids.slice(i, i + 500);
+        await db
+          .update(workItems)
+          .set(grupo.campos)
+          .where(inArray(sql`${workItems.meta}->>'clickupId'`, fatia));
+      }
     }
   }
 
@@ -395,7 +466,12 @@ async function main() {
   console.log(`  subtarefas: ${novas.filter((l) => l.parentId).length}   órfãs (mãe não entrou): ${orfas}`);
   console.log(`  sem cliente → Interno: ${internas}`);
   if (paraConsertar.length) {
-    console.log(`  dono preenchido em tarefa que já estava aqui: ${paraConsertar.length}`);
+    const comDono = paraConsertar.filter((c) => c.pessoaId).length;
+    const comSkill = paraConsertar.filter((c) => c.skill).length;
+    const comFormato = paraConsertar.filter((c) => c.format).length;
+    console.log(
+      `  em tarefa que já estava aqui — dono: ${comDono}   Tarefas SKILL: ${comSkill}   Formato SKILL: ${comFormato}`,
+    );
   }
   console.log(`  com briefing: ${novas.filter((l) => l.description).length}   horas anotadas: ${Math.round(minutos / 60)}h`);
 

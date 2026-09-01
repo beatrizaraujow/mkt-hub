@@ -52,6 +52,27 @@ type TarefaBruta = {
 
 const campo = (t: TarefaBruta, nome: string) => (t.custom_fields ?? []).find((c) => c.name === nome);
 
+/**
+ * Os rotulos de um campo do tipo etiqueta, resolvidos de id para texto.
+ *
+ * O ClickUp guarda o **id** da opcao no `value` e o texto em `type_config`.
+ * Sem cruzar os dois, o que chega e um punhado de identificadores.
+ */
+function rotulosDe(t: TarefaBruta, nome: string): string[] | null {
+  const c = campo(t, nome);
+  if (!c || c.value === undefined || c.value === null || c.value === "") return null;
+
+  const ids = Array.isArray(c.value) ? c.value : [c.value];
+  const opcoes = c.type_config?.options ?? [];
+  const nomes = ids
+    .map((v) => opcoes.find((o) => o.id === v)?.label ?? opcoes.find((o) => o.id === v)?.name)
+    // Varios rotulos do board terminam com espaco ("Edicao de video "). Nao e dado.
+    .map((n) => n?.trim())
+    .filter((n): n is string => Boolean(n));
+
+  return nomes.length ? nomes : null;
+}
+
 function empresaDe(t: TarefaBruta): string[] | null {
   const c = campo(t, "Empresa Tag");
   if (!c || !Array.isArray(c.value) || c.value.length === 0) return null;
@@ -97,6 +118,16 @@ async function main() {
     prazo: t.due_date ?? null,
     prio: t.priority?.priority ?? null,
     empresa: empresaDe(t),
+    /**
+     * Os dois campos do board que estavam preenchidos e nao atravessavam.
+     *
+     * De 130 campos customizados da lista, so quatro tem conteudo: `Empresa Tag`,
+     * `Ponto de atividade MKT` e estes dois. O resto e formulario de solicitacao
+     * que ninguem respondeu. Ambos ja tem coluna aqui (`skill` e `format`) e
+     * estavam sendo descartados no download, nao no import.
+     */
+    skill: rotulosDe(t, "Tarefas SKILL"),
+    formato: rotulosDe(t, "Formato SKILL"),
     pontos: pontoDe(t),
     /** Quando a peca foi fechada no ClickUp. Vira data de conclusao aqui. */
     fechada: t.date_closed ?? null,
@@ -136,6 +167,8 @@ async function main() {
   console.log(`  subtarefas:      ${limpo.filter((t) => t.mae).length}`);
   console.log(`  com Empresa Tag: ${limpo.filter((t) => t.empresa).length}`);
   console.log(`  com Ponto MKT:   ${limpo.filter((t) => t.pontos !== null).length}`);
+  console.log(`  com Tarefas SKILL: ${limpo.filter((t) => t.skill).length}`);
+  console.log(`  com Formato SKILL: ${limpo.filter((t) => t.formato).length}`);
   console.log(`  com briefing:    ${limpo.filter((t) => t.briefing).length}`);
   console.log(`  com tempo:       ${limpo.filter((t) => t.minutos).length}  (${Math.round(minutos / 60)}h)`);
   for (const [status, n] of [...porStatus].sort((a, b) => b[1] - a[1])) {
