@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Coins } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { snapshotEntries } from "@/db/schema";
@@ -89,6 +89,21 @@ export default async function DesempenhoPage({
                 Esta semana
               </Link>
             )}
+
+            <span className="mx-1.5 h-4 w-px bg-line" aria-hidden />
+
+            {/*
+              A leitura de coin da casa e mensal, e esta tela e semanal. O link
+              fica aqui e nao no menu: coin nao se olha todo dia, e item fixo de
+              navegacao para tela mensal e ruido onze meses por ano.
+            */}
+            <Link
+              href="/desempenho/coins"
+              className="flex h-7 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-[12.5px] text-muted transition-colors hover:bg-hover hover:text-ink"
+            >
+              <Coins size={14} strokeWidth={1.75} />
+              Coins do mês
+            </Link>
           </div>
         }
       />

@@ -78,6 +78,17 @@ permanente — antes de sugerir biblioteca, escreva a função.
 - **Borda antes de sombra.** Sombra só em camada flutuante.
 - **Gamificação nunca por volume.** Coins vêm de percentual de meta e posição, com teto semanal.
   Toda regra nova passa pelo teste: *"como eu burlaria isso em cinco minutos?"*
+- **As faixas da coin, portadas do MKT Hub 1 em 31/08/2026** (fluxo de snapshot, o que tinha
+  validação humana): abaixo de 60% nada, 60% → 1, 80% → 2, 100% → o `coinsAt100` da pessoa,
+  `meta120` → o `coinsAt120` dela. A faixa de cima compara contra a **meta120 cadastrada**, não
+  contra 120% — a da Anny é 70 sobre 60, que dá 117%.
+- **O pódio soma +3, +2, +1** para 1º, 2º e 3º, e só para quem **bateu a meta** e é do **grupo
+  de pontos**. Sem a primeira trava, numa semana ruim o bônus premia ser menos pior que os
+  outros; sem a segunda, presença viraria corrida. Teto real: `coinsAt120` + 3.
+- **Coin se apura num lugar só.** O fechamento semanal calcula e credita no `coin_ledger`;
+  qualquer outra tela **soma o extrato**, nunca recalcula. No MKT Hub 1 havia duas
+  implementações da mesma regra gravando na mesma tabela, e abrir a tela de Histórico
+  regravava por cima do que a admin tinha validado.
 - **Notificação só se muda o que a pessoa vai fazer nos próximos minutos.**
 
 ## Comandos

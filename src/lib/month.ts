@@ -29,6 +29,25 @@ export function isMonth(value: string | undefined): value is string {
   return typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
 
+/**
+ * O mes a que uma data pertence, `2026-08`.
+ *
+ * Corta a string em vez de passar por `Date`: e a mesma armadilha do cabecalho
+ * deste arquivo, e aqui ela decidiria em que mes cai a semana que fecha no dia
+ * primeiro.
+ */
+export function monthOf(ymd: string) {
+  return ymd.slice(0, 7);
+}
+
+/** Primeiro e ultimo dia do mes, em `YYYY-MM-DD`. */
+export function monthBounds(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  // Dia zero do mes seguinte e o ultimo deste.
+  const last = new Date(y, m, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` };
+}
+
 export function shiftMonth(month: string, delta: number) {
   const [y, m] = month.split("-").map(Number);
   const date = new Date(y, m - 1 + delta, 1);

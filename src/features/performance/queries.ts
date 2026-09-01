@@ -198,6 +198,8 @@ export async function semanaNaTela(user: CurrentUser, ymd: string): Promise<Sema
         percentual: linha.percent,
         posicao: linha.position,
         coinsSugeridas: linha.coinsSuggested,
+        coinsDaMeta: null,
+        coinsDoPodio: null,
         coinsAos100: null,
         coinsAos120: null,
       })),
