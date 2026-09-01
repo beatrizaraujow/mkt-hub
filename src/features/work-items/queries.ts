@@ -170,6 +170,30 @@ export async function listWorkItems(
 }
 
 /**
+ * Os rotulos de `Tarefas SKILL` que existem no alcance da pessoa, com quantas
+ * tarefas cada um tem.
+ *
+ * Sai desmembrado: a coluna guarda combinacoes ("Edicao de video, Alteracao") e
+ * um seletor com combinacoes teria dezenas de opcoes quase iguais, alem de
+ * esconder o rotulo simples atras da combinacao.
+ */
+export async function listSkills(
+  user: CurrentUser,
+): Promise<Array<{ skill: string; n: number }>> {
+  const linhas = await db
+    .select({
+      skill: sql<string>`btrim(rotulo)`.as("skill"),
+      n: sql<number>`count(*)::int`,
+    })
+    .from(sql`${workItems}, unnest(string_to_array(${workItems.skill}, ', ')) as rotulo`)
+    .where(and(scope(user), sql`${workItems.skill} is not null`))
+    .groupBy(sql`btrim(rotulo)`)
+    .orderBy(sql`count(*) desc`);
+
+  return linhas.filter((l) => l.skill !== "");
+}
+
+/**
  * Quantas tarefas cada etapa tem **no banco**, sob os mesmos filtros.
  *
  * O cabecalho de cada etapa contava o que a pagina havia carregado, o que

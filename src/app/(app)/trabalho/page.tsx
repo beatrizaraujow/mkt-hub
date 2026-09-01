@@ -12,6 +12,7 @@ import {
   countWithoutDueDate,
   listInRange,
   countByStage,
+  listSkills,
   listWorkItems,
   quickCreateOptions,
   stagesFor,
@@ -33,6 +34,7 @@ export default async function TrabalhoPage({
   searchParams: Promise<{
     empresa?: string;
     responsavel?: string;
+    skill?: string;
     concluidas?: string;
     rotinas?: string;
     view?: string;
@@ -51,6 +53,7 @@ export default async function TrabalhoPage({
   const scope = {
     companyId: params.empresa,
     assigneeId: params.responsavel,
+    skill: params.skill,
     // Item de rotina fica de fora por padrao. A grade e o lugar de olhar isso.
     includeRoutine: params.rotinas === "1",
   };
@@ -65,6 +68,7 @@ export default async function TrabalhoPage({
     running,
     monthItems,
     noDueDate,
+    skillRows,
     totaisPorEtapa,
   ] = await Promise.all([
     // O calendário busca pela faixa do mês; a lista, pelo limite de página.
@@ -102,6 +106,7 @@ export default async function TrabalhoPage({
      * maximo as primeiras de cada etapa; contar o que ela trouxe exibiria o
      * limite de paginacao como se fosse o total.
      */
+    listSkills(user),
     isCalendar
       ? Promise.resolve(new Map<string, number>())
       : countByStage(user, {
@@ -114,7 +119,9 @@ export default async function TrabalhoPage({
 
   const runningItemId = running?.workItemId ?? null;
 
-  const filtered = Boolean(params.empresa || params.responsavel || params.concluidas);
+  const filtered = Boolean(
+    params.empresa || params.responsavel || params.concluidas || params.skill,
+  );
   const taskItems = items.filter((i) => i.type === "task");
   const visible = isBoard ? taskItems : items;
 
@@ -148,7 +155,7 @@ export default async function TrabalhoPage({
       />
 
       <Suspense fallback={<div className="h-[53px] border-b border-line" />}>
-        <Filters companies={companyRows} people={peopleRows} meId={user.id} />
+        <Filters companies={companyRows} people={peopleRows} skills={skillRows} meId={user.id} />
       </Suspense>
 
       <div className="px-5 py-5 md:px-7">
