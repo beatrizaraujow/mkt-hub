@@ -26,28 +26,12 @@
  * alguma coisa.
  */
 import fs from "node:fs";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { client, db } from "./index";
 import { companies, users, workItemStages, workItems } from "./schema";
-import { ETAPAS_DE_FIM, NASCE_NO_IMPORT, chave, etapaDe } from "@/features/work-items/clickup-map";
+import { ETAPAS_DE_FIM, chave, etapaDe } from "@/features/work-items/clickup-map";
 
 const ORIGEM = process.env.CLICKUP_JSON ?? "./.cu-limpo.json";
-
-/**
- * `pendente` so atravessa com prazo no futuro.
- *
- * Sao duas coisas com o mesmo rotulo. Das 199 pendentes do board, 126 sao
- * calendario ja programado — a serie de catalogo da SeuBone, com prazo ate
- * dezembro de 2027 — e 73 estao vencidas ou sem prazo nenhum, muitas desde
- * junho. Trazer as 73 e arrastar um cemiterio para o sistema novo e destruir o
- * que ele tem de melhor: um quadro em que estar aberto significa alguma coisa.
- * Se ainda forem necessarias, alguem pede de novo, e ai nascem com prazo.
- */
-function atravessa(tarefa: Bruta, hoje: string): boolean {
-  if (chave(tarefa.status) !== "pendente") return true;
-  if (!tarefa.prazo) return false;
-  return new Date(Number(tarefa.prazo)).toISOString().slice(0, 10) > hoje;
-}
 
 /** O rotulo da "Empresa Tag" do board para o slug daqui. */
 const EMPRESA_DE: Record<string, string> = {
@@ -102,7 +86,12 @@ const PESSOA_DE: Record<string, string> = {
   "klenio braz": "klenio.braz@grupoquatro5.com",
   "samuel melo": "samuel.melo@grupoquatro5.com",
   "zion bagatoli": "zion.bagatoli@grupoquatro5.com",
+  // A mesma pessoa com outro sobrenome no ClickUp, confirmado por ela em
+  // 31/08/2026. Sao 87 tarefas que nao casavam com conta nenhuma.
+  "zion pinto": "zion.bagatoli@grupoquatro5.com",
   "anny beatriz da silva araujo": "anny.beatriz@grupoquatro5.com",
+  // A mesma pessoa, sem o "da". Sao 101 tarefas que casavam com ninguem.
+  "anny beatriz silva araujo": "anny.beatriz@grupoquatro5.com",
   "maria luiza mariz": "marialuiza.mariz@grupoquatro5.com",
   "maria clara carvalho": "mariaclara@seubone.com",
 };
@@ -127,6 +116,14 @@ type Bruta = {
   fechada?: string | null;
   /** Ultima movimentacao. Serve de conclusao quando nao houve fechamento. */
   atualizada?: string | null;
+  /** Quando nasceu no ClickUp. */
+  criada?: string | null;
+  /** O id da mae no ClickUp, quando esta e subtarefa. */
+  mae?: string | null;
+  briefing?: string | null;
+  /** Tempo lancado, em minutos. Total da tarefa, sem dono e sem data. */
+  minutos?: number | null;
+  estimativa?: number | null;
 };
 
 function empresaDe(tarefa: Bruta): string | null {
@@ -149,18 +146,21 @@ function empresaDe(tarefa: Bruta): string | null {
 async function main() {
   const aplicar = process.argv.includes("--aplicar");
   const brutas: Bruta[] = JSON.parse(fs.readFileSync(ORIGEM, "utf-8"));
-  const hoje = new Date().toISOString().slice(0, 10);
   /*
-   * `NASCE_NO_IMPORT`, e nao `etapaDe` sozinho. O de-para conhece `completo`
-   * porque a sincronizacao precisa mover tarefa para la; usar so ele aqui faria
-   * o import CRIAR as 3.234 concluidas do board, que por decisao nao atravessam.
+   * **Tudo atravessa, por decisao de 31/08/2026.** Antes o import trazia so o
+   * que estava vivo: sem as concluidas, sem as pendentes vencidas, sem
+   * subtarefa. Aquilo era amostra de um board que continuava existindo ao lado.
+   *
+   * Agora e migracao — o ClickUp vai ser desligado e a equipe fica 100% aqui.
+   * Historico que nao atravessa nao fica no ClickUp: some. As 3.946 concluidas
+   * sao seis mil horas de trabalho de gente, e a unica copia delas passa a ser
+   * esta.
+   *
+   * O `atravessa` e o `NASCE_NO_IMPORT` continuam existindo e continuam certos
+   * para o que foram escritos — sincronizar um board vivo. Aqui nao se aplicam.
    */
-  const conhecidas = brutas.filter((t) => {
-    const slug = etapaDe(t.status);
-    return slug !== null && NASCE_NO_IMPORT.has(slug);
-  });
-  const vivas = conhecidas.filter((t) => atravessa(t, hoje));
-  const cemiterio = conhecidas.length - vivas.length;
+  const vivas = brutas.filter((t) => etapaDe(t.status) !== null);
+  const semEtapa = brutas.length - vivas.length;
 
   const [empresas, pessoas, etapas, jaImportadas] = await Promise.all([
     db.select({ id: companies.id, slug: companies.slug, orgId: companies.orgId }).from(companies),
@@ -179,7 +179,32 @@ async function main() {
     jaImportadas.map((w) => (w.meta as { clickupId?: string })?.clickupId).filter(Boolean),
   );
 
+  /*
+   * A subtarefa herda a empresa da mae quando nao tem a propria. No ClickUp a
+   * `Empresa Tag` costuma ficar so na mae, e sem esta heranca as 721
+   * subtarefas cairiam quase todas em "sem empresa" — trabalho real recusado
+   * por um campo que a mae ja respondeu.
+   */
+  const porClickupId = new Map(brutas.map((t) => [t.id, t]));
+  const empresaComHeranca = (tarefa: Bruta): string | null => {
+    const propria = empresaDe(tarefa);
+    if (propria) return propria;
+    const mae = tarefa.mae ? porClickupId.get(tarefa.mae) : undefined;
+    return mae ? empresaDe(mae) : null;
+  };
+
+  /*
+   * O id e sorteado aqui, e nao pelo banco. Assim a subtarefa ja sabe o
+   * `parentId` da mae antes de qualquer insert, e nao e preciso inserir em duas
+   * passadas lendo de volta o que o banco gerou.
+   */
+  const idNovoDe = new Map<string, string>();
+  for (const tarefa of vivas) idNovoDe.set(tarefa.id, crypto.randomUUID());
+
   const novas: Array<typeof workItems.$inferInsert> = [];
+  let orfas = 0;
+  let internas = 0;
+  const semConta = new Set<string>();
   let puladas = 0;
   const semEmpresa: string[] = [];
   const semPessoa: string[] = [];
@@ -190,11 +215,16 @@ async function main() {
       continue;
     }
 
-    const slug = empresaDe(tarefa);
-    if (!slug) {
-      semEmpresa.push(`${tarefa.nome} (${tarefa.resp.join(", ") || "sem responsável"})`);
-      continue;
-    }
+    /*
+     * Sem cliente vai para **Interno**, e nao para o descarte.
+     *
+     * Sao 770 tarefas cuja `Empresa Tag` falta nelas e na mae — e faltar ali
+     * nao e descuido: sao anotacoes internas ("Artes vagas 17.08", "mudar o
+     * catalogo em todas as LPS"), trabalho que existiu e nao pertence a
+     * cliente nenhum. Recusa-las levaria junto 751 conclusoes, 510 pontuacoes
+     * e 1.215 horas. Numa migracao que desliga o ClickUp, isso nao e filtrar.
+     */
+    const slug = empresaComHeranca(tarefa) ?? "interno";
 
     const empresa = porSlug.get(slug);
     if (!empresa) {
@@ -202,26 +232,53 @@ async function main() {
       continue;
     }
 
+    if (slug === "interno") internas++;
+
     // Uma tarefa com dois responsaveis vira uma tarefa do primeiro. Duplicar
     // por pessoa contaria a mesma entrega duas vezes na pontuacao.
     const email = tarefa.resp.length ? PESSOA_DE[tarefa.resp[0].toLowerCase().trim()] : undefined;
     const pessoa = email ? porEmail.get(email) : undefined;
-    if (tarefa.resp.length && !pessoa) semPessoa.push(`${tarefa.nome} → ${tarefa.resp[0]}`);
+    if (tarefa.resp.length && !pessoa) {
+      semPessoa.push(`${tarefa.nome} → ${tarefa.resp[0]}`);
+      semConta.add(tarefa.resp[0]);
+    }
 
     const slugEtapa = etapaDe(tarefa.status)!;
     const etapa = porEtapa.get(slugEtapa);
     if (!etapa) throw new Error(`Etapa ${slugEtapa} não existe no pipeline de tarefa.`);
 
+    /*
+     * Mae que nao entrou (sem empresa, ou ja importada antes) deixa a filha sem
+     * `parentId`. Ela entra como tarefa de primeiro nivel em vez de ser
+     * descartada: perder a hierarquia e ruim, perder o trabalho e pior.
+     */
+    const paiNovo = tarefa.mae ? idNovoDe.get(tarefa.mae) : undefined;
+    if (tarefa.mae && !paiNovo) orfas++;
+
     novas.push({
+      id: idNovoDe.get(tarefa.id),
       orgId: empresa.orgId,
       companyId: empresa.id,
+      parentId: paiNovo ?? null,
       type: "task" as const,
       title: tarefa.nome.trim().slice(0, 500),
+      description: tarefa.briefing ?? null,
       stageId: etapa,
       assigneeId: pessoa ?? null,
+      estimateMinutes: tarefa.estimativa ?? null,
+      createdAt: tarefa.criada ? new Date(Number(tarefa.criada)) : undefined,
       dueDate: tarefa.prazo ? new Date(Number(tarefa.prazo)) : null,
       priority: tarefa.prio ? (PRIORIDADE_DE[tarefa.prio] ?? "media") : "media",
-      points: tarefa.pontos,
+      /*
+       * `points` e inteiro no banco e o ClickUp aceita fracao: duas tarefas do
+       * board tem 0,5 e 0,3. O insert inteiro morria com `invalid input syntax
+       * for type integer` — e como o lote nao e transacao, metade entrava.
+       *
+       * Arredonda, e guarda o original em `meta`: sao 0,8 ponto no historico
+       * inteiro, mas ponto arredondado em silencio e o tipo de coisa que
+       * ninguem consegue explicar seis meses depois.
+       */
+      points: tarefa.pontos === null ? null : Math.round(tarefa.pontos),
       /*
        * Peca no banco de criativos ja terminou — a etapa e de fim, e conta na
        * pontuacao. Sem `completedAt` ela entraria com o prazo antigo e cairia
@@ -233,8 +290,86 @@ async function main() {
         ETAPAS_DE_FIM.has(slugEtapa) && (tarefa.fechada ?? tarefa.atualizada)
           ? new Date(Number(tarefa.fechada ?? tarefa.atualizada))
           : null,
-      meta: { clickupId: tarefa.id, origem: "clickup", statusOriginal: tarefa.status.trim() },
+      meta: {
+        clickupId: tarefa.id,
+        origem: "clickup",
+        statusOriginal: tarefa.status.trim(),
+        /*
+         * O tempo do ClickUp fica em `meta`, e nao vira lancamento no
+         * cronometro. E o total da tarefa, sem dono e sem data — virar
+         * lancamento exigiria inventar as duas coisas, num sistema que paga por
+         * numero. Aqui ele fica como o que e: uma anotacao de quanto aquilo
+         * consumiu la.
+         */
+        ...(tarefa.minutos ? { minutosNoClickUp: tarefa.minutos } : {}),
+        /*
+         * O nome de quem fez, como estava no ClickUp — guardado **sempre**,
+         * inclusive quando ha conta aqui.
+         *
+         * Mil cento e cinquenta e quatro tarefas sao de gente que saiu da casa:
+         * Abner, Guilherme, Vivianne, Joao, Gustavo e outros. Nao ha conta para
+         * apontar, e criar conta de quem foi embora so para segurar chave
+         * estrangeira e pior. Mas perder o "quem fez" de mil tarefas concluidas
+         * numa migracao que desliga a origem e perder informacao — entao o nome
+         * fica aqui, legivel, mesmo sem virar vinculo.
+         */
+        ...(tarefa.resp.length ? { respNoClickUp: tarefa.resp } : {}),
+        ...(tarefa.pontos !== null && !Number.isInteger(tarefa.pontos)
+          ? { pontoOriginalNoClickUp: tarefa.pontos }
+          : {}),
+      },
     });
+  }
+
+  /*
+   * Conserto do que ja entrou sem dono.
+   *
+   * O de-para de nomes muda: "Anny Beatriz Silva Araujo" sem o "da" e "Zion
+   * Pinto" so foram reconhecidos depois de milhares de tarefas ja terem sido
+   * importadas. Sem esta passada, corrigir o mapa nao consertaria nada — a
+   * tarefa ja esta aqui e o import a pula.
+   *
+   * **So preenche o que esta vazio.** Nunca troca responsavel que alguem
+   * definiu aqui: o ClickUp e a origem do historico, nao a autoridade sobre o
+   * que o time fez depois.
+   */
+  const paraConsertar: Array<{ clickupId: string; pessoaId: string }> = [];
+
+  if (vistas.size) {
+    const jaCom = await db
+      .select({ meta: workItems.meta, assigneeId: workItems.assigneeId })
+      .from(workItems);
+
+    for (const linha of jaCom) {
+      if (linha.assigneeId) continue;
+
+      const clickupId = (linha.meta as { clickupId?: string })?.clickupId;
+      if (!clickupId) continue;
+
+      /*
+       * O nome vem do **arquivo baixado**, e nao do `meta` da linha. As 2.500
+       * primeiras tarefas entraram antes de o import passar a gravar
+       * `respNoClickUp`, entao consultar o `meta` deixaria justamente elas de
+       * fora — que sao as que mais precisam do conserto. O arquivo tem o
+       * responsavel de todas.
+       */
+      const bruta = porClickupId.get(clickupId);
+      const nome = bruta?.resp?.[0];
+      if (!nome) continue;
+
+      const email = PESSOA_DE[nome.toLowerCase().trim()];
+      const pessoa = email ? porEmail.get(email) : undefined;
+      if (pessoa) paraConsertar.push({ clickupId, pessoaId: pessoa });
+    }
+  }
+
+  if (aplicar) {
+    for (const conserto of paraConsertar) {
+      await db
+        .update(workItems)
+        .set({ assigneeId: conserto.pessoaId })
+        .where(sql`${workItems.meta}->>'clickupId' = ${conserto.clickupId}`);
+    }
   }
 
   /**
@@ -250,10 +385,37 @@ async function main() {
   const criadas = novas.length;
 
   console.log(aplicar ? "Aplicado." : "Simulacao — nada foi escrito. Use -- --aplicar.");
-  console.log(`  vivas no board: ${vivas.length}   deixadas para tras (pendente vencida): ${cemiterio}`);
+  const minutos = novas.reduce(
+    (soma, linha) => soma + Number((linha.meta as { minutosNoClickUp?: number })?.minutosNoClickUp ?? 0),
+    0,
+  );
+
+  console.log(`  no board: ${brutas.length}   com etapa conhecida: ${vivas.length}   sem etapa: ${semEtapa}`);
   console.log(`  importadas: ${criadas}   ja estavam aqui: ${puladas}   sem empresa: ${semEmpresa.length}`);
+  console.log(`  subtarefas: ${novas.filter((l) => l.parentId).length}   órfãs (mãe não entrou): ${orfas}`);
+  console.log(`  sem cliente → Interno: ${internas}`);
+  if (paraConsertar.length) {
+    console.log(`  dono preenchido em tarefa que já estava aqui: ${paraConsertar.length}`);
+  }
+  console.log(`  com briefing: ${novas.filter((l) => l.description).length}   horas anotadas: ${Math.round(minutos / 60)}h`);
+
+  const arredondadas = novas.filter(
+    (l) => (l.meta as { pontoOriginalNoClickUp?: number })?.pontoOriginalNoClickUp !== undefined,
+  );
+  if (arredondadas.length) {
+    console.log(`  pontos arredondados: ${arredondadas.length}`);
+    for (const linha of arredondadas) {
+      const original = (linha.meta as { pontoOriginalNoClickUp?: number }).pontoOriginalNoClickUp;
+      console.log(`    · ${original} → ${linha.points}   ${String(linha.title).slice(0, 50)}`);
+    }
+  }
   for (const nome of semEmpresa) console.log(`  ! sem empresa: ${nome}`);
-  for (const nome of semPessoa) console.log(`  ! sem conta aqui: ${nome}`);
+  if (semConta.size) {
+    console.log(`
+  ${semPessoa.length} tarefas sem conta aqui, de ${semConta.size} pessoas:`);
+    for (const nome of [...semConta].sort()) console.log(`    · ${nome}`);
+    console.log("  O nome de cada uma fica em `meta.respNoClickUp`.");
+  }
 }
 
 main()

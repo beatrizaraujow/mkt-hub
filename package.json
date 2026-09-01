@@ -19,6 +19,7 @@
     "dev:setup": "tsx --env-file=.env.local src/db/setup-dev.ts",
     "rotinas:importar": "tsx --env-file=.env.local src/db/import-routines.ts",
     "metas": "tsx --env-file=.env.local src/db/set-goals.ts",
+    "empresa:interno": "tsx --env-file=.env.local src/db/add-interno.ts",
     "clickup:importar": "tsx --env-file=.env.local src/db/import-clickup.ts",
     "clickup:baixar": "tsx --env-file=.env.local src/db/fetch-clickup.ts",
     "clickup:sincronizar": "tsx --env-file=.env.local src/db/sync-clickup.ts"

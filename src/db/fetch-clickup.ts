@@ -21,7 +21,7 @@ const PONTE = process.env.CLICKUP_PONTE ?? "https://mkt-turbo.vercel.app/api/cli
 const SAIDA = process.env.CLICKUP_JSON ?? "./.cu-limpo.json";
 
 /** O ClickUp pagina de cem em cem. O teto e trava contra laco infinito. */
-const MAX_PAGINAS = 60;
+const MAX_PAGINAS = 120;
 
 type CampoBruto = {
   name: string;
@@ -35,10 +35,19 @@ type TarefaBruta = {
   status?: { status?: string };
   assignees?: Array<{ username?: string }>;
   due_date?: string | null;
+  date_created?: string | null;
   date_closed?: string | null;
   date_updated?: string | null;
   priority?: { priority?: string } | null;
   custom_fields?: CampoBruto[];
+  /** A tarefa-mae, quando esta e subtarefa. So vem com `subtasks=true`. */
+  parent?: string | null;
+  /** O briefing. `description` e o texto puro; `text_content` e o mesmo em markdown. */
+  description?: string | null;
+  text_content?: string | null;
+  /** Tempo lancado na tarefa, em milissegundos. Total, sem dono e sem data. */
+  time_spent?: number | null;
+  time_estimate?: number | null;
 };
 
 const campo = (t: TarefaBruta, nome: string) => (t.custom_fields ?? []).find((c) => c.name === nome);
@@ -64,7 +73,14 @@ async function main() {
   const todas: TarefaBruta[] = [];
 
   for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
-    const resposta = await fetch(`${PONTE}?recurso=task&include_closed=true&page=${pagina}`);
+    /*
+     * `subtasks=true` importa: sem ele o ClickUp devolve so as tarefas-mae, e
+     * a lista curta nao vem com erro nenhum. Sao 721 subtarefas que o censo de
+     * agosto nao viu, e trabalho que ninguem sabia estar faltando.
+     */
+    const resposta = await fetch(
+      `${PONTE}?recurso=task&include_closed=true&subtasks=true&page=${pagina}`,
+    );
     if (!resposta.ok) {
       throw new Error(`A ponte respondeu ${resposta.status}: ${await resposta.text()}`);
     }
@@ -86,6 +102,26 @@ async function main() {
     fechada: t.date_closed ?? null,
     /** Ultima movimentacao. Serve de conclusao para etapa de fim nao fechada. */
     atualizada: t.date_updated ?? null,
+
+    /** Quando nasceu no ClickUp. Sem isso a tarefa importada finge ser de hoje. */
+    criada: t.date_created ?? null,
+    /** O id da mae, quando e subtarefa. Nulo nas tarefas de primeiro nivel. */
+    mae: t.parent ?? null,
+    /**
+     * O briefing. `description` e o texto puro e `text_content` e o markdown;
+     * o puro basta, e o markdown do ClickUp nao e o mesmo dialeto daqui.
+     */
+    briefing: (t.description ?? "").trim() || null,
+    /**
+     * Tempo lancado, em **minutos**. Vem do ClickUp em milissegundos.
+     *
+     * E o **total da tarefa**, sem dono e sem data: a ponte nao expoe os
+     * lancamentos individuais. Guardar so o total e o que da para afirmar —
+     * espalhar isso em lancamentos com dono inventado seria fabricar dado num
+     * sistema que paga por numero.
+     */
+    minutos: t.time_spent ? Math.round(Number(t.time_spent) / 60000) : null,
+    estimativa: t.time_estimate ? Math.round(Number(t.time_estimate) / 60000) : null,
   }));
 
   fs.writeFileSync(SAIDA, JSON.stringify(limpo));
@@ -93,9 +129,15 @@ async function main() {
   const porStatus = new Map<string, number>();
   for (const t of limpo) porStatus.set(t.status, (porStatus.get(t.status) ?? 0) + 1);
 
+  const minutos = limpo.reduce((soma, t) => soma + (t.minutos ?? 0), 0);
+
   console.log(`${limpo.length} tarefas em ${SAIDA}`);
+  console.log(`  tarefas-mae:     ${limpo.filter((t) => !t.mae).length}`);
+  console.log(`  subtarefas:      ${limpo.filter((t) => t.mae).length}`);
   console.log(`  com Empresa Tag: ${limpo.filter((t) => t.empresa).length}`);
   console.log(`  com Ponto MKT:   ${limpo.filter((t) => t.pontos !== null).length}`);
+  console.log(`  com briefing:    ${limpo.filter((t) => t.briefing).length}`);
+  console.log(`  com tempo:       ${limpo.filter((t) => t.minutos).length}  (${Math.round(minutos / 60)}h)`);
   for (const [status, n] of [...porStatus].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${String(n).padStart(5)}  ${status}`);
   }
