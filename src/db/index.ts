@@ -24,7 +24,15 @@ const client =
   globalForDb.__sql ??
   postgres(url, {
     prepare: false,
-    max: 5,
+    /*
+     * O pooler em modo **sessao** (5432) so admite 15 clientes no total, e a
+     * aplicacao em producao ja ocupa parte deles. Um script de linha de comando
+     * pedindo 5 de uma vez estoura o limite e derruba a propria migracao — foi o
+     * que aconteceu em 01/09/2026. Com `DB_MAX=1` o script passa a disputar uma
+     * conexao so. No modo transacao (6543), que e o normal em producao, o teto e
+     * muito maior e o padrao de 5 nao incomoda.
+     */
+    max: Number(process.env.DB_MAX ?? 5),
     idle_timeout: 20,
   });
 

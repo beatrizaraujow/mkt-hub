@@ -127,6 +127,15 @@ main()
   .then(() => client.end())
   .catch(async (err) => {
     console.error(err);
+    /*
+     * O codigo de saida e marcado **antes** de esperar o fim da conexao. Com o
+     * banco fora de alcance, `client.end()` pode nunca resolver — o `await`
+     * abaixo trava, o `process.exit(1)` nunca roda, e o Node encerra sozinho
+     * com codigo 0 quando o event loop esvazia. O erro aparece na tela e o
+     * processo se declara bem-sucedido; quem chama este script em sequencia
+     * segue para o passo seguinte como se nada tivesse acontecido.
+     */
+    process.exitCode = 1;
     await client.end().catch(() => {});
     process.exit(1);
   });

@@ -127,6 +127,9 @@ main()
   .then(() => client.end())
   .catch(async (err) => {
     console.error(`\n${err instanceof Error ? err.message : err}`);
+    // Marcado antes do `await`: se `client.end()` nao resolver, o exit nunca roda
+    // e o Node encerraria com 0 — falha silenciosa em script encadeado.
+    process.exitCode = 1;
     await client.end().catch(() => {});
     process.exit(1);
   });

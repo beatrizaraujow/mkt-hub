@@ -70,6 +70,9 @@ async function main() {
 
 main().catch(async (error) => {
   console.error(error);
+  // Marcado antes do `await`: se `client.end()` nao resolver, o exit nunca roda
+  // e o Node encerraria com 0 — falha silenciosa em script encadeado.
+  process.exitCode = 1;
   await client.end().catch(() => {});
   process.exit(1);
 });
