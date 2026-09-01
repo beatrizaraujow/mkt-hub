@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Onde o MKT Hub 2 está. Atualizado em **31/08/2026**.
+Onde o MKT Hub 2 está. Atualizado em **01/09/2026**.
 
 Para o porquê de cada decisão, veja [01-analise-e-arquitetura.md](01-analise-e-arquitetura.md).
 Para o board que estamos substituindo, [02-clickup-house-quatro5.md](02-clickup-house-quatro5.md).
@@ -199,6 +199,29 @@ resolve, e a cor é decisão de quem desenhou o fluxo.
 
 ## Armadilhas que já custaram tempo
 
+**O pooler do Supabase tem dois modos, e eles não aceitam as mesmas credenciais.** O modo
+transação (6543) só aceita o `postgres`; o modo sessão (5432) aceita qualquer role. Um usuário
+criado por SQL, existindo e com `rolcanlogin = true`, é recusado com `28P01` na 6543 — o mesmo
+erro de senha errada. Em 01/09/2026 isso custou o dia: o `28P01` foi lido como senha inválida, a
+senha do `postgres` foi resetada para "resolver", e o site caiu.
+
+**O modo sessão tem teto de 15 conexões** (`pool_size`, ajustável no painel). Com produção nele,
+um script de linha de comando pedindo 5 estoura o limite e derruba a própria migração com
+`EMAXCONNSESSION`. `DB_MAX=1` faz o script disputar uma conexão só.
+
+**Variável marcada como `Sensitive` na Vercel não volta.** `vercel env pull` escreve a chave com
+valor vazio — não é falha do pull. Como via de recuperação de credencial, a Vercel está fechada:
+a senha tem de vir do Supabase ou do gerenciador de senhas.
+
+**`await client.end()` no `catch` pode nunca resolver** quando o banco está fora de alcance. O
+`process.exit(1)` da linha seguinte não roda e o Node encerra com **0**: o erro aparece na tela e
+o processo se declara bem-sucedido. Todo script de banco marca `process.exitCode = 1` antes do
+`await` por causa disso — sem isso, um passo que falhou é lido como sucesso por quem o encadeia.
+
+**Transcrever senha à mão falha mais do que parece.** Dois resets seguidos da senha do `postgres`
+produziram senhas que não conectavam. O terceiro, usando *Generate a password* e o botão de
+copiar do painel, funcionou de primeira.
+
 **Autoria do commit.** A Vercel bloqueia deploy cujo autor ela não associa a uma conta do GitHub,
 e o CLI não mostra isso — o deploy fica em `UNKNOWN`, parecendo travado. O estado real vem da API.
 
@@ -271,6 +294,47 @@ errado com aparência de conferência feita.
 | 28/08 | Bloco C inteiro — pontuação, metas, snapshot, coins — e a tela Desempenho. Import das 90 tarefas vivas do ClickUp |
 | 30/08 | Coluna do quadro para de esticar e rola por dentro. Conta desativada deixava a pessoa presa num laço de redirecionamento (`/sair`) |
 | 31/08 | Convite por e-mail (SMTP); o tempo escrito como se fala; o placar do dia — o último bloco da V1.5; domínio próprio `www.mkthub.space`; a seção Revisor redesenhada; a tela de entrada nova; o logo oficial e o ouro da marca; e a escolha de tema |
+
+## A migração do ClickUp — 01/09/2026
+
+O board inteiro entrou em produção. **4.548 tarefas**, das quais 4.266 vindas do ClickUp: com
+etapa, responsável, subtarefa, briefing, ponto e data real de conclusão. A partir daqui o time
+trabalha só aqui — o corte de 07/09 vira formalidade.
+
+| | antes | depois |
+|---|---|---|
+| tarefas | 544 | 4.548 |
+| subtarefas | 0 | 721 |
+| concluídas com data | — | 3.995 |
+| briefings | — | 2.610 |
+| pontos | — | 14.973 |
+
+Por empresa: Carbone Educação 1.402, SeuBoné 993, **Interno 736**, Onevo Energia 430, Onevo
+Investimentos 383, Carbone Club 333, Weevo 208.
+
+**A empresa Interno nasceu nesse dia** para receber as 736 tarefas sem cliente — anotações da
+casa, que existem e não pertencem a ninguém. Sem ela, essas 736 ficariam de fora, e junto com
+elas 751 conclusões, 510 pontuações e 1.215 horas. Cinza de propósito: as outras cores são cores
+de marca.
+
+**Três coisas atravessaram diferente do que "tudo" sugere:**
+
+As **6.338 horas** ficaram em `meta.minutosNoClickUp` e aparecem na aba Tempo da tarefa, **fora
+do total**. Não viram `time_entries` porque a tabela exige `user_id` e `started_at` e o ClickUp
+devolve só o total por tarefa. Preencher os dois seria inventar autor e data em 3.307 tarefas —
+e `time_entries` alimenta a pontuação semanal.
+
+**1.140 tarefas de 11 pessoas sem conta aqui** guardam o nome em `meta.respNoClickUp`. As outras
+3.337 ficaram com responsável de verdade. Nada foi descartado.
+
+**O quadro mostrava as etapas zeradas** logo depois da migração. Não era dado faltando: a
+consulta trazia as 300 primeiras do total ordenadas por prazo, e as 3.995 concluídas tomavam as
+300 vagas antes de sobrar uma para PENDENTE, que tinha 217. Agora o teto é **por etapa**
+(`POR_ETAPA`, 60) e a contagem do cabeçalho vem do banco.
+
+**Comandos:** `npm run clickup:migrar -- <arquivo.env>` simula os três passos e diz em qual banco
+escreveria; `-- --aplicar` executa. `npm run db:backup -- <arquivo.env>` grava um retrato JSON de
+todas as tabelas antes — o projeto de produção está sem backup no painel.
 
 ## Pendências
 
