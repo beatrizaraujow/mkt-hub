@@ -17,8 +17,9 @@ function regua(over: Partial<Regua> = {}): Regua {
     rule: "pontos",
     meta: 130,
     meta120: 156,
+    // Os numeros reais da casa, iguais aos do MKT Hub 1.
     coinsAos100: 3,
-    coinsAos120: 5,
+    coinsAos120: 4,
     ...over,
   };
 }
@@ -61,8 +62,8 @@ test("sem meta cadastrada é null, não zero por cento", () => {
 test("as cinco faixas da meta, portadas do MKT Hub 1", () => {
   const r = regua(); // meta 130, meta120 156 — a proporção redonda de 120%.
 
-  assert.equal(coinsDaMeta(r, 130), 5);
-  assert.equal(coinsDaMeta(r, 120), 5);
+  assert.equal(coinsDaMeta(r, 130), 4);
+  assert.equal(coinsDaMeta(r, 120), 4);
   assert.equal(coinsDaMeta(r, 119), 3);
   assert.equal(coinsDaMeta(r, 100), 3);
   assert.equal(coinsDaMeta(r, 99), 2);
@@ -86,14 +87,14 @@ test("a faixa de 120% é a meta120 da pessoa, e nem sempre dá 120%", () => {
    */
   const anny = regua({ nome: "Anny", meta: 60, meta120: 70 });
 
-  assert.equal(coinsDaMeta(anny, 117), 5);
+  assert.equal(coinsDaMeta(anny, 117), 4);
   assert.equal(coinsDaMeta(anny, 116), 3);
   // E o Samuel, cuja meta120 é a proporção redonda, não muda.
   assert.equal(coinsDaMeta(regua(), 117), 3);
 });
 
 test("sem meta120 cadastrada, o limiar volta a ser 120", () => {
-  assert.equal(coinsDaMeta(regua({ meta120: null }), 120), 5);
+  assert.equal(coinsDaMeta(regua({ meta120: null }), 120), 4);
   assert.equal(coinsDaMeta(regua({ meta120: null }), 119), 3);
 });
 
@@ -238,7 +239,7 @@ test("o total sugerido é a meta mais o pódio, e as parcelas ficam separadas", 
 
   assert.deepEqual(
     [por("Samuel").coinsDaMeta, por("Samuel").coinsDoPodio, por("Samuel").coinsSugeridas],
-    [5, 3, 8],
+    [4, 3, 7],
   );
   assert.deepEqual(
     [por("Thiago").coinsDaMeta, por("Thiago").coinsDoPodio, por("Thiago").coinsSugeridas],
@@ -252,10 +253,22 @@ test("o total sugerido é a meta mais o pódio, e as parcelas ficam separadas", 
 });
 
 test("o teto real é o da faixa de 120 mais 3", () => {
-  // O MKT Hub 1 tinha um CHECK de 0 a 6 que não comportava isto, e uma linha
-  // fora da faixa derrubava a gravação da equipe inteira dentro de um catch vazio.
+  // Com os números da casa, 7. O MKT Hub 1 tinha um CHECK de 0 a 6 que não
+  // comportava nem isso, e uma linha fora da faixa derrubava a gravação da
+  // equipe inteira dentro de um catch vazio.
   const entradas = montarFechamento([regua()], [bruto({ pontos: 300 })]);
-  assert.equal(entradas[0].coinsSugeridas, 8);
+  assert.equal(entradas[0].coinsSugeridas, 7);
+});
+
+test("as faixas de cima saem do cadastro da pessoa, não de constante", () => {
+  // Se um dia alguém combinar outro número, a faixa acompanha sem tocar no código.
+  const generosa = regua({ coinsAos100: 6, coinsAos120: 9 });
+
+  assert.equal(coinsDaMeta(generosa, 100), 6);
+  assert.equal(coinsDaMeta(generosa, 120), 9);
+  // As de baixo continuam fixas: a casa usa o mesmo 1 e o mesmo 2 para todos.
+  assert.equal(coinsDaMeta(generosa, 80), 2);
+  assert.equal(coinsDaMeta(generosa, 60), 1);
 });
 
 test("empate no pódio leva o mesmo bônus, e a posição seguinte fica vazia", () => {

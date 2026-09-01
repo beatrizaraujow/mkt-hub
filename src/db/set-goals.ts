@@ -22,6 +22,9 @@
  *
  * Quem tem regua de rotinas nao tem meta fixa: a meta da semana e o que as
  * rotinas ativas previam para ela. Muda sozinha quando a grade muda.
+ *
+ * **As coins tambem sao digitadas aqui**, e nao herdadas do `default` da
+ * coluna: 3 ao bater a meta, 4 ao bater a de 120%, iguais as do MKT Hub 1.
  */
 import { eq } from "drizzle-orm";
 import { client, db } from "./index";
@@ -75,14 +78,26 @@ async function main() {
       // Agora ele e gravado: o placar do dia le esta coluna, e nao a semana
       // dividida por cinco — os numeros da casa nao dividem assim.
       dailyTarget: regua.rule === "pontos" ? regua.porDia : null,
+
+      /*
+       * Escritos aqui, e nao herdados do `default` da coluna.
+       *
+       * O script dependia do default e por isso todo mundo nascia com 5 aos
+       * 120% — o MKT Hub 1 pagava 4. Numero que decide pagamento nao pode
+       * morar num default de banco que ninguem le ao cadastrar a regua: quem
+       * conferir a regra vai abrir este arquivo, nao o schema.
+       */
+      coinsAt100: 3,
+      coinsAt120: 4,
+
       isActive: true,
       updatedAt: new Date(),
     };
 
     const descricao =
       regua.rule === "pontos"
-        ? `${regua.semanal}/sem (${regua.porDia}/dia) · 120% = ${regua.semanal120}`
-        : "meta vem das rotinas da semana";
+        ? `${regua.semanal}/sem (${regua.porDia}/dia) · 120% = ${regua.semanal120} · coins 3/4`
+        : "meta vem das rotinas da semana · coins 3/4";
 
     console.log(`  ${pessoa.name}: ${descricao}`);
 

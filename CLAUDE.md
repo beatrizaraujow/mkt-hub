@@ -84,7 +84,11 @@ permanente — antes de sugerir biblioteca, escreva a função.
   contra 120% — a da Anny é 70 sobre 60, que dá 117%.
 - **O pódio soma +3, +2, +1** para 1º, 2º e 3º, e só para quem **bateu a meta** e é do **grupo
   de pontos**. Sem a primeira trava, numa semana ruim o bônus premia ser menos pior que os
-  outros; sem a segunda, presença viraria corrida. Teto real: `coinsAt120` + 3.
+  outros; sem a segunda, presença viraria corrida. Teto real: `coinsAt120` + 3 — com os números
+  da casa, **7**.
+- **Os números da coin são 3 e 4**, iguais aos do MKT Hub 1, e ficam escritos em `src/db/set-goals.ts`
+  — não no `default` da coluna. O script dependia do default e por isso todo mundo nascia com 5 aos
+  120%. Número que decide pagamento não mora num default de banco que ninguém lê ao cadastrar.
 - **Coin se apura num lugar só.** O fechamento semanal calcula e credita no `coin_ledger`;
   qualquer outra tela **soma o extrato**, nunca recalcula. No MKT Hub 1 havia duas
   implementações da mesma regra gravando na mesma tabela, e abrir a tela de Histórico
