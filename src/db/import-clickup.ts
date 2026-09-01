@@ -24,6 +24,12 @@
  * nascem com prazo de verdade. Arrastar um cemiterio para o sistema novo
  * destroi o que ele tem de melhor: um quadro em que estar aberto significa
  * alguma coisa.
+ *
+ * **Este script nao le arquivo de ambiente na linha de comando.** Passar um
+ * caminho para ele nao aponta para outro banco: o argumento e ignorado e ele
+ * usa o `.env.local`, que e desenvolvimento. Para rodar contra producao, use
+ * `npm run clickup:migrar -- <arquivo.env>`, que le o arquivo e repassa a
+ * conexao aos tres passos.
  */
 import fs from "node:fs";
 import { eq, inArray, sql } from "drizzle-orm";
