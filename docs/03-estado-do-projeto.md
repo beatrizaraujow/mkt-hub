@@ -261,6 +261,18 @@ resolve, e a cor é decisão de quem desenhou o fluxo.
 
 ## Armadilhas que já custaram tempo
 
+**`drizzle-kit migrate` não serve para este projeto, e `npm run db:pendentes` serve.** Produção
+nasceu por `db:push`, que escreve o schema sem registrar nada em `drizzle.__drizzle_migrations`:
+em 01/09/2026 eram 14 registros para 15 arquivos, com a coluna da `0014` já no banco. O `migrate`
+pararia no primeiro `42701: column already exists` e não aplicaria a `0015`. O `db:pendentes`
+compara por hash, aplica cada uma numa transação com o próprio registro, e aceita
+`0014_melodic_overlord` como argumento para registrar sem rodar o SQL.
+
+**As opções desse script são palavras soltas — `aplicar`, e a tag da migration.** O npm engole
+argumento com `--` mesmo depois do `--`: `-- ../mkt-prod.env --registrar 0014_x --aplicar` chegou
+no script como `../mkt-prod.env 0014_x`, sem o pedido de aplicar. Deu simulação, e o que salvou
+foi o padrão ser não escrever. É a mesma armadilha do `--env` de 31/08.
+
 **A caixinha de concluir da lista chama `setStage`.** Ela parece um toggle de "feito" e é um
 movimento de etapa como qualquer outro — por isso a esteira a barra numa tarefa que não passou pela
 aprovação. Quem espera riscar item e vê recusa não está diante de um defeito: está diante da trava

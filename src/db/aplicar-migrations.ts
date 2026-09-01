@@ -3,8 +3,19 @@
  *
  *   npm run db:pendentes                       diz o que falta, e onde
  *   npm run db:pendentes -- ../mkt-prod.env    diz o que falta em producao
- *   npm run db:pendentes -- ../mkt-prod.env --aplicar
- *   npm run db:pendentes -- ../mkt-prod.env --registrar 0014_melodic_overlord --aplicar
+ *   npm run db:pendentes -- ../mkt-prod.env aplicar
+ *   npm run db:pendentes -- ../mkt-prod.env 0014_melodic_overlord aplicar
+ *
+ * **As opcoes sao palavras soltas, sem tracos, e nao e capricho.** O npm engole
+ * argumento com `--` mesmo depois do `--`: em 01/09/2026 esta linha foi digitada
+ * com `--registrar <tag> --aplicar` e o script recebeu so os dois positivos, sem
+ * saber que era para aplicar. Deu simulacao, e o que salvou foi o padrao ser nao
+ * escrever. Palavra solta o npm nao come.
+ *
+ * `aplicar` liga a escrita. Um argumento no formato `0000_nome` e uma migration
+ * a **registrar sem rodar o SQL**: use quando a alteracao ja estiver no banco e
+ * o que falta for o registro. Confira a coluna antes — marcar como aplicado o
+ * que nao foi troca um erro barulhento por um buraco silencioso.
  *
  * **Existe porque `drizzle-kit migrate` nao serve para este projeto.** Producao
  * nasceu por `db:push`, que escreve o schema sem registrar nada em
@@ -12,11 +23,6 @@
  * e a migration que a criou consta como pendente — e o `migrate` para tudo no
  * primeiro `42701: column already exists`, sem aplicar o que vinha depois. Em
  * 01/09/2026, producao tinha 14 registros e a pasta tinha 15 arquivos.
- *
- * `--registrar <tag>` marca uma migration como aplicada **sem** rodar o SQL. E
- * a saida para esse caso, e so para ele: use quando a alteracao ja estiver no
- * banco e o que falta for o registro. Confira a coluna antes — marcar como
- * aplicado o que nao foi e trocar um erro barulhento por um buraco silencioso.
  *
  * Cada migration roda dentro de uma transacao com o proprio registro: ou o SQL
  * e o registro entram juntos, ou nenhum dos dois. Metade aplicada e sem registro
@@ -30,17 +36,43 @@ import { anunciarDestino, lerAmbienteDoArgumento } from "./destino";
 
 type Entrada = { idx: number; when: number; tag: string };
 
+/*
+ * Sem `--` de proposito: ver o cabecalho. A forma com tracos continua aceita
+ * para quem chamar o script direto pelo `tsx`, mas a documentada e a solta.
+ */
+const argumentos = process.argv.slice(2);
+const aplicar = argumentos.includes("aplicar") || argumentos.includes("--aplicar");
+
+const posFlag = argumentos.indexOf("--registrar");
+const soRegistrar =
+  (posFlag !== -1 ? argumentos[posFlag + 1] : null) ??
+  argumentos.find((a) => /^\d{4}_[a-z0-9_]+$/i.test(a)) ??
+  null;
+
+/*
+ * As palavras de opcao saem da linha antes de o ambiente ser lido: quem le o
+ * arquivo de ambiente pega o primeiro argumento solto, e sem esta limpeza
+ * `npm run db:pendentes -- aplicar` tentaria abrir um arquivo chamado
+ * "aplicar" e morreria dizendo que nao conseguiu ler.
+ */
+process.argv = process.argv.filter(
+  (a) => a !== "aplicar" && a !== soRegistrar && a !== "--registrar",
+);
+
 lerAmbienteDoArgumento();
 const onde = anunciarDestino();
-
-const aplicar = process.argv.includes("--aplicar");
-const posRegistrar = process.argv.indexOf("--registrar");
-const soRegistrar = posRegistrar !== -1 ? process.argv[posRegistrar + 1] : null;
 
 const client = postgres(process.env.DATABASE_URL as string, {
   prepare: false,
   max: 1,
   idle_timeout: 20,
+  /*
+   * O `create ... if not exists` do controle de migrations avisa que ja existe,
+   * e o postgres.js imprime o aviso inteiro, com arquivo e linha do C. Sao
+   * quinze linhas de ruido em cima da unica coisa que importa nesta tela: qual
+   * banco, e o que falta nele.
+   */
+  onnotice: () => {},
 });
 
 const PASTA = path.join(process.cwd(), "drizzle");
@@ -117,7 +149,7 @@ async function main() {
   console.log(
     aplicar
       ? `\nPronto em ${onde}.`
-      : `\nSimulacao — nada foi escrito em ${onde}. Use -- --aplicar.`,
+      : `\nSimulacao — nada foi escrito em ${onde}. Acrescente a palavra aplicar.`,
   );
 }
 
