@@ -89,17 +89,23 @@ export function ExcecaoCard({ itemId, dados }: { itemId: string; dados: ExcecaoD
   const precisaTexto = motivo === MOTIVO_LIVRE;
   const pronto = motivo !== "" && (!precisaTexto || texto.trim().length >= JUSTIFICATIVA_MIN);
 
+  /*
+   * O formulário não fecha no clique: ele some quando o cartão é remontado, e
+   * o cartão é remontado quando o dado novo chega — ver a `key` em
+   * `detail-panel`.
+   *
+   * Fechar no clique deixava uma janela de alguns segundos em que a gravação já
+   * tinha acontecido e a tela ainda mostrava o estado anterior: quem pediu a
+   * exceção via o formulário sumir e nada aparecer no lugar, o que lê como
+   * "não funcionou". `router.refresh()` roda dentro da transição, então `busy`
+   * continua verdadeiro até o servidor responder — é ele que segura a tela.
+   */
   function rodar(acao: () => Promise<ActionState>) {
     setErro(null);
     start(async () => {
       const r = await acao();
       if (r.error) setErro(r.error);
-      else {
-        setFormulario(false);
-        setRecusando(false);
-        setRecusa("");
-        router.refresh();
-      }
+      else router.refresh();
     });
   }
 
@@ -358,6 +364,12 @@ export function ExcecaoCard({ itemId, dados }: { itemId: string; dados: ExcecaoD
           </div>
         </div>
       ) : null}
+
+      {/*
+        Sem isto, o intervalo entre o clique e a resposta do servidor é tela
+        parada: os botões ficam desabilitados e nada diz por quê.
+      */}
+      {busy ? <p className="mt-2 text-[12px] text-faint">Gravando…</p> : null}
 
       {erro ? <p className="mt-2 text-[12.5px] text-danger">{erro}</p> : null}
     </section>

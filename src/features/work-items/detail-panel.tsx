@@ -480,7 +480,22 @@ export function DetailPanel({
                     </p>
                   </section>
 
-                  <ExcecaoCard itemId={item.id} dados={item.excecao} />
+                  {/*
+                    A `key` remonta o cartão quando a decisão muda, e é o que
+                    apaga o formulário aberto na hora certa: quando o dado novo
+                    chega, não quando o clique volta. Sem ela, o formulário
+                    sumia antes e a pessoa via o estado antigo por alguns
+                    segundos, sem nada dizendo que a gravação deu certo.
+                  */}
+                  <ExcecaoCard
+                    key={[
+                      item.excecao.marcada,
+                      item.excecao.pedidaEm?.toISOString() ?? "",
+                      item.excecao.recusadaEm?.toISOString() ?? "",
+                    ].join("·")}
+                    itemId={item.id}
+                    dados={item.excecao}
+                  />
 
                   {item.review ? (
                     <ReviewCard
