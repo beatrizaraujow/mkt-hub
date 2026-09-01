@@ -92,6 +92,21 @@ function lerDoArquivo(caminho: string): void {
 
   // A Vercel escreve o valor entre aspas; outros geradores nao escrevem.
   const valor = linha.slice(linha.indexOf("=") + 1).trim().replace(/^["']|["']$/g, "");
+
+  /*
+   * Chave presente e valor vazio nao e arquivo corrompido: e o que o
+   * `vercel env pull` escreve para variavel marcada como **Sensitive**. A
+   * Vercel guarda o valor, usa no build e nunca o devolve — nem pelo CLI, nem
+   * pelo painel. Sem este aviso o sintoma vira "nao ha DATABASE_URL" logo
+   * depois de dizer que leu o arquivo, que parece defeito do script.
+   */
+  if (valor === "") {
+    console.error(`${caminho} tem DATABASE_URL, mas vazia.`);
+    console.error("Se veio do `vercel env pull`, a variavel esta marcada como Sensitive");
+    console.error("na Vercel — ela nao volta por ali. A string tem de vir do Supabase.");
+    process.exit(1);
+  }
+
   process.env.DATABASE_URL = valor;
 }
 
