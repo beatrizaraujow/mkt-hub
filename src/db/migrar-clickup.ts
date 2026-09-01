@@ -7,7 +7,7 @@
  * Para producao, sem a senha passar pela linha de comando — puxe o ambiente da
  * Vercel para um arquivo fora do repositorio e aponte para ele:
  *
- *   npm run clickup:migrar -- --env ../mkt-prod.env --aplicar
+ *   npm run clickup:migrar -- ../mkt-prod.env --aplicar
  *
  * Ou, se preferir na mao (o espaco antes da linha mantem a senha fora do
  * `.bash_history`, mas ela ainda aparece na lista de processos):
@@ -93,15 +93,28 @@ const aplicar = process.argv.includes("--aplicar");
  * sobrescreve variavel que ja existe. E o que permite mandar producao pela
  * linha de comando sem editar arquivo nenhum.
  */
+/*
+ * O caminho vem como argumento solto, nao como `--env <caminho>`: o npm engole
+ * o `--env` mesmo depois do `--` e repassa so o caminho. O script recebia um
+ * argumento que nao reconhecia, ignorava, e ia para o `.env.local` — ou seja,
+ * para desenvolvimento, quando quem digitou queria producao. Falhar assim, em
+ * silencio e para o lado errado, e pior do que nao ter o atalho.
+ *
+ * Argumento solto sobrevive a qualquer camada de npm. `--env` continua aceito
+ * para quem chamar o tsx direto.
+ */
+const soltos = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const posEnv = process.argv.indexOf("--env");
-if (posEnv !== -1) {
-  const caminho = process.argv[posEnv + 1];
-  if (!caminho) {
-    console.error("--env precisa do caminho do arquivo.");
-    process.exit(1);
-  }
-  lerDoArquivo(caminho);
-  console.log(`DATABASE_URL lido de ${caminho}`);
+const caminhoEnv = posEnv !== -1 ? process.argv[posEnv + 1] : soltos[0];
+
+if (posEnv !== -1 && !caminhoEnv) {
+  console.error("--env precisa do caminho do arquivo.");
+  process.exit(1);
+}
+
+if (caminhoEnv) {
+  lerDoArquivo(caminhoEnv);
+  console.log(`DATABASE_URL lido de ${caminhoEnv}`);
 }
 
 const ref = refDaConexao(process.env.DATABASE_URL);
