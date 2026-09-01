@@ -360,10 +360,48 @@ export const workItems = pgTable(
      */
     reviewExemptKind: text("review_exempt_kind"),
 
+    /**
+     * Quem marcou. E sempre alguem da lideranca: desde 01/09/2026 quem produz
+     * nao marca, **pede**. Ver `reviewExemptRequestedById`.
+     */
     reviewExemptById: uuid("review_exempt_by_id").references(() => users.id, {
       onDelete: "set null",
     }),
     reviewExemptAt: timestamp("review_exempt_at", { withTimezone: true }),
+
+    /* ------------------------------------------------ o pedido de excecao */
+
+    /**
+     * Quem pediu a excecao, quando quem pediu nao foi quem decidiu.
+     *
+     * Marcar a propria excecao e um poder que se auto-concede, e o campo mede
+     * justamente se o time achou um atalho — quem mede nao pode ser quem usa. A
+     * pessoa que produz escolhe o motivo e escreve a justificativa; a decisao e
+     * de quem lidera. Quando o proprio lider marca direto, este campo fica nulo
+     * e o pedido nunca existiu.
+     *
+     * Continua preenchido depois de aprovado: o relatorio precisa saber quem
+     * pediu, nao so quem assinou embaixo.
+     */
+    reviewExemptRequestedById: uuid("review_exempt_requested_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewExemptRequestedAt: timestamp("review_exempt_requested_at", { withTimezone: true }),
+
+    /**
+     * A recusa, com motivo escrito.
+     *
+     * Recusa sem motivo e a mesma coisa que silencio, e silencio ensina o time
+     * a parar de pedir — que nao e o mesmo que parar de precisar. Quem pediu
+     * volta a peca para a esteira sabendo por que.
+     *
+     * Um pedido novo limpa estes tres campos: a recusa era daquele pedido.
+     */
+    reviewExemptDeniedById: uuid("review_exempt_denied_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewExemptDeniedAt: timestamp("review_exempt_denied_at", { withTimezone: true }),
+    reviewExemptDeniedReason: text("review_exempt_denied_reason"),
 
     /**
      * A co-assinatura do lider, na aprovacao de uma peca marcada.

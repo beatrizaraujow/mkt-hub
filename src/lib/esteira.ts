@@ -61,6 +61,15 @@ export type Movimento = {
   isento: boolean;
   /** ...e com motivo preenchido. Marcar sem motivo não vale como marcado. */
   temMotivo: boolean;
+  /**
+   * Existe pedido de exceção esperando decisão.
+   *
+   * Não muda o que passa — pedido não é exceção, e enquanto ninguém decidir a
+   * peça não anda. Muda só a **mensagem**: mandar alguém pedir uma exceção que
+   * essa pessoa já pediu é o tipo de recusa que faz o time achar que o sistema
+   * não está ouvindo.
+   */
+  pedidoPendente?: boolean;
 };
 
 /**
@@ -111,14 +120,21 @@ export function podeAtravessar(mov: Movimento): Passagem {
    */
   if (APROVACOES.has(mov.para) && (ANTES.has(de) || de === "pre_revisao")) {
     if (!mov.isento) {
+      if (mov.pedidoPendente) {
+        return barra(
+          `O pedido de exceção desta peça ainda não foi decidido. Enquanto isso ela não avança — ` +
+            `ou a liderança decide, ou a peça vai para Pré revisão.`,
+        );
+      }
+
       return de === "pre_revisao"
         ? barra(
-            `Falta a Revisão IA. Mande a peça para Revisão IA, ou marque "não precisa de ` +
-              `revisão automática" com o motivo, ainda em Em andamento.`,
+            `Falta a Revisão IA. Mande a peça para Revisão IA, ou peça a exceção na tarefa — ` +
+              `a liderança decide.`,
           )
         : barra(
             `Esta peça ainda não passou pela Pré revisão nem pela Revisão IA. Mande para Pré ` +
-              `revisão, ou marque "não precisa de revisão automática" com o motivo.`,
+              `revisão, ou peça a exceção na tarefa — a liderança decide.`,
           );
     }
 
@@ -154,22 +170,32 @@ export function podeAtravessar(mov: Movimento): Passagem {
 }
 
 /**
- * A exceção pode ser marcada ou desmarcada agora?
+ * A exceção pode ser **pedida** agora?
  *
- * Ela é um campo de quem produz, e vale enquanto a peça ainda não entrou na
- * esteira. Assim que entra em Pré revisão o campo tranca: sem isso, quem
- * recebesse um laudo ruim marcaria a exceção no meio do caminho e escaparia
- * dele — que é a única forma de fraude que este desenho comporta.
+ * Quem produz não marca: escolhe o motivo, escreve a justificativa e pede. A
+ * decisão é de quem lidera. Marcar a própria exceção é um poder que se
+ * auto-concede, e o campo mede justamente se o time achou um atalho — quem é
+ * medido não pode ser quem decide.
  *
- * O líder passa em qualquer etapa, porque ele já pode aprovar por exceção de
- * qualquer forma. O que muda é o registro: marcada por ele depois da esteira
- * ter começado, a saída é `aprovacao_excecao`, não `declarada`.
+ * O pedido vale enquanto a peça não entrou na esteira. Assim que entra em Pré
+ * revisão, tranca: sem isso, quem recebesse um laudo ruim pediria a exceção no
+ * meio do caminho para escapar dele.
  */
-export function podeMarcarExcecao(slug: string | null | undefined, ehLider: boolean): boolean {
-  if (ehLider) return true;
-  const posicaoAtual = posicao(slug);
-  if (posicaoAtual === null) return true;
+export function podePedirExcecao(slug: string | null | undefined): boolean {
+  if (posicao(slug) === null) return true;
   return ANTES.has(slug as string);
+}
+
+/**
+ * A liderança marca ou desmarca em qualquer etapa, e por isso esta função não
+ * pergunta a etapa: ela já pode aprovar por exceção de qualquer forma, e uma
+ * trava que ela contorna por outro caminho não é trava, é atrito.
+ *
+ * O que a etapa muda é o **registro**: marcada ainda antes da esteira, a saída
+ * é `declarada`; depois dela, `aprovacao_excecao`. Ver `saidaDe`.
+ */
+export function podeDecidirExcecao(ehLideranca: boolean): boolean {
+  return ehLideranca;
 }
 
 /** Onde a marcação aconteceu decide qual das três saídas ela é. */

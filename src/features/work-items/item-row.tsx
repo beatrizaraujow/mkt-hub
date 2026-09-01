@@ -5,6 +5,7 @@ import { Check, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDueDate, startOfBrtDay } from "@/lib/date";
 import { completeWorkItem, reopenWorkItem } from "./actions";
+import { ExcecaoPill } from "./excecao-pill";
 import { useOpenItem } from "./use-open-item";
 import { TimerButton } from "@/features/time/timer-button";
 
@@ -22,6 +23,8 @@ export type RowItem = {
   companyColor: string;
   projectName: string | null;
   assigneeName: string | null;
+  isento: boolean;
+  excecaoPedida: boolean;
 };
 
 const PRIORITY_COLOR: Record<RowItem["priority"], string> = {
@@ -116,6 +119,8 @@ export function ItemRow({
       >
         {item.title}
       </button>
+
+      <ExcecaoPill marcada={item.isento} pedida={item.excecaoPedida} className="hidden sm:flex" />
 
       {error ? (
         <span role="alert" className="shrink-0 text-[12px] text-danger">

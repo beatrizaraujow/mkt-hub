@@ -419,8 +419,33 @@ export default async function MedicaoPage({
                       esteira ter começado
                     </>
                   ) : null}
+                  {excecoes.recusados > 0 ? (
+                    <>
+                      {" · "}
+                      <span className="tnum">{excecoes.recusados}</span> pedido
+                      {excecoes.recusados === 1 ? "" : "s"} recusado
+                      {excecoes.recusados === 1 ? "" : "s"}
+                    </>
+                  ) : null}
                 </p>
               </div>
+
+              {/*
+                O backlog não é do período: são os pedidos que estão parados
+                agora. Um pedido que ninguém decide é um pedido negado devagar,
+                e devagar é pior — quem pediu fica esperando sem saber.
+              */}
+              {excecoes.abertos > 0 ? (
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-[var(--radius-control)] border border-brand-line bg-brand-soft px-3 py-2">
+                  <p className="tnum font-display text-[18px] leading-none text-ink">
+                    {excecoes.abertos}
+                  </p>
+                  <p className="text-[12.5px] text-muted">
+                    {excecoes.abertos === 1 ? "pedido esperando" : "pedidos esperando"} decisão.
+                    Aparecem no quadro, no cartão da tarefa.
+                  </p>
+                </div>
+              ) : null}
 
               {excecoes.marcadas > 0 ? (
                 <div className="grid gap-4 @container sm:grid-cols-3">

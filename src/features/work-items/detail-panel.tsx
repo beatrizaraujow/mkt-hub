@@ -115,6 +115,10 @@ const ACTION_LABEL: Record<string, string> = {
   "comment.created": "comentou",
   "subtask.created": "criou uma subtarefa",
   "item.requested": "abriu o pedido",
+  "item.excecao_pedida": "pediu exceção de revisão",
+  "item.excecao_pedido_cancelado": "cancelou o pedido de exceção",
+  "item.excecao_aprovada": "aprovou a exceção de revisão",
+  "item.excecao_recusada": "recusou o pedido de exceção",
   "item.excecao_declarada": "marcou que não precisa de revisão automática",
   "item.excecao_removida": "desmarcou a exceção de revisão",
 };

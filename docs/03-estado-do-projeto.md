@@ -211,13 +211,27 @@ O campo **"Esta peça não precisa de revisão automática"**, no painel da tare
 pula a revisão, e ela **não** pula a pessoa: a peça marcada vai de `EM ANDAMENTO` direto para
 `APROVAÇÃO`, nunca para `PUBLICAR`.
 
+**Só a liderança marca. Quem produz pede.** Marcar a própria exceção é um poder que se
+auto-concede, e este campo mede justamente se o time achou um atalho — quem é medido não pode ser
+quem decide. Quem produz escolhe o motivo, escreve a justificativa e pede; quem lidera aprova ou
+recusa, e a recusa exige motivo escrito. Recusa sem motivo é a mesma coisa que silêncio, e silêncio
+ensina o time a parar de pedir, que não é o mesmo que parar de precisar.
+
+**O pedido não move nada.** Enquanto ninguém decidir, a peça fica onde está e a esteira segue
+fechada para ela — a mensagem muda para dizer que o pedido está esperando, em vez de mandar pedir
+de novo.
+
+**Como o pedido chega em quem decide:** não existe notificação neste sistema, então ele aparece
+como selo no cartão do quadro e na linha da lista, onde a liderança já está. O contador de pedidos
+parados fica em **Revisor → Medição**.
+
 Nasce sempre desmarcada e não herda de template, duplicação, importação ou automação — exceção
 herdada é exceção que ninguém decidiu. Exige motivo de lista fechada (`src/lib/excecao.ts`), e
 `Outro` exige justificativa escrita, que fica gravada para sempre.
 
-**O campo tranca quando a peça entra em `PRÉ REVISÃO`**, e a partir dali só a liderança marca ou
-desmarca. Sem essa trava, quem recebesse um laudo ruim marcaria a exceção no meio do caminho para
-escapar dele.
+**O pedido tranca quando a peça entra em `PRÉ REVISÃO`.** Sem essa trava, quem recebesse um laudo
+ruim pediria a exceção no meio do caminho para escapar dele. A liderança marca em qualquer etapa,
+porque ela já pode aprovar por exceção de qualquer forma — o que muda é o registro.
 
 **São três saídas, e elas nunca se somam num campo só de "pulou a revisão":**
 
@@ -238,8 +252,13 @@ item, não em `review_checklist_answers`: não há item de catálogo para respon
 linha falsa só para ter onde pendurar a resposta seria mentir no schema.
 
 **O termômetro** fica em **Revisor → Medição**, junto do resto. Porcentagem do total, quebra por
-motivo, por pessoa e por marca, e a lista completa dos `Outro` com a justificativa por extenso. Teto
-sugerido de partida: 20% ao mês — quem define é a diretoria. Se a porcentagem sobe, ou o time achou
+motivo, por pessoa e por marca, a lista completa dos `Outro` com a justificativa por extenso, os
+pedidos recusados e os que estão parados esperando decisão. Teto sugerido de partida: 20% ao mês —
+quem define é a diretoria.
+
+**A quebra "por pessoa" é por quem pediu, não por quem marcou.** Desde que só a liderança marca,
+quebrar por quem marcou daria uma lista de uma linha só com o nome de quem lidera: número verdadeiro
+e inútil. Quando a liderança marca direto, sem pedido, ela mesma aparece — foi ela quem precisou. Se a porcentagem sobe, ou o time achou
 um atalho, ou a esteira está pedindo revisão de coisa que não precisa; nos dois casos quem muda é o
 processo, não a pessoa.
 

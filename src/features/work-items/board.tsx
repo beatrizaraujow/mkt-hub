@@ -12,6 +12,7 @@ import { needsReason } from "./rework";
 import { useOpenItem } from "./use-open-item";
 import type { UserRole } from "@/db/schema";
 import type { RowItem } from "./item-row";
+import { ExcecaoPill } from "./excecao-pill";
 
 export type BoardStage = { id: string; name: string; slug: string; kind: string; position: number };
 export type BoardItem = RowItem & { stageId: string };
@@ -58,6 +59,12 @@ function Card({ item, today }: { item: BoardItem; today: string }) {
           {item.title}
         </button>
       </div>
+
+      {item.isento || item.excecaoPedida ? (
+        <div className="mt-1.5 pl-[11px]">
+          <ExcecaoPill marcada={item.isento} pedida={item.excecaoPedida} />
+        </div>
+      ) : null}
 
       <div className="mt-2 flex items-center gap-2 pl-[11px]">
         <span

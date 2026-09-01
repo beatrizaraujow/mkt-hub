@@ -75,6 +75,8 @@ async function main() {
       parentId: workItems.parentId,
       reviewExempt: workItems.reviewExempt,
       reviewExemptReason: workItems.reviewExemptReason,
+      reviewExemptRequestedAt: workItems.reviewExemptRequestedAt,
+      reviewExemptDeniedAt: workItems.reviewExemptDeniedAt,
       meta: workItems.meta,
     })
     .from(workItems)
@@ -128,6 +130,10 @@ async function main() {
       ehSubtarefa: item.parentId !== null,
       isento: item.reviewExempt,
       temMotivo: motivoValido(item.reviewExemptReason),
+      pedidoPendente:
+        item.reviewExemptRequestedAt !== null &&
+        !item.reviewExempt &&
+        item.reviewExemptDeniedAt === null,
     });
 
     if (!passagem.ok) {

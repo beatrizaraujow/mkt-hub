@@ -32,6 +32,18 @@ export type Excecoes = {
   marcadas: number;
   /** Quantas foram marcadas pelo líder depois de a esteira ter começado. */
   aprovacaoDeExcecao: number;
+  /** Pedidos recusados. Mede se a liderança está filtrando, e quanto. */
+  recusados: number;
+  /** Pedidos esperando decisão agora. Não é do período: é backlog. */
+  abertos: number;
+  /**
+   * Por quem **pediu**, não por quem marcou.
+   *
+   * Desde que só a liderança marca, quebrar por quem marcou daria uma lista de
+   * uma linha só com o nome de quem lidera — número verdadeiro e inútil. Quem a
+   * medida procura é quem está precisando da exceção. Quando o líder marca
+   * direto, sem pedido, ele mesmo aparece: foi ele quem precisou.
+   */
   porPessoa: Array<{ nome: string; n: number }>;
   porEmpresa: Array<{ nome: string; n: number }>;
   porMotivo: Array<{ motivo: string; n: number }>;
@@ -58,6 +70,8 @@ export async function loadExcecoes(
     base: 0,
     marcadas: 0,
     aprovacaoDeExcecao: 0,
+    recusados: 0,
+    abertos: 0,
     porPessoa: [],
     porEmpresa: [],
     porMotivo: [],
@@ -84,6 +98,12 @@ export async function loadExcecoes(
       base: sql<number>`count(*)::int`,
       marcadas: sql<number>`count(*) filter (where ${workItems.reviewExempt})::int`,
       porExcecao: sql<number>`count(*) filter (where ${workItems.reviewExemptKind} = 'aprovacao_excecao')::int`,
+      recusados: sql<number>`count(*) filter (where ${workItems.reviewExemptDeniedAt} is not null)::int`,
+      abertos: sql<number>`count(*) filter (
+        where ${workItems.reviewExemptRequestedAt} is not null
+          and not ${workItems.reviewExempt}
+          and ${workItems.reviewExemptDeniedAt} is null
+      )::int`,
     })
     .from(workItems)
     .where(doPeriodo);
@@ -96,7 +116,10 @@ export async function loadExcecoes(
     db
       .select({ nome: users.name, n: sql<number>`count(*)::int` })
       .from(workItems)
-      .leftJoin(users, eq(users.id, workItems.reviewExemptById))
+      .leftJoin(
+        users,
+        eq(users.id, sql`coalesce(${workItems.reviewExemptRequestedById}, ${workItems.reviewExemptById})`),
+      )
       .where(marcadas)
       .groupBy(users.name)
       .orderBy(desc(sql`count(*)`)),
@@ -127,7 +150,13 @@ export async function loadExcecoes(
       })
       .from(workItems)
       .innerJoin(companies, eq(companies.id, workItems.companyId))
-      .leftJoin(users, eq(users.id, workItems.reviewExemptById))
+      .leftJoin(
+        users,
+        eq(
+          users.id,
+          sql`coalesce(${workItems.reviewExemptRequestedById}, ${workItems.reviewExemptById})`,
+        ),
+      )
       .where(and(marcadas, eq(workItems.reviewExemptReason, "outro"), isNotNull(workItems.id)))
       .orderBy(desc(workItems.reviewExemptAt)),
   ]);
@@ -137,6 +166,8 @@ export async function loadExcecoes(
     base: contagem.base,
     marcadas: contagem.marcadas,
     aprovacaoDeExcecao: contagem.porExcecao,
+    recusados: contagem.recusados,
+    abertos: contagem.abertos,
     porPessoa: porPessoa.map((linha) => ({ nome: linha.nome ?? "sem autor", n: linha.n })),
     porEmpresa,
     porMotivo: porMotivo.map((linha) => ({ motivo: rotuloMotivo(linha.motivo), n: linha.n })),

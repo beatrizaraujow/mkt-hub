@@ -16,7 +16,12 @@ import { assertCompanyAccess, canManage, requireUserAction, type CurrentUser } f
 import { dueDateFromInput } from "@/lib/date";
 import { isFormat, isSkill } from "@/lib/catalog";
 import { canLeaveStage, leaveDeniedMessage, presentationFor } from "@/lib/stages";
-import { podeAtravessar, podeMarcarExcecao, saidaDe } from "@/lib/esteira";
+import {
+  podeAtravessar,
+  podeDecidirExcecao,
+  podePedirExcecao,
+  saidaDe,
+} from "@/lib/esteira";
 import {
   JUSTIFICATIVA_MAX,
   JUSTIFICATIVA_MIN,
@@ -224,6 +229,10 @@ export async function setStage(
       ehSubtarefa: item.parentId !== null,
       isento: item.reviewExempt,
       temMotivo: motivoValido(item.reviewExemptReason),
+      pedidoPendente:
+        item.reviewExemptRequestedAt !== null &&
+        !item.reviewExempt &&
+        item.reviewExemptDeniedAt === null,
     });
 
     if (!passagem.ok) return fail(passagem.motivo);
@@ -724,8 +733,181 @@ export async function addSubtask(parentId: string, input: SubtaskInput): Promise
 
 /* ------------------------------------------------- excecao de revisao IA */
 
+/** Le a etapa atual do item. A trava da excecao depende dela. */
+async function etapaAtual(item: { stageId: string }) {
+  const [linha] = await db
+    .select({ slug: workItemStages.slug })
+    .from(workItemStages)
+    .where(eq(workItemStages.id, item.stageId))
+    .limit(1);
+
+  return linha?.slug ?? null;
+}
+
+/** Confere motivo e justificativa. E o mesmo pedaco no pedido e na marcacao. */
+function conferirMotivo(
+  motivo: string,
+  justificativa: string,
+): { erro: string } | { motivo: string; nota: string | null } {
+  if (!motivoValido(motivo)) return { erro: "Escolha o motivo da excecao." };
+
+  if (motivo === MOTIVO_LIVRE) {
+    if (justificativa.length < JUSTIFICATIVA_MIN) {
+      return { erro: 'O motivo "Outro" exige justificativa escrita.' };
+    }
+    if (justificativa.length > JUSTIFICATIVA_MAX) return { erro: "Justificativa muito longa." };
+  }
+
+  return { motivo, nota: motivo === MOTIVO_LIVRE ? justificativa : null };
+}
+
+/**
+ * Pede a excecao. E o caminho de quem produz.
+ *
+ * Desde 01/09/2026 quem produz **nao marca**: escolhe o motivo, escreve a
+ * justificativa e pede. Marcar a propria excecao e um poder que se
+ * auto-concede, e o campo mede justamente se o time achou um atalho — quem e
+ * medido nao pode ser quem decide.
+ *
+ * O pedido nao move a peca e nao pula nada. Enquanto ninguem decidir, a tarefa
+ * segue onde estava e a esteira continua fechada para ela.
+ */
+export async function pedirExcecao(
+  id: string,
+  entrada: { motivo?: string | null; justificativa?: string | null },
+): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    const item = await loadItem(user, id);
+
+    if (item.parentId !== null) {
+      return fail("Subtarefa nao passa pela revisao automatica, entao nao precisa de excecao.");
+    }
+
+    if (item.reviewExempt) return fail("Esta peca ja esta marcada.");
+
+    const slug = await etapaAtual(item);
+    if (!podePedirExcecao(slug)) {
+      return fail(
+        "A peca ja entrou na esteira. A partir daqui quem marca a excecao e a lideranca, " +
+          "direto na tarefa.",
+      );
+    }
+
+    const conferido = conferirMotivo(
+      entrada.motivo?.trim() ?? "",
+      entrada.justificativa?.trim() ?? "",
+    );
+    if ("erro" in conferido) return fail(conferido.erro);
+
+    await db
+      .update(workItems)
+      .set({
+        reviewExemptReason: conferido.motivo,
+        reviewExemptNote: conferido.nota,
+        reviewExemptRequestedById: user.id,
+        reviewExemptRequestedAt: new Date(),
+        // Pedido novo limpa a recusa: aquela recusa era do pedido anterior.
+        reviewExemptDeniedById: null,
+        reviewExemptDeniedAt: null,
+        reviewExemptDeniedReason: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(workItems.id, id));
+
+    await log(user.orgId, id, user.id, "item.excecao_pedida", {
+      motivo: rotuloMotivo(conferido.motivo),
+      ...(conferido.nota ? { justificativa: conferido.nota } : {}),
+    });
+
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Nao foi possivel pedir a excecao.");
+  }
+}
+
+/** Desiste do proprio pedido, enquanto ninguem decidiu. */
+export async function cancelarPedidoExcecao(id: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    const item = await loadItem(user, id);
+
+    if (!item.reviewExemptRequestedAt) return { ok: true };
+    if (item.reviewExempt) return fail("A excecao ja foi aprovada. Fale com a lideranca.");
+
+    /*
+     * Cada um cancela o proprio. A lideranca nao cancela pedido de ninguem —
+     * ela recusa, com motivo escrito, que e o que quem pediu precisa ler.
+     */
+    if (item.reviewExemptRequestedById !== user.id) {
+      return fail("Este pedido e de outra pessoa. Para negar, use Recusar.");
+    }
+
+    await db
+      .update(workItems)
+      .set({
+        reviewExemptReason: null,
+        reviewExemptNote: null,
+        reviewExemptRequestedById: null,
+        reviewExemptRequestedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(workItems.id, id));
+
+    await log(user.orgId, id, user.id, "item.excecao_pedido_cancelado", {});
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Nao foi possivel cancelar o pedido.");
+  }
+}
+
+/**
+ * Recusa o pedido, com motivo escrito.
+ *
+ * Recusa sem motivo e a mesma coisa que silencio, e silencio ensina o time a
+ * parar de pedir — que nao e o mesmo que parar de precisar. Quem pediu volta a
+ * peca para a esteira sabendo por que.
+ */
+export async function recusarExcecao(id: string, motivo: string): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    if (!podeDecidirExcecao(canManage(user))) return fail("So a lideranca decide a excecao.");
+
+    const item = await loadItem(user, id);
+    if (!item.reviewExemptRequestedAt) return fail("Nao ha pedido para recusar.");
+
+    const texto = motivo.trim();
+    if (texto.length < REASON_MIN) return fail("Escreva por que o pedido nao vale.");
+    if (texto.length > REASON_MAX) return fail("Motivo muito longo.");
+
+    await db
+      .update(workItems)
+      .set({
+        reviewExempt: false,
+        reviewExemptDeniedById: user.id,
+        reviewExemptDeniedAt: new Date(),
+        reviewExemptDeniedReason: texto,
+        updatedAt: new Date(),
+      })
+      .where(eq(workItems.id, id));
+
+    await log(user.orgId, id, user.id, "item.excecao_recusada", { motivo: texto });
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Nao foi possivel recusar.");
+  }
+}
+
 /**
  * Marca ou desmarca "esta peca nao precisa de revisao automatica".
+ *
+ * **So a lideranca chega aqui.** Aprovar um pedido e marcar direto sao a mesma
+ * escrita vista de dois lados: se havia pedido, ele fica gravado em
+ * `reviewExemptRequestedById` e o relatorio sabe quem pediu e quem assinou; se
+ * nao havia, o lider decidiu sozinho e o campo fica nulo.
  *
  * Tres coisas que este campo nao e:
  *
@@ -735,11 +917,6 @@ export async function addSubtask(parentId: string, input: SubtaskInput): Promise
  *     `outro` exige texto, e o texto fica gravado para sempre.
  *   - **nao e reversivel em silencio.** Desmarcar apaga o motivo e devolve a
  *     peca ao caminho normal, e as duas coisas viram linha de historico.
- *
- * A trava de quando pode marcar esta em `podeMarcarExcecao`: enquanto a peca
- * nao entrou na esteira, qualquer pessoa que ja pode escrever; depois disso, so
- * a lideranca. Sem essa trava, um laudo ruim seria contornado marcando a
- * excecao no meio do caminho.
  */
 export async function setReviewExempt(
   id: string,
@@ -747,21 +924,14 @@ export async function setReviewExempt(
 ): Promise<ActionState> {
   try {
     const user = await requireUserAction();
+    if (!podeDecidirExcecao(canManage(user))) {
+      return fail("So a lideranca marca a excecao. Peca a excecao e alguem decide.");
+    }
+
     const item = await loadItem(user, id);
 
-    const [atual] = await db
-      .select({ slug: workItemStages.slug })
-      .from(workItemStages)
-      .where(eq(workItemStages.id, item.stageId))
-      .limit(1);
-
-    const lider = canManage(user);
-
-    if (!podeMarcarExcecao(atual?.slug, lider)) {
-      return fail(
-        "A peca ja entrou na esteira e o campo esta trancado. So a lideranca marca a excecao " +
-          "a partir daqui.",
-      );
+    if (item.parentId !== null) {
+      return fail("Subtarefa nao passa pela revisao automatica, entao nao precisa de excecao.");
     }
 
     if (!entrada.marcado) {
@@ -778,6 +948,8 @@ export async function setReviewExempt(
           reviewExemptAt: null,
           reviewExemptCosignedById: null,
           reviewExemptCosignedAt: null,
+          reviewExemptRequestedById: null,
+          reviewExemptRequestedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(workItems.id, id));
@@ -790,46 +962,53 @@ export async function setReviewExempt(
       return { ok: true };
     }
 
-    const motivo = entrada.motivo?.trim() ?? "";
-    if (!motivoValido(motivo)) return fail("Escolha o motivo da excecao.");
+    /*
+     * Aprovando um pedido, o motivo ja veio de quem pediu e nao precisa ser
+     * redigitado. Marcando direto, ele vem da tela de quem lidera.
+     */
+    const motivoBruto = entrada.motivo?.trim() || (item.reviewExemptReason ?? "");
+    const justificativaBruta = entrada.justificativa?.trim() || (item.reviewExemptNote ?? "");
 
-    const justificativa = entrada.justificativa?.trim() ?? "";
-    if (motivo === MOTIVO_LIVRE) {
-      if (justificativa.length < JUSTIFICATIVA_MIN) {
-        return fail("O motivo “Outro” exige justificativa escrita.");
-      }
-      if (justificativa.length > JUSTIFICATIVA_MAX) return fail("Justificativa muito longa.");
-    }
+    const conferido = conferirMotivo(motivoBruto, justificativaBruta);
+    if ("erro" in conferido) return fail(conferido.erro);
 
     /*
-     * A saida e decidida pela etapa em que a marcacao acontece, nao pelo papel
-     * de quem marca: o lider marcando ainda em "Em andamento" declarou uma
-     * excecao como qualquer pessoa; marcando depois, aprovou por excecao. Sao
-     * medidas diferentes e o relatorio precisa das duas separadas.
+     * A saida e decidida pela etapa em que a marcacao acontece: ainda antes da
+     * esteira, e uma excecao declarada; depois dela, e aprovacao de excecao.
+     * Sao medidas diferentes e o relatorio precisa das duas separadas.
      */
-    const saida = saidaDe(atual?.slug);
+    const saida = saidaDe(await etapaAtual(item));
 
     await db
       .update(workItems)
       .set({
         reviewExempt: true,
-        reviewExemptReason: motivo,
-        reviewExemptNote: motivo === MOTIVO_LIVRE ? justificativa : null,
+        reviewExemptReason: conferido.motivo,
+        reviewExemptNote: conferido.nota,
         reviewExemptKind: saida,
         reviewExemptById: user.id,
         reviewExemptAt: new Date(),
         // Trocou o motivo: a co-assinatura anterior era de outro motivo.
         reviewExemptCosignedById: null,
         reviewExemptCosignedAt: null,
+        reviewExemptDeniedById: null,
+        reviewExemptDeniedAt: null,
+        reviewExemptDeniedReason: null,
         updatedAt: new Date(),
       })
       .where(eq(workItems.id, id));
 
-    await log(user.orgId, id, user.id, "item.excecao_declarada", {
-      motivo: rotuloMotivo(motivo),
-      ...(motivo === MOTIVO_LIVRE ? { justificativa } : {}),
-      saida,
-    });
+    await log(
+      user.orgId,
+      id,
+      user.id,
+      item.reviewExemptRequestedAt ? "item.excecao_aprovada" : "item.excecao_declarada",
+      {
+        motivo: rotuloMotivo(conferido.motivo),
+        ...(conferido.nota ? { justificativa: conferido.nota } : {}),
+        saida,
+      },
+    );
 
     refresh();
     return { ok: true };

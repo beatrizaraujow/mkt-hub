@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { podeAtravessar, podeMarcarExcecao, saidaDe, type Movimento } from "./esteira";
+import {
+  podeAtravessar,
+  podeDecidirExcecao,
+  podePedirExcecao,
+  saidaDe,
+  type Movimento,
+} from "./esteira";
 
 function mov(over: Partial<Movimento> & { de: string | null; para: string }): Movimento {
   return { ehSubtarefa: false, isento: false, temMotivo: false, ...over };
@@ -46,6 +52,12 @@ test("a exceção com motivo abre a Aprovação, e só ela", () => {
   );
 });
 
+test("pedido pendente não abre nada, e a mensagem diz isso", () => {
+  const r = podeAtravessar(mov({ de: "em_andamento", para: "aprovacao", pedidoPendente: true }));
+  assert.equal(r.ok, false);
+  assert.match(r.ok === false ? r.motivo : "", /ainda não foi decidido/);
+});
+
 test("marcada sem motivo não vale como marcada", () => {
   const r = podeAtravessar(mov({ de: "em_andamento", para: "aprovacao", isento: true }));
   assert.equal(r.ok, false);
@@ -89,12 +101,16 @@ test("etapa de outro pipeline não é barrada por uma esteira que não é dela",
   assert.equal(podeAtravessar(mov({ de: null, para: "aprovacao" })).ok, true);
 });
 
-test("o campo tranca quando a peça entra na esteira, menos para o líder", () => {
-  assert.equal(podeMarcarExcecao("em_andamento", false), true);
-  assert.equal(podeMarcarExcecao("pendente", false), true);
-  assert.equal(podeMarcarExcecao("pre_revisao", false), false);
-  assert.equal(podeMarcarExcecao("aprovacao", false), false);
-  assert.equal(podeMarcarExcecao("pre_revisao", true), true);
+test("pedir vale antes da esteira e tranca quando ela começa", () => {
+  assert.equal(podePedirExcecao("em_andamento"), true);
+  assert.equal(podePedirExcecao("pendente"), true);
+  assert.equal(podePedirExcecao("pre_revisao"), false);
+  assert.equal(podePedirExcecao("aprovacao"), false);
+});
+
+test("decidir é da liderança, em qualquer etapa", () => {
+  assert.equal(podeDecidirExcecao(true), true);
+  assert.equal(podeDecidirExcecao(false), false);
 });
 
 test("onde a marcação aconteceu decide qual saída ela é", () => {

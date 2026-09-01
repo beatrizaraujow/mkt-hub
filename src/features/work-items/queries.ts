@@ -18,7 +18,7 @@ import { canManage, type CurrentUser } from "@/lib/auth";
 import { addDays, brtToday, endOfBrtDay, startOfBrtDay } from "@/lib/date";
 import { PREVIEW_TTL_SECONDS, signedUrl, storageConfigured } from "@/lib/storage";
 import { reviewPanelFor } from "@/features/review/panel-data";
-import { podeMarcarExcecao } from "@/lib/esteira";
+import { podeDecidirExcecao, podePedirExcecao } from "@/lib/esteira";
 import { isImage } from "@/lib/upload-rules";
 
 export type WorkItemRow = {
@@ -40,6 +40,17 @@ export type WorkItemRow = {
   projectName: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  /** Já marcada como sem revisão automática. */
+  isento: boolean;
+  /**
+   * Pedido de exceção esperando decisão.
+   *
+   * Vem na lista porque não existe notificação neste sistema: se o pedido só
+   * aparecesse dentro da tarefa, quem decide precisaria abrir uma por uma para
+   * descobrir que alguém está esperando. No quadro, ele aparece onde a
+   * liderança já está.
+   */
+  excecaoPedida: boolean;
 };
 
 const SELECTION = {
@@ -61,6 +72,12 @@ const SELECTION = {
   projectName: projects.name,
   assigneeId: workItems.assigneeId,
   assigneeName: users.name,
+  isento: workItems.reviewExempt,
+  excecaoPedida: sql<boolean>`(
+    ${workItems.reviewExemptRequestedAt} is not null
+    and not ${workItems.reviewExempt}
+    and ${workItems.reviewExemptDeniedAt} is null
+  )`,
 };
 
 function baseQuery() {
@@ -484,16 +501,26 @@ export async function getItemDetail(user: CurrentUser, id: string) {
 
   const review = await reviewPanelFor(full);
 
-  /* Quem marcou a exceção aparece ao lado dela. Decisão sem autor não se audita. */
-  const quemMarcou = full?.reviewExemptById
-    ? ((
-        await db
-          .select({ name: users.name })
-          .from(users)
-          .where(eq(users.id, full.reviewExemptById))
-          .limit(1)
-      )[0]?.name ?? null)
-    : null;
+  /*
+   * Os nomes de quem pediu, quem marcou e quem recusou, numa consulta só.
+   * Decisão sem autor não se audita, e três idas ao banco para três nomes que
+   * costumam ser a mesma pessoa é desperdício com cara de organização.
+   */
+  const ids = [
+    full?.reviewExemptById,
+    full?.reviewExemptRequestedById,
+    full?.reviewExemptDeniedById,
+  ].filter((valor): valor is string => Boolean(valor));
+
+  const nomes = new Map(
+    ids.length > 0
+      ? (await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, ids))).map(
+          (linha) => [linha.id, linha.name] as const,
+        )
+      : [],
+  );
+
+  const nomeDe = (id: string | null | undefined) => (id ? (nomes.get(id) ?? null) : null);
 
   return {
     ...item,
@@ -519,8 +546,24 @@ export async function getItemDetail(user: CurrentUser, id: string) {
       justificativa: full?.reviewExemptNote ?? null,
       saida: full?.reviewExemptKind ?? null,
       marcadaEm: full?.reviewExemptAt ?? null,
-      marcadaPor: quemMarcou,
-      podeMarcar: podeMarcarExcecao(item.stageSlug, canManage(user)),
+      marcadaPor: nomeDe(full?.reviewExemptById),
+
+      /* O pedido de quem produz, esperando decisão. */
+      pedidaEm: full?.reviewExemptRequestedAt ?? null,
+      pedidaPor: nomeDe(full?.reviewExemptRequestedById),
+      pedidaPorMim: full?.reviewExemptRequestedById === user.id,
+
+      recusadaEm: full?.reviewExemptDeniedAt ?? null,
+      recusadaPor: nomeDe(full?.reviewExemptDeniedById),
+      recusaMotivo: full?.reviewExemptDeniedReason ?? null,
+
+      /**
+       * As duas permissões saem do servidor porque as regras são do servidor.
+       * A tela usa para desenhar o campo certo para cada pessoa — a recusa de
+       * verdade continua sendo a da action.
+       */
+      podeDecidir: podeDecidirExcecao(canManage(user)),
+      podePedir: podePedirExcecao(item.stageSlug),
       ehSubtarefa: full?.parentId !== null,
     },
     checklist,
