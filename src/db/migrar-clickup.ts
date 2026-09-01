@@ -4,8 +4,13 @@
  *   npm run clickup:migrar               diz o que faria, e em qual banco
  *   npm run clickup:migrar -- --aplicar  faz
  *
- * Para producao, com a string na frente do comando e um espaco antes da linha
- * (o espaco mantem a senha fora do `.bash_history`):
+ * Para producao, sem a senha passar pela linha de comando — puxe o ambiente da
+ * Vercel para um arquivo fora do repositorio e aponte para ele:
+ *
+ *   npm run clickup:migrar -- --env ../mkt-prod.env --aplicar
+ *
+ * Ou, se preferir na mao (o espaco antes da linha mantem a senha fora do
+ * `.bash_history`, mas ela ainda aparece na lista de processos):
  *
  *    DATABASE_URL='<producao>' npm run clickup:migrar -- --aplicar
  *
@@ -24,6 +29,7 @@
  * de um update ir para o banco errado por causa disso.
  */
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const PRODUCAO = "tnfjjaxrmatuovwjiptz";
 const DESENVOLVIMENTO = "hqohquknxgiywpokmndp";
@@ -32,6 +38,37 @@ const DESENVOLVIMENTO = "hqohquknxgiywpokmndp";
 function refDaConexao(url: string | undefined): string | null {
   const achado = url?.match(/postgres\.([a-z0-9]+)/i);
   return achado ? achado[1] : null;
+}
+
+/**
+ * Le o `DATABASE_URL` de um arquivo de ambiente e o coloca no processo.
+ *
+ * Existe para o caso de producao: a string sai do `vercel env pull` para um
+ * arquivo e e lida daqui, em vez de ser colada na linha de comando. Senha em
+ * linha de comando aparece na lista de processos e, sem o espaco na frente,
+ * fica no `.bash_history` — este caminho nao tem nem uma coisa nem outra.
+ */
+function lerDoArquivo(caminho: string): void {
+  let conteudo: string;
+  try {
+    conteudo = readFileSync(caminho, "utf8");
+  } catch {
+    console.error(`Nao consegui ler ${caminho}.`);
+    process.exit(1);
+  }
+
+  const linha = conteudo
+    .split(/\r?\n/)
+    .find((l) => l.trimStart().startsWith("DATABASE_URL="));
+
+  if (!linha) {
+    console.error(`${caminho} nao tem DATABASE_URL.`);
+    process.exit(1);
+  }
+
+  // A Vercel escreve o valor entre aspas; outros geradores nao escrevem.
+  const valor = linha.slice(linha.indexOf("=") + 1).trim().replace(/^["']|["']$/g, "");
+  process.env.DATABASE_URL = valor;
 }
 
 function rodar(passo: string, script: string, args: string[]): void {
@@ -56,6 +93,17 @@ const aplicar = process.argv.includes("--aplicar");
  * sobrescreve variavel que ja existe. E o que permite mandar producao pela
  * linha de comando sem editar arquivo nenhum.
  */
+const posEnv = process.argv.indexOf("--env");
+if (posEnv !== -1) {
+  const caminho = process.argv[posEnv + 1];
+  if (!caminho) {
+    console.error("--env precisa do caminho do arquivo.");
+    process.exit(1);
+  }
+  lerDoArquivo(caminho);
+  console.log(`DATABASE_URL lido de ${caminho}`);
+}
+
 const ref = refDaConexao(process.env.DATABASE_URL);
 const onde =
   ref === PRODUCAO
