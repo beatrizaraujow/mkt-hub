@@ -6,7 +6,7 @@ import { reviewSettings } from "@/db/schema";
 /**
  * O que muda sem deploy.
  *
- * Duas chaves só, e as duas existem para a mesma coisa: poder segurar o
+ * Três chaves, e as duas primeiras existem para a mesma coisa: poder segurar o
  * sistema sem pedir para ninguém subir código. Uma revisão automática que só
  * se desliga com deploy é uma revisão que fica ligada errada por um dia
  * inteiro.
@@ -16,6 +16,7 @@ export type Mode = "silencioso" | "ativo";
 
 const KEY_MODE = "modo";
 const KEY_OFF = "marcas_desligadas";
+const KEY_REVISORES = "revisores_designados";
 
 async function readKey<T>(orgId: string, key: string): Promise<T | null> {
   const [row] = await db
@@ -69,4 +70,31 @@ export async function setCompanyEnabled(orgId: string, companyId: string, enable
       : [...current, companyId];
 
   await writeKey(orgId, KEY_OFF, next);
+}
+
+/**
+ * Quem vê o Revisor sem gerenciar a casa.
+ *
+ * O Revisor era de gestor para cima, e ficar de fora dele não é uma questão de
+ * papel: quem revisa peça precisa ver o parecer, e revisar peça não implica
+ * convidar gente, mexer em empresa nem fechar semana. Promover alguém a gestor
+ * para liberar uma tela abriria Time, Empresas, Ajustes, Rotinas e Desempenho
+ * junto — teto largo demais para uma porta só.
+ *
+ * É o mesmo desenho das Rotinas: a seção aparece para quem gerencia **e** para
+ * quem ela alcança. Papel continua sendo o teto; isto é alcance.
+ *
+ * **Só abre a lista e os pareceres.** Regras e Medição seguem em
+ * `assertCanManage`: são as telas que decidem como o time inteiro é avaliado.
+ *
+ * Mora em `review_settings` e não numa coluna de `users` porque é configuração
+ * do Revisor, muda sem deploy, e não exige mexer no schema de produção.
+ */
+export async function revisoresDesignados(orgId: string): Promise<string[]> {
+  const ids = await readKey<string[]>(orgId, KEY_REVISORES);
+  return Array.isArray(ids) ? ids : [];
+}
+
+export async function definirRevisores(orgId: string, ids: string[]) {
+  await writeKey(orgId, KEY_REVISORES, [...new Set(ids)]);
 }

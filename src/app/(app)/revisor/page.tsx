@@ -10,7 +10,8 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { assertCanManage, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
+import { assertPodeVerRevisor } from "@/features/review/acesso";
 import { cn } from "@/lib/utils";
 import { EmptyState, PageHeader } from "@/components/page-header";
 import { diagnose } from "@/features/review/diagnose";
@@ -112,7 +113,8 @@ export default async function RevisorPage({
   searchParams: Promise<{ item?: string }>;
 }) {
   const user = await requireUser();
-  assertCanManage(user);
+  // Gestor entra sempre; abaixo disso, quem foi designado revisor.
+  await assertPodeVerRevisor(user);
 
   const params = await searchParams;
 

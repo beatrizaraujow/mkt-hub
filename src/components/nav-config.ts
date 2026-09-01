@@ -31,6 +31,8 @@ export type NavItem = {
    * eles, sao trinta e oito linhas do trabalho de outra pessoa.
    */
   soComRotina?: boolean;
+  /** Aparece para quem gerencia e para quem foi designado revisor. */
+  soRevisor?: boolean;
   /** Aparece na barra inferior do celular. */
   mobile?: boolean;
 };
@@ -46,7 +48,7 @@ export const NAV: NavItem[] = [
    * Trabalho: entre os tres itens apagados de "breve", um item vivo no meio
    * quebra a leitura da lista. Colaborador nao ve nenhum dos dois.
    */
-  { href: "/revisor", label: "Revisor", icon: "revisor", minRole: "gestor" },
+  { href: "/revisor", label: "Revisor", icon: "revisor", soRevisor: true },
   { href: "/time", label: "Time", icon: "time", minRole: "gestor" },
   { href: "/empresas", label: "Empresas", icon: "empresas", mobile: true },
   { href: "/ajustes", label: "Ajustes", icon: "ajustes", mobile: true },
@@ -69,12 +71,18 @@ const RANK: Record<UserRole, number> = {
  */
 export function visibleNav(
   role: UserRole,
-  opcoes: { temRotina?: boolean } = {},
+  opcoes: { temRotina?: boolean; ehRevisor?: boolean } = {},
 ) {
   const gerencia = RANK[role] >= RANK.gestor;
   return NAV.filter((item) => {
     if (item.minRole && RANK[role] < RANK[item.minRole]) return false;
     if (item.soComRotina && !gerencia && !opcoes.temRotina) return false;
+    /*
+     * O Revisor segue o mesmo desenho das Rotinas: aparece para quem gerencia e
+     * para quem ele alcanca. Papel continua sendo o teto; isto e alcance — e
+     * esconder item de menu e UX, nunca seguranca: a pagina checa no servidor.
+     */
+    if (item.soRevisor && !gerencia && !opcoes.ehRevisor) return false;
     return true;
   });
 }

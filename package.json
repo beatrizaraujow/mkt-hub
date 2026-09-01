@@ -21,6 +21,7 @@
     "metas": "tsx --env-file=.env.local src/db/set-goals.ts",
     "empresa:interno": "tsx --env-file=.env.local src/db/add-interno.ts",
     "clickup:migrar": "tsx --env-file=.env.local src/db/migrar-clickup.ts",
+    "revisor:designar": "tsx --env-file=.env.local src/db/designar-revisor.ts",
     "db:backup": "tsx --env-file=.env.local src/db/backup.ts",
     "clickup:importar": "tsx --env-file=.env.local src/db/import-clickup.ts",
     "clickup:baixar": "tsx --env-file=.env.local src/db/fetch-clickup.ts",
