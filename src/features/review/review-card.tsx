@@ -476,6 +476,14 @@ export function ReviewCard({
                   {line.isReliabilityProbe ? (
                     <span className="ml-1.5 text-[11px] text-faint">· medidor</span>
                   ) : null}
+                  {/*
+                    A co-assinatura da exceção. Marcada, não é "mais um item":
+                    é quem aprova assinando junto a decisão de pular a revisão,
+                    no lugar do item do laudo — que aqui não existe.
+                  */}
+                  {line.isCosign ? (
+                    <span className="ml-1.5 text-[11px] text-faint">· exceção declarada</span>
+                  ) : null}
                 </span>
               </button>
             ))}

@@ -5,6 +5,8 @@ import { assertCanManage, requireUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { loadMetrics, metricCompanies } from "@/features/review/metrics";
+import { loadExcecoes } from "@/features/review/excecoes";
+import { TETO_SUGERIDO } from "@/lib/excecao";
 import { ModeBadge } from "@/features/review/mode-badge";
 import { reviewMode } from "@/features/review/settings";
 
@@ -117,11 +119,20 @@ export default async function MedicaoPage({
   const companyId =
     params.empresa && user.companyIds.includes(params.empresa) ? params.empresa : null;
 
-  const [data, companies, mode] = await Promise.all([
+  const [data, companies, mode, excecoes] = await Promise.all([
     loadMetrics(user, { days, companyId }),
     metricCompanies(user),
     reviewMode(user.orgId),
+    loadExcecoes(user, { days, companyId }),
   ]);
+
+  /*
+   * Arredondar para baixo aqui seria confortável e errado: 19,7% viraria 19% e
+   * passaria por baixo do teto que a diretoria definiu. Arredondamento normal.
+   */
+  const usoDaExcecao =
+    excecoes.base > 0 ? Math.round((excecoes.marcadas / excecoes.base) * 100) : 0;
+  const acimaDoTeto = usoDaExcecao > TETO_SUGERIDO;
 
   const link = (next: { dias?: number; empresa?: string | null }) => {
     const search = new URLSearchParams();
@@ -364,7 +375,117 @@ export default async function MedicaoPage({
             </p>
           </>
         )}
+
+        {/*
+          O termômetro da exceção declarada.
+          Fica fora do bloco acima de propósito: ele mede quem NÃO passou pela
+          revisão, e some justamente no mês em que ninguém revisou nada — que é
+          o mês em que mais interessa olhar.
+        */}
+        <Section
+          title="Exceção declarada"
+          tone={acimaDoTeto ? "aviso" : "neutro"}
+          hint={
+            'Peças marcadas como "não precisa de revisão automática". Se a porcentagem sobe, ' +
+            "ou o time achou um atalho, ou a esteira está pedindo revisão de coisa que não precisa."
+          }
+          aside={
+            <span className="text-[11.5px] text-muted">
+              teto sugerido: <span className="tnum">{TETO_SUGERIDO}%</span>
+            </span>
+          }
+        >
+          {excecoes.base === 0 ? (
+            <p className="text-[13px] text-faint">Nenhuma tarefa aberta neste período.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p
+                  className={cn(
+                    "tnum font-display text-[26px] leading-none",
+                    acimaDoTeto ? "text-warning" : "text-ink",
+                  )}
+                >
+                  {usoDaExcecao}%
+                </p>
+                <p className="text-[12.5px] text-muted">
+                  <span className="tnum">{excecoes.marcadas}</span> de{" "}
+                  <span className="tnum">{excecoes.base}</span> tarefas abertas no período
+                  {excecoes.aprovacaoDeExcecao > 0 ? (
+                    <>
+                      {" · "}
+                      <span className="tnum">{excecoes.aprovacaoDeExcecao}</span> marcada
+                      {excecoes.aprovacaoDeExcecao === 1 ? "" : "s"} pela liderança depois de a
+                      esteira ter começado
+                    </>
+                  ) : null}
+                </p>
+              </div>
+
+              {excecoes.marcadas > 0 ? (
+                <div className="grid gap-4 @container sm:grid-cols-3">
+                  <Quebra titulo="Por motivo" linhas={excecoes.porMotivo.map((l) => ({ nome: l.motivo, n: l.n }))} />
+                  <Quebra titulo="Por pessoa" linhas={excecoes.porPessoa} />
+                  <Quebra titulo="Por marca" linhas={excecoes.porEmpresa} />
+                </div>
+              ) : null}
+
+              {excecoes.outros.length > 0 ? (
+                <div>
+                  <p className="label-mono">Motivo “Outro”, por extenso</p>
+                  <p className="mb-2 mt-1 text-[11.5px] leading-relaxed text-faint">
+                    Se este for o motivo mais usado, falta um item na lista fechada — e é a lista
+                    que precisa mudar.
+                  </p>
+                  <div className="flex flex-col">
+                    {excecoes.outros.map((linha) => (
+                      <div key={linha.id} className="border-b border-line py-2.5 last:border-b-0">
+                        <p className="text-[13px] text-ink">{linha.titulo}</p>
+                        <p className="mt-0.5 text-[11.5px] text-faint">
+                          {linha.empresa}
+                          {linha.pessoa ? ` · ${linha.pessoa}` : ""}
+                        </p>
+                        {linha.justificativa ? (
+                          <p className="mt-1.5 whitespace-pre-line text-[12.5px] leading-relaxed text-muted">
+                            {linha.justificativa}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <p className="max-w-[86ch] text-[11.5px] leading-relaxed text-faint">
+                As três saídas são medidas separadas e não se somam: marca fora do piloto é decisão
+                do sistema, exceção declarada é de quem produz antes da esteira, e aprovação de
+                exceção é da liderança depois dela. Juntar as três apagaria a diferença entre
+                “falta manual”, “virou atalho” e “a esteira está atrapalhando”.
+              </p>
+            </div>
+          )}
+        </Section>
       </div>
     </>
+  );
+}
+
+/** Uma quebra do termômetro. Tabela pequena resolve; gráfico só atrasaria. */
+function Quebra({ titulo, linhas }: { titulo: string; linhas: Array<{ nome: string; n: number }> }) {
+  return (
+    <div>
+      <p className="label-mono">{titulo}</p>
+      <div className="mt-2 flex flex-col">
+        {linhas.map((linha) => (
+          <div
+            key={linha.nome}
+            className="flex items-baseline justify-between gap-3 border-b border-line py-1.5 last:border-b-0"
+          >
+            <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink">{linha.nome}</span>
+            <span className="tnum shrink-0 font-mono text-[11px] text-muted">{linha.n}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

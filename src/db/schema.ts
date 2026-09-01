@@ -330,6 +330,57 @@ export const workItems = pgTable(
     sourceOccurrenceId: uuid("source_occurrence_id"),
     sourceItemId: uuid("source_item_id"),
 
+    /* ---------------------------------------- excecao de revisao automatica */
+
+    /**
+     * "Esta peca nao precisa de revisao automatica".
+     *
+     * E a UNICA porta que pula a esteira. Nasce sempre desmarcada e nunca vem
+     * marcada por heranca: nem de template, nem de duplicacao, nem de import,
+     * nem de automacao. Uma excecao herdada e uma excecao que ninguem decidiu.
+     *
+     * Marcada, a peca vai de "Em andamento" direto para "Aprovacao" — nunca
+     * para "Publicar". Ela dispensa a maquina, jamais a pessoa.
+     */
+    reviewExempt: boolean("review_exempt").notNull().default(false),
+
+    /** Motivo, da lista fechada em `lib/excecao`. Marcar sem motivo nao vale. */
+    reviewExemptReason: text("review_exempt_reason"),
+
+    /** So para o motivo "outro", e ai e obrigatorio. E o que o relatorio le. */
+    reviewExemptNote: text("review_exempt_note"),
+
+    /**
+     * Qual das tres saidas foi: `declarada` (quem produz, antes da esteira) ou
+     * `aprovacao_excecao` (o lider, depois de ela ter comecado).
+     *
+     * As duas usam o mesmo campo e medem coisas diferentes — uma diz se a
+     * excecao virou atalho, a outra diz se a esteira esta atrapalhando. Guardar
+     * as duas como "pulou a revisao" apagaria justamente a diferenca.
+     */
+    reviewExemptKind: text("review_exempt_kind"),
+
+    reviewExemptById: uuid("review_exempt_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewExemptAt: timestamp("review_exempt_at", { withTimezone: true }),
+
+    /**
+     * A co-assinatura do lider, na aprovacao de uma peca marcada.
+     *
+     * Substitui o item "Li o laudo e assumo os pontos de atencao que sobraram",
+     * que nao faz sentido quando nao existe laudo. Sem ela, quem aprova herda em
+     * silencio a decisao de outra pessoa; com ela, assina junto.
+     *
+     * Mora aqui e nao em `review_checklist_answers` porque nao ha item de
+     * checklist para responder: a linha e do proprio item, e inventar uma linha
+     * falsa no catalogo para poder guardar a resposta seria mentir no schema.
+     */
+    reviewExemptCosignedById: uuid("review_exempt_cosigned_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewExemptCosignedAt: timestamp("review_exempt_cosigned_at", { withTimezone: true }),
+
     /** Campos que variam por tipo e nao entram em calculo. */
     meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
 
@@ -344,6 +395,7 @@ export const workItems = pgTable(
     index("wi_parent_idx").on(t.parentId),
     index("wi_type_idx").on(t.orgId, t.type),
     index("wi_asset_idx").on(t.orgId, t.isAsset),
+    index("wi_exempt_idx").on(t.orgId, t.reviewExempt),
   ],
 );
 
@@ -588,6 +640,16 @@ export const reviewChecklistItems = pgTable(
      * processo, nao sobre o texto.
      */
     isReliabilityProbe: boolean("is_reliability_probe").notNull().default(false),
+
+    /**
+     * O item so faz sentido quando existe laudo.
+     *
+     * "Li o laudo e assumo os pontos de atencao que sobraram" e o caso: numa
+     * peca marcada como sem revisao automatica nao ha laudo nenhum para ler, e
+     * pedir que alguem marque isso ensina o time a marcar sem ler. Nessas
+     * pecas o item some e no lugar entra a co-assinatura da excecao.
+     */
+    dependsOnReport: boolean("depends_on_report").notNull().default(false),
 
     isActive: boolean("is_active").notNull().default(true),
     position: doublePrecision("position").notNull().default(1000),

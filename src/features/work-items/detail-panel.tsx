@@ -43,6 +43,7 @@ import {
 import { useOpenItem } from "./use-open-item";
 import { SubtaskCreate } from "./subtask-create";
 import { ReasonPrompt } from "./reason-prompt";
+import { ExcecaoCard, type ExcecaoData } from "./excecao-card";
 import { needsReason } from "./rework";
 import {
   AssigneeField,
@@ -60,6 +61,8 @@ import type { RequestInfo } from "./queries";
 export type DetailData = {
   /** Minutos herdados do ClickUp; nulo em tarefa nascida aqui. */
   minutosNoClickUp?: number | null;
+  /** "Esta peça não precisa de revisão automática" — a única porta que pula a esteira. */
+  excecao: ExcecaoData;
   id: string;
   title: string;
   description: string | null;
@@ -112,6 +115,8 @@ const ACTION_LABEL: Record<string, string> = {
   "comment.created": "comentou",
   "subtask.created": "criou uma subtarefa",
   "item.requested": "abriu o pedido",
+  "item.excecao_declarada": "marcou que não precisa de revisão automática",
+  "item.excecao_removida": "desmarcou a exceção de revisão",
 };
 
 const PRIORITIES = [
@@ -470,6 +475,8 @@ export function DetailPanel({
                       É este texto que a revisão automática lê — o briefing acima ela ignora.
                     </p>
                   </section>
+
+                  <ExcecaoCard itemId={item.id} dados={item.excecao} />
 
                   {item.review ? (
                     <ReviewCard

@@ -29,6 +29,8 @@ import { eq, sql } from "drizzle-orm";
 import { client, db } from "./index";
 import { activityLog, workItemStages, workItems } from "./schema";
 import { ETAPAS_DE_FIM, etapaDe } from "@/features/work-items/clickup-map";
+import { podeAtravessar } from "@/lib/esteira";
+import { motivoValido } from "@/lib/excecao";
 
 const ORIGEM = process.env.CLICKUP_JSON ?? "./.cu-limpo.json";
 
@@ -70,6 +72,9 @@ async function main() {
       title: workItems.title,
       stageId: workItems.stageId,
       completedAt: workItems.completedAt,
+      parentId: workItems.parentId,
+      reviewExempt: workItems.reviewExempt,
+      reviewExemptReason: workItems.reviewExemptReason,
       meta: workItems.meta,
     })
     .from(workItems)
@@ -79,6 +84,7 @@ async function main() {
 
   let mudadas = 0;
   let sumiram = 0;
+  const recusadas: Array<{ titulo: string; de: string; para: string; motivo: string }> = [];
   const desconhecidos = new Set<string>();
 
   for (const item of aqui) {
@@ -103,6 +109,31 @@ async function main() {
 
     const destino = porSlug.get(slugAlvo);
     if (!destino) throw new Error(`Etapa ${slugAlvo} nao existe no pipeline de tarefa.`);
+
+    /*
+     * A esteira vale para a sincronizacao tambem, e nao e detalhe.
+     *
+     * O board do ClickUp nao conhece pre revisao nem revisao IA como obrigacao:
+     * la alguem arrasta de "Em progresso" para "Aprovar" e pronto. Deixar a
+     * sincronizacao espelhar isso abriria, por automacao, exatamente a porta
+     * lateral que a tela fecha — e por uma porta que ninguem esta olhando,
+     * porque roda por comando e nao por clique.
+     *
+     * Recusar aqui deixa a tarefa parada onde esta, com a divergencia visivel
+     * no fim do relatorio. Divergencia visivel e melhor que atalho silencioso.
+     */
+    const passagem = podeAtravessar({
+      de: atual?.slug,
+      para: slugAlvo,
+      ehSubtarefa: item.parentId !== null,
+      isento: item.reviewExempt,
+      temMotivo: motivoValido(item.reviewExemptReason),
+    });
+
+    if (!passagem.ok) {
+      recusadas.push({ titulo: item.title, de: atual?.name ?? "?", para: destino.name, motivo: passagem.motivo });
+      continue;
+    }
 
     const fim = ETAPAS_DE_FIM.has(slugAlvo);
     const conclusao = fim ? (item.completedAt ?? concluidaEm(tarefa)) : null;
@@ -141,9 +172,18 @@ async function main() {
 
   console.log(
     `\n${aplicar ? "Aplicado." : "Simulacao — nada foi escrito. Use -- --aplicar."}` +
-      `\n  vindas do ClickUp: ${aqui.length}   etapa alinhada: ${mudadas}   nao estao mais no board: ${sumiram}`,
+      `\n  vindas do ClickUp: ${aqui.length}   etapa alinhada: ${mudadas}   nao estao mais no board: ${sumiram}` +
+      `   recusadas pela esteira: ${recusadas.length}`,
   );
   for (const s of desconhecidos) console.log(`  ! status sem de-para: "${s}"`);
+
+  if (recusadas.length > 0) {
+    console.log("\nEstas o ClickUp moveu e a esteira nao deixa acompanhar. Ficaram onde estavam:");
+    for (const r of recusadas) {
+      console.log(`  ${r.titulo.slice(0, 46).padEnd(46)} ${r.de} -> ${r.para}`);
+      console.log(`    ${r.motivo}`);
+    }
+  }
 }
 
 main()

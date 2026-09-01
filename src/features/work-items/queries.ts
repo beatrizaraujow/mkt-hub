@@ -14,10 +14,11 @@ import {
   type Priority,
   type WorkItemType,
 } from "@/db/schema";
-import type { CurrentUser } from "@/lib/auth";
+import { canManage, type CurrentUser } from "@/lib/auth";
 import { addDays, brtToday, endOfBrtDay, startOfBrtDay } from "@/lib/date";
 import { PREVIEW_TTL_SECONDS, signedUrl, storageConfigured } from "@/lib/storage";
 import { reviewPanelFor } from "@/features/review/panel-data";
+import { podeMarcarExcecao } from "@/lib/esteira";
 import { isImage } from "@/lib/upload-rules";
 
 export type WorkItemRow = {
@@ -483,6 +484,17 @@ export async function getItemDetail(user: CurrentUser, id: string) {
 
   const review = await reviewPanelFor(full);
 
+  /* Quem marcou a exceção aparece ao lado dela. Decisão sem autor não se audita. */
+  const quemMarcou = full?.reviewExemptById
+    ? ((
+        await db
+          .select({ name: users.name })
+          .from(users)
+          .where(eq(users.id, full.reviewExemptById))
+          .limit(1)
+      )[0]?.name ?? null)
+    : null;
+
   return {
     ...item,
     description: full?.description ?? null,
@@ -493,6 +505,24 @@ export async function getItemDetail(user: CurrentUser, id: string) {
     format: full?.format ?? null,
     request: full ? requestOf(full) : null,
     minutosNoClickUp: minutosNoClickUpDe(full),
+    /**
+     * A exceção declarada, do jeito que a tela precisa dela.
+     *
+     * `podeMarcar` sai do servidor porque a regra é do servidor: o campo tranca
+     * quando a peça entra na esteira, e só a liderança passa depois disso. A
+     * tela usa isso para desenhar o campo travado com a explicação — a recusa
+     * de verdade continua sendo a da action.
+     */
+    excecao: {
+      marcada: full?.reviewExempt ?? false,
+      motivo: full?.reviewExemptReason ?? null,
+      justificativa: full?.reviewExemptNote ?? null,
+      saida: full?.reviewExemptKind ?? null,
+      marcadaEm: full?.reviewExemptAt ?? null,
+      marcadaPor: quemMarcou,
+      podeMarcar: podeMarcarExcecao(item.stageSlug, canManage(user)),
+      ehSubtarefa: full?.parentId !== null,
+    },
     checklist,
     subtasks,
     files: filesWithPreview,

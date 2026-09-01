@@ -421,6 +421,23 @@ function ChecklistForm({
         <label className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-line px-3 py-2.5">
           <input
             type="checkbox"
+            name="dependsOnReport"
+            defaultChecked={item?.dependsOnReport ?? false}
+            className="mt-[3px] accent-[var(--brand)]"
+          />
+          <span>
+            <span className="block text-[13px] text-ink">Só faz sentido com laudo</span>
+            <span className="block text-[11.5px] text-faint">
+              É o caso de “Li o laudo e assumo os pontos de atenção que sobraram”. Numa peça
+              marcada como sem revisão automática este item some, e no lugar dele entra a
+              co-assinatura da exceção.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-line px-3 py-2.5">
+          <input
+            type="checkbox"
             name="isReliabilityProbe"
             defaultChecked={item?.isReliabilityProbe ?? false}
             className="mt-[3px] accent-[var(--brand)]"
@@ -895,6 +912,11 @@ export function RulesEditor({ data }: { data: RulesData }) {
                     {item.isReliabilityProbe && (
                       <span className="ml-2 whitespace-nowrap rounded-[4px] border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-faint">
                         medidor{codigo ? ` · ${codigo}` : ""}
+                      </span>
+                    )}
+                    {item.dependsOnReport && (
+                      <span className="ml-2 whitespace-nowrap rounded-[4px] border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-faint">
+                        depende do laudo
                       </span>
                     )}
                   </span>

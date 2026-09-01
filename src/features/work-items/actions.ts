@@ -12,10 +12,18 @@ import {
   workItemStages,
   workItems,
 } from "@/db/schema";
-import { assertCompanyAccess, requireUserAction, type CurrentUser } from "@/lib/auth";
+import { assertCompanyAccess, canManage, requireUserAction, type CurrentUser } from "@/lib/auth";
 import { dueDateFromInput } from "@/lib/date";
 import { isFormat, isSkill } from "@/lib/catalog";
 import { canLeaveStage, leaveDeniedMessage, presentationFor } from "@/lib/stages";
+import { podeAtravessar, podeMarcarExcecao, saidaDe } from "@/lib/esteira";
+import {
+  JUSTIFICATIVA_MAX,
+  JUSTIFICATIVA_MIN,
+  motivoValido,
+  MOTIVO_LIVRE,
+  rotuloMotivo,
+} from "@/lib/excecao";
 import { pendingChecklist } from "@/features/review/checklist";
 import { REASON_MAX, REASON_MIN, needsReason } from "./rework";
 import {
@@ -197,6 +205,28 @@ export async function setStage(
     if (!canLeaveStage(user.role, from?.slug)) {
       return fail(leaveDeniedMessage(from?.slug));
     }
+
+    /**
+     * A esteira.
+     *
+     * Aqui e a trava, e ela vale para toda porta: arrasto no quadro, seletor de
+     * etapa no painel, botao de concluir da lista, e qualquer coisa que venha a
+     * chamar esta action. Antes disto nada impedia ir de "Em andamento" direto
+     * para "Aprovar" — e uma esteira com uma porta lateral aberta nao e uma
+     * esteira.
+     *
+     * A recusa diz, em portugues, o que esta sendo impedido e qual e o caminho
+     * certo. Mensagem tecnica aqui viraria chamado para mim.
+     */
+    const passagem = podeAtravessar({
+      de: from?.slug,
+      para: target.slug,
+      ehSubtarefa: item.parentId !== null,
+      isento: item.reviewExempt,
+      temMotivo: motivoValido(item.reviewExemptReason),
+    });
+
+    if (!passagem.ok) return fail(passagem.motivo);
 
     // A tela pergunta antes; aqui e a trava, nao o aviso.
     const clean = reason?.trim() ?? "";
@@ -689,5 +719,121 @@ export async function addSubtask(parentId: string, input: SubtaskInput): Promise
     return { ok: true, id: created.id };
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Não foi possível criar a subtarefa.");
+  }
+}
+
+/* ------------------------------------------------- excecao de revisao IA */
+
+/**
+ * Marca ou desmarca "esta peca nao precisa de revisao automatica".
+ *
+ * Tres coisas que este campo nao e:
+ *
+ *   - **nao e um atalho para publicar.** Marcada, a peca vai para Aprovacao e
+ *     para la. Quem aprova ainda e gente.
+ *   - **nao e um campo livre.** O motivo sai da lista fechada de `lib/excecao`;
+ *     `outro` exige texto, e o texto fica gravado para sempre.
+ *   - **nao e reversivel em silencio.** Desmarcar apaga o motivo e devolve a
+ *     peca ao caminho normal, e as duas coisas viram linha de historico.
+ *
+ * A trava de quando pode marcar esta em `podeMarcarExcecao`: enquanto a peca
+ * nao entrou na esteira, qualquer pessoa que ja pode escrever; depois disso, so
+ * a lideranca. Sem essa trava, um laudo ruim seria contornado marcando a
+ * excecao no meio do caminho.
+ */
+export async function setReviewExempt(
+  id: string,
+  entrada: { marcado: boolean; motivo?: string | null; justificativa?: string | null },
+): Promise<ActionState> {
+  try {
+    const user = await requireUserAction();
+    const item = await loadItem(user, id);
+
+    const [atual] = await db
+      .select({ slug: workItemStages.slug })
+      .from(workItemStages)
+      .where(eq(workItemStages.id, item.stageId))
+      .limit(1);
+
+    const lider = canManage(user);
+
+    if (!podeMarcarExcecao(atual?.slug, lider)) {
+      return fail(
+        "A peca ja entrou na esteira e o campo esta trancado. So a lideranca marca a excecao " +
+          "a partir daqui.",
+      );
+    }
+
+    if (!entrada.marcado) {
+      if (!item.reviewExempt) return { ok: true };
+
+      await db
+        .update(workItems)
+        .set({
+          reviewExempt: false,
+          reviewExemptReason: null,
+          reviewExemptNote: null,
+          reviewExemptKind: null,
+          reviewExemptById: null,
+          reviewExemptAt: null,
+          reviewExemptCosignedById: null,
+          reviewExemptCosignedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(workItems.id, id));
+
+      await log(user.orgId, id, user.id, "item.excecao_removida", {
+        motivo: rotuloMotivo(item.reviewExemptReason),
+      });
+
+      refresh();
+      return { ok: true };
+    }
+
+    const motivo = entrada.motivo?.trim() ?? "";
+    if (!motivoValido(motivo)) return fail("Escolha o motivo da excecao.");
+
+    const justificativa = entrada.justificativa?.trim() ?? "";
+    if (motivo === MOTIVO_LIVRE) {
+      if (justificativa.length < JUSTIFICATIVA_MIN) {
+        return fail("O motivo “Outro” exige justificativa escrita.");
+      }
+      if (justificativa.length > JUSTIFICATIVA_MAX) return fail("Justificativa muito longa.");
+    }
+
+    /*
+     * A saida e decidida pela etapa em que a marcacao acontece, nao pelo papel
+     * de quem marca: o lider marcando ainda em "Em andamento" declarou uma
+     * excecao como qualquer pessoa; marcando depois, aprovou por excecao. Sao
+     * medidas diferentes e o relatorio precisa das duas separadas.
+     */
+    const saida = saidaDe(atual?.slug);
+
+    await db
+      .update(workItems)
+      .set({
+        reviewExempt: true,
+        reviewExemptReason: motivo,
+        reviewExemptNote: motivo === MOTIVO_LIVRE ? justificativa : null,
+        reviewExemptKind: saida,
+        reviewExemptById: user.id,
+        reviewExemptAt: new Date(),
+        // Trocou o motivo: a co-assinatura anterior era de outro motivo.
+        reviewExemptCosignedById: null,
+        reviewExemptCosignedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(workItems.id, id));
+
+    await log(user.orgId, id, user.id, "item.excecao_declarada", {
+      motivo: rotuloMotivo(motivo),
+      ...(motivo === MOTIVO_LIVRE ? { justificativa } : {}),
+      saida,
+    });
+
+    refresh();
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Nao foi possivel gravar a excecao.");
   }
 }

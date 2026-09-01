@@ -181,6 +181,68 @@ oferece o arrasto, mas isso é conforto: quem chama a action direto bate na mesm
 devolveu já viu o que estava errado, e exigir ali só ensinaria a marcar tudo para conseguir
 devolver.
 
+### A esteira, e a única porta que a pula — 01/09/2026
+
+Até aqui nada impedia arrastar uma peça de `EM ANDAMENTO` direto para `APROVAR`, nem marcá-la como
+concluída pela caixinha da lista e pular o fluxo inteiro. A trava mora em `src/lib/esteira.ts`, é
+função pura e testada, e vale para **toda** porta: arrasto no quadro, seletor do painel, botão de
+concluir da lista, e a sincronização com o ClickUp.
+
+O que ela recusa, sempre com mensagem em português dizendo qual é o caminho certo:
+
+- ir de antes da esteira direto para `APROVAÇÃO` sem a exceção marcada;
+- ir de `PRÉ REVISÃO` para `APROVAÇÃO`, que pula a Revisão IA;
+- chegar em `PUBLICAR`, `COMPLETO` ou `BANCO DE CRIATIVOS` sem passar pela aprovação — **inclusive
+  com a exceção marcada**;
+- mover para `APROVAÇÃO` com a exceção marcada e sem motivo;
+- mandar para a esteira uma peça marcada (o caminho de volta é o líder desmarcar).
+
+Voltar nunca é barrado. Quem devolve já viu o que estava errado, e exigir cerimônia para devolver
+só ensinaria o time a empurrar para frente.
+
+**Subtarefa não anda na esteira.** Quem atravessa é a peça, e a peça é a tarefa-mãe; mandar cada
+subtarefa passar por três etapas transformaria a caixinha de riscar item numa via-crúcis. Etapa de
+outro pipeline — conteúdo, captação — também passa livre: barrar o que não se conhece transformaria
+qualquer etapa nova em parede sem mensagem.
+
+### A exceção declarada — 01/09/2026
+
+O campo **"Esta peça não precisa de revisão automática"**, no painel da tarefa. É a única porta que
+pula a revisão, e ela **não** pula a pessoa: a peça marcada vai de `EM ANDAMENTO` direto para
+`APROVAÇÃO`, nunca para `PUBLICAR`.
+
+Nasce sempre desmarcada e não herda de template, duplicação, importação ou automação — exceção
+herdada é exceção que ninguém decidiu. Exige motivo de lista fechada (`src/lib/excecao.ts`), e
+`Outro` exige justificativa escrita, que fica gravada para sempre.
+
+**O campo tranca quando a peça entra em `PRÉ REVISÃO`**, e a partir dali só a liderança marca ou
+desmarca. Sem essa trava, quem recebesse um laudo ruim marcaria a exceção no meio do caminho para
+escapar dele.
+
+**São três saídas, e elas nunca se somam num campo só de "pulou a revisão":**
+
+| Saída | Quem decide | Quando | O que mede |
+|---|---|---|---|
+| Marca fora do piloto | o sistema | a marca não tem manual cadastrado | quantas marcas faltam |
+| Exceção declarada | quem produz | antes da esteira | se virou atalho |
+| Aprovação de exceção | o líder | depois de a esteira ter começado | se a esteira atrapalha |
+
+Juntar as três apagaria exatamente a informação que interessa. As duas últimas moram na mesma
+coluna (`review_exempt_kind`) e o que as separa é a etapa em que a marcação aconteceu; a primeira é
+derivada do desligamento por marca, que é onde a decisão de verdade está.
+
+**O checklist de aprovação muda de uma linha numa peça marcada.** Os itens marcados como *só faz
+sentido com laudo* somem — não existe laudo — e no lugar entra a co-assinatura: *"Confirmo que esta
+peça não precisava de revisão automática, e o motivo declarado está correto."* Ela grava no próprio
+item, não em `review_checklist_answers`: não há item de catálogo para responder, e inventar uma
+linha falsa só para ter onde pendurar a resposta seria mentir no schema.
+
+**O termômetro** fica em **Revisor → Medição**, junto do resto. Porcentagem do total, quebra por
+motivo, por pessoa e por marca, e a lista completa dos `Outro` com a justificativa por extenso. Teto
+sugerido de partida: 20% ao mês — quem define é a diretoria. Se a porcentagem sobe, ou o time achou
+um atalho, ou a esteira está pedindo revisão de coisa que não precisa; nos dois casos quem muda é o
+processo, não a pessoa.
+
 **Texto escuro nos onze pills.** Branco reprova o contraste em nove das onze cores; sobre o amarelo
 dá 1.63:1. O `pendente` (`#6B7280`) fica em 4.34 e é o único abaixo do mínimo — clarear o cinza
 resolve, e a cor é decisão de quem desenhou o fluxo.
@@ -198,6 +260,17 @@ resolve, e a cor é decisão de quem desenhou o fluxo.
 7. **Formulário de solicitação entra no MVP.**
 
 ## Armadilhas que já custaram tempo
+
+**A caixinha de concluir da lista chama `setStage`.** Ela parece um toggle de "feito" e é um
+movimento de etapa como qualquer outro — por isso a esteira a barra numa tarefa que não passou pela
+aprovação. Quem espera riscar item e vê recusa não está diante de um defeito: está diante da trava
+fazendo o trabalho dela. Numa tarefa interna, o caminho é a exceção declarada com o motivo
+*Organização de processo / Arquivo*.
+
+**A sincronização com o ClickUp respeita a esteira.** O board de lá não conhece pré revisão como
+obrigação, e espelhar o movimento abriria por automação a porta que a tela fecha — por uma porta
+que ninguém está olhando, porque roda por comando e não por clique. As recusadas aparecem no fim do
+relatório do script, com o motivo. Divergência visível é melhor que atalho silencioso.
 
 **O pooler do Supabase tem dois modos, e eles não aceitam as mesmas credenciais.** O modo
 transação (6543) só aceita o `postgres`; o modo sessão (5432) aceita qualquer role. Um usuário

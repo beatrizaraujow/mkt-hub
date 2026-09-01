@@ -31,7 +31,17 @@ const STAGE_FIX = "ajustar";
  * continua existindo como rede: se este processamento morrer no meio, a
  * reserva expira e a execução volta a ser pega.
  */
-export async function onEnterReviewStage(item: Pick<WorkItem, "id" | "orgId">, userId: string) {
+export async function onEnterReviewStage(
+  item: Pick<WorkItem, "id" | "orgId" | "reviewExempt">,
+  userId: string,
+) {
+  /*
+   * Peça marcada não é revisada, e a checagem é aqui além de no porteiro: o
+   * porteiro barra depois de o ciclo já existir, e um ciclo barrado numa peça
+   * que ninguém queria revisar só polui o histórico da entrega.
+   */
+  if (item.reviewExempt) return;
+
   // Uma revisão já andando é a mesma resposta pelo dobro do preço.
   const [busy] = await db
     .select({ id: reviewCycles.id })

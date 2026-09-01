@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { reviewChecklistAnswers, reviewCycles, reviewRuns, workItems } from "@/db/schema";
+import { COASSINATURA_ID } from "./checklist";
 import { assertCompanyAccess, requireUserAction } from "@/lib/auth";
 import { applyVerdicts } from "@/features/work-items/review-bridge";
 import { drainReviewQueue } from "./drain";
@@ -156,6 +157,14 @@ export async function answerChecklist(
     if (!item) return { error: "Tarefa nao encontrada." };
     assertCompanyAccess(user, item.companyId);
 
+    /*
+     * A co-assinatura da excecao parece um item do checklist na tela, e nao e:
+     * ela nao existe no catalogo e a resposta dela mora no proprio item. Sem
+     * esta recusa, um clique nela tentaria gravar uma resposta apontando para
+     * um item que nao existe.
+     */
+    if (itemId === COASSINATURA_ID) return cosignExcecao(workItemId, checked);
+
     await db
       .insert(reviewChecklistAnswers)
       .values({ workItemId, itemId, checked, answeredById: user.id })
@@ -168,5 +177,54 @@ export async function answerChecklist(
     return { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Nao foi possivel responder." };
+  }
+}
+
+/**
+ * A co-assinatura da excecao, no checklist de aprovacao.
+ *
+ * Numa peca marcada como sem revisao automatica nao existe laudo, entao o item
+ * "Li o laudo e assumo os pontos de atencao que sobraram" nao faz sentido. No
+ * lugar dele entra esta confirmacao — e a diferenca nao e de redacao: quem
+ * aprova passa a **assinar junto** a decisao de pular a revisao, em vez de
+ * herda-la em silencio de quem produziu.
+ *
+ * Grava no proprio item porque nao ha item de catalogo para responder. Inventar
+ * uma linha falsa em `review_checklist_items` so para ter onde pendurar a
+ * resposta poluiria o catalogo que a tela de Regras mostra.
+ */
+export async function cosignExcecao(
+  workItemId: string,
+  checked: boolean,
+): Promise<ReviewState> {
+  try {
+    const user = await requireUserAction();
+
+    const [item] = await db
+      .select({ companyId: workItems.companyId, reviewExempt: workItems.reviewExempt })
+      .from(workItems)
+      .where(eq(workItems.id, workItemId))
+      .limit(1);
+
+    if (!item) return { error: "Tarefa nao encontrada." };
+    assertCompanyAccess(user, item.companyId);
+
+    if (!item.reviewExempt) {
+      return { error: "Esta peca nao esta marcada como sem revisao automatica." };
+    }
+
+    await db
+      .update(workItems)
+      .set({
+        reviewExemptCosignedById: checked ? user.id : null,
+        reviewExemptCosignedAt: checked ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(workItems.id, workItemId));
+
+    revalidatePath("/trabalho");
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Nao foi possivel confirmar." };
   }
 }

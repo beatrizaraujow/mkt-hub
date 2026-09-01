@@ -197,6 +197,15 @@ const checklistSchema = z.object({
    */
   ruleId: optional,
   isReliabilityProbe: z.coerce.boolean(),
+  /**
+   * O item so faz sentido quando existe laudo.
+   *
+   * Numa peca marcada como sem revisao automatica nao ha laudo nenhum, e o item
+   * some — no lugar dele entra a co-assinatura da excecao. Sem esta marcacao, o
+   * checklist pediria que alguem confirmasse ter lido um documento que nao
+   * existe, que e o jeito mais rapido de ensinar o time a marcar sem ler.
+   */
+  dependsOnReport: z.coerce.boolean(),
 });
 
 export async function saveChecklistItem(
@@ -214,6 +223,7 @@ export async function saveChecklistItem(
       skill: String(form.get("skill") ?? ""),
       ruleId: String(form.get("ruleId") ?? ""),
       isReliabilityProbe: form.get("isReliabilityProbe") === "on",
+      dependsOnReport: form.get("dependsOnReport") === "on",
     });
 
     if (!parsed.success) {
@@ -230,6 +240,7 @@ export async function saveChecklistItem(
       text: data.text,
       ruleId: data.ruleId,
       isReliabilityProbe: data.isReliabilityProbe,
+      dependsOnReport: data.dependsOnReport,
     };
 
     if (data.id) {

@@ -27,7 +27,14 @@ import { disabledCompanies } from "./settings";
  * Casar por prefixo de frase resolveria hoje e quebraria no dia em que alguém
  * melhorasse a redação.
  */
-export type GateCode = "sumiu" | "desligado" | "sem_tipo" | "sem_copy" | "copy_curta" | "sem_regra";
+export type GateCode =
+  | "sumiu"
+  | "desligado"
+  | "isento"
+  | "sem_tipo"
+  | "sem_copy"
+  | "copy_curta"
+  | "sem_regra";
 
 export type GateReason = { code: GateCode; text: string };
 
@@ -55,6 +62,23 @@ export async function runGate(workItemId: string): Promise<GateResult> {
   if ((await disabledCompanies(item.orgId)).includes(item.companyId)) {
     return barra([
       { code: "desligado", text: "A revisão automática está desligada para esta empresa." },
+    ]);
+  }
+
+  /**
+   * A exceção declarada, e ela vem antes de tudo que custa.
+   *
+   * Alguém marcou que esta peça não precisa de revisão automática. Emitir um
+   * laudo assim mesmo gastaria IA para produzir um parecer que, por decisão
+   * registrada, ninguém vai usar — e pior: colocaria na tela um laudo que
+   * contradiz a exceção, e aí a peça passa a ter duas verdades.
+   */
+  if (item.reviewExempt) {
+    return barra([
+      {
+        code: "isento",
+        text: "Esta peça está marcada como “não precisa de revisão automática”.",
+      },
     ]);
   }
 

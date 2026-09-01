@@ -65,6 +65,12 @@ const SAIDA: Record<GateCode, { label: string; href: (itemId: string) => string 
   copy_curta: { label: "Rever a copy", href: (id) => `/trabalho?item=${id}` },
   sem_regra: { label: "Escrever a regra", href: () => "/revisor/regras" },
   desligado: { label: "Ligar nesta empresa", href: () => "/revisor/regras" },
+  /*
+   * A exceção declarada não é pendência a resolver: alguém decidiu, com motivo
+   * gravado, que esta peça não passa pela revisão. O caminho existe mesmo assim
+   * porque a decisão é reversível — o líder desmarca e a peça volta à esteira.
+   */
+  isento: { label: "Ver a exceção", href: (id) => `/trabalho?item=${id}` },
   sumiu: null,
 };
 
