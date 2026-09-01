@@ -34,10 +34,34 @@ import { readFileSync } from "node:fs";
 const PRODUCAO = "tnfjjaxrmatuovwjiptz";
 const DESENVOLVIMENTO = "hqohquknxgiywpokmndp";
 
-/** O `postgres.<ref>` da string de conexao, que e o que identifica o projeto. */
+/**
+ * O identificador do projeto Supabase dentro da string de conexao.
+ *
+ * Ele aparece em dois lugares diferentes conforme o tipo de conexao, e por isso
+ * os dois sao procurados:
+ *
+ *   pooler   postgresql://postgres.<ref>:senha@aws-1.pooler.supabase.com:6543/...
+ *   direta   postgresql://postgres:senha@db.<ref>.supabase.co:5432/...
+ *
+ * No pooler o host e o mesmo para todos os projetos da regiao — quem identifica
+ * e o usuario. Na direta e o contrario. Olhar so um dos dois deixa metade das
+ * strings sem destino reconhecido.
+ */
 function refDaConexao(url: string | undefined): string | null {
-  const achado = url?.match(/postgres\.([a-z0-9]+)/i);
-  return achado ? achado[1] : null;
+  if (!url) return null;
+
+  const noUsuario = url.match(/postgres\.([a-z0-9]{16,})/i);
+  if (noUsuario) return noUsuario[1];
+
+  const noHost = url.match(/@(?:db\.)?([a-z0-9]{16,})\.supabase\.(?:co|com)/i);
+  if (noHost) return noHost[1];
+
+  return null;
+}
+
+/** A string sem a senha, para poder aparecer na tela quando algo nao bate. */
+function semSenha(url: string): string {
+  return url.replace(/(:\/\/[^:@/]+:)[^@]*@/, "$1***@");
 }
 
 /**
@@ -128,10 +152,17 @@ const onde =
         : "nao definido";
 
 console.log(`Banco de destino: ${onde}`);
-if (ref) console.log(`  postgres.${ref}`);
+if (ref) console.log(`  projeto ${ref}`);
 
 if (onde === "nao definido") {
-  console.error("\nSem DATABASE_URL no ambiente e sem ref no .env.local. Nao da para saber onde escreveria.");
+  const bruta = process.env.DATABASE_URL;
+  if (!bruta) {
+    console.error("\nNao ha DATABASE_URL. Nao da para saber onde escreveria.");
+  } else {
+    console.error("\nHa DATABASE_URL, mas nao reconheci o projeto nela:");
+    console.error(`  ${semSenha(bruta)}`);
+    console.error("\nEsperava `postgres.<ref>` no usuario ou `db.<ref>.supabase.co` no host.");
+  }
   process.exit(1);
 }
 
