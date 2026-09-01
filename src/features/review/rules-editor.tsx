@@ -388,14 +388,44 @@ function ChecklistForm({
           <textarea name="text" defaultValue={item?.text ?? ""} required rows={2} className={area} />
         </Field>
 
+        <Field
+          label="Quando é cobrado"
+          hint="São dois checklists: o da pré revisão é de quem produz, o da aprovação é de quem aprova."
+        >
+          <select
+            name="momento"
+            defaultValue={item?.momento ?? "operacional"}
+            className={cn(field, "cursor-pointer")}
+          >
+            <option value="operacional">Pré revisão · quem produz</option>
+            <option value="aprovacao">Aprovação · quem aprova</option>
+          </select>
+        </Field>
+
         <div className="grid gap-3.5 sm:grid-cols-2">
           <ScopeSelects
             companies={companies}
             company={item?.companyId ?? ""}
             skill={item?.skill ?? ""}
-            format={null}
+            format={item?.format ?? ""}
           />
         </div>
+
+        <label className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-line px-3 py-2.5">
+          <input
+            type="checkbox"
+            name="onlyAfterRework"
+            defaultChecked={item?.onlyAfterRework ?? false}
+            className="mt-[3px] accent-[var(--brand)]"
+          />
+          <span>
+            <span className="block text-[13px] text-ink">Só quando a peça já voltou por alteração</span>
+            <span className="block text-[11.5px] text-faint">
+              Na primeira passagem a pergunta não tem resposta possível, e perguntar mesmo assim
+              ensina a marcar sem ler.
+            </span>
+          </span>
+        </label>
 
         <Field
           label="Regra que este item cobre"
@@ -912,6 +942,16 @@ export function RulesEditor({ data }: { data: RulesData }) {
                     {item.isReliabilityProbe && (
                       <span className="ml-2 whitespace-nowrap rounded-[4px] border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-faint">
                         medidor{codigo ? ` · ${codigo}` : ""}
+                      </span>
+                    )}
+                    {item.momento === "aprovacao" && (
+                      <span className="ml-2 whitespace-nowrap rounded-[4px] border border-brand-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-brand-ink">
+                        aprovação
+                      </span>
+                    )}
+                    {item.onlyAfterRework && (
+                      <span className="ml-2 whitespace-nowrap rounded-[4px] border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-faint">
+                        só após alteração
                       </span>
                     )}
                     {item.dependsOnReport && (

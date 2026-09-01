@@ -135,7 +135,15 @@ export async function diagnose(user: CurrentUser, workItemId: string): Promise<D
       format: row.format,
     }),
 
-    checklistFor({ orgId: row.orgId, companyId: row.companyId, skill: row.skill }),
+    /*
+      O diagnóstico é sobre a Revisão IA, e o checklist que anda junto dela é o
+      do operacional: é o que quem produz responde antes de a peça entrar na
+      esteira. O da aprovação é de outra etapa e de outra pessoa.
+     */
+    checklistFor(
+      { orgId: row.orgId, companyId: row.companyId, skill: row.skill, format: row.format },
+      "operacional",
+    ),
 
     db
       .select()

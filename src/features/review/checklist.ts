@@ -2,11 +2,13 @@ import "server-only";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  activityLog,
   reviewChecklistAnswers,
   reviewChecklistItems,
   type ReviewChecklistItem,
 } from "@/db/schema";
 import { CONFIRMACAO_DA_EXCECAO } from "@/lib/excecao";
+import { sql } from "drizzle-orm";
 import { companyChain } from "./rules";
 
 /**
@@ -22,7 +24,15 @@ import { companyChain } from "./rules";
  * máquina também confere, para comparar. Se alguém marcou "revisei a
  * ortografia" e a máquina achou três erros logo depois, você aprendeu algo
  * sobre o processo.
+ *
+ * **São dois checklists, não um.** O do operacional é por marca e por formato,
+ * quem produz responde, e ele é cobrado ao sair da Pré revisão. O da aprovação
+ * são seis itens sobre a peça ser a peça certa, quem lidera responde, e ele é
+ * cobrado ao sair da Aprovação. Até 01/09/2026 eram a mesma lista cobrada no
+ * mesmo lugar — a etapa errada e a pessoa errada.
  */
+
+export type Momento = "operacional" | "aprovacao";
 
 /**
  * Uma linha do checklist como a tela a vê.
@@ -47,6 +57,7 @@ export type ItemDoChecklist = {
   orgId: string;
   companyId: string;
   skill: string | null;
+  format: string | null;
   reviewExempt: boolean;
   reviewExemptCosignedAt: Date | null;
 };
@@ -60,11 +71,34 @@ export type ItemDoChecklist = {
  */
 export const COASSINATURA_ID = "coassinatura-da-excecao";
 
-export async function checklistFor(item: {
-  orgId: string;
-  companyId: string;
-  skill: string | null;
-}): Promise<ReviewChecklistItem[]> {
+/**
+ * A peça já voltou por alteração alguma vez?
+ *
+ * Toda volta de etapa de revisão exige motivo escrito, e é a existência desse
+ * motivo no histórico que responde a pergunta. Contar mudanças de etapa não
+ * serviria: avançar também é mudança, e a peça teria "voltado" no primeiro
+ * movimento normal dela.
+ */
+export async function voltouPorAlteracao(workItemId: string): Promise<boolean> {
+  const [linha] = await db
+    .select({ id: activityLog.id })
+    .from(activityLog)
+    .where(
+      and(
+        eq(activityLog.workItemId, workItemId),
+        eq(activityLog.action, "item.stage_changed"),
+        sql`${activityLog.payload}->>'motivo' is not null`,
+      ),
+    )
+    .limit(1);
+
+  return Boolean(linha);
+}
+
+export async function checklistFor(
+  item: { orgId: string; companyId: string; skill: string | null; format: string | null },
+  momento: Momento,
+): Promise<ReviewChecklistItem[]> {
   const chain = await companyChain(item.companyId);
 
   return db
@@ -74,10 +108,15 @@ export async function checklistFor(item: {
       and(
         eq(reviewChecklistItems.orgId, item.orgId),
         eq(reviewChecklistItems.isActive, true),
+        eq(reviewChecklistItems.momento, momento),
         or(isNull(reviewChecklistItems.companyId), inArray(reviewChecklistItems.companyId, chain)),
         or(
           isNull(reviewChecklistItems.skill),
           item.skill ? eq(reviewChecklistItems.skill, item.skill) : undefined,
+        ),
+        or(
+          isNull(reviewChecklistItems.format),
+          item.format ? eq(reviewChecklistItems.format, item.format) : undefined,
         ),
       ),
     )
@@ -87,15 +126,31 @@ export async function checklistFor(item: {
 /**
  * O checklist da entrega, já com o que foi respondido.
  *
- * Numa peça marcada como sem revisão automática o checklist muda de uma linha:
- * os itens que dependem do laudo saem — não existe laudo para ler — e no lugar
- * entra a co-assinatura da exceção. Assim quem aprova assina junto a decisão,
- * em vez de herdar em silêncio a de outra pessoa. O resto continua igual: a
- * exceção dispensa a máquina, nunca a conferência de gente.
+ * Numa peça marcada como sem revisão automática o checklist de aprovação muda
+ * de uma linha: os itens que dependem do laudo saem — não existe laudo para
+ * ler — e no lugar entra a co-assinatura da exceção. Assim quem aprova assina
+ * junto a decisão, em vez de herdar em silêncio a de outra pessoa. O resto
+ * continua igual: a exceção dispensa a máquina, nunca a conferência de gente.
  */
-export async function checklistOf(item: ItemDoChecklist): Promise<ChecklistLine[]> {
-  const items = await checklistFor(item);
-  const relevantes = item.reviewExempt ? items.filter((line) => !line.dependsOnReport) : items;
+export async function checklistOf(
+  item: ItemDoChecklist,
+  momento: Momento,
+): Promise<ChecklistLine[]> {
+  const items = await checklistFor(item, momento);
+
+  /*
+   * "Se a peça já voltou por alteração antes…" só é perguntado quando ela
+   * voltou. A consulta ao histórico só acontece se algum item pedir — não vale
+   * uma ida ao banco por checklist que não tem nenhum item condicional.
+   */
+  const temCondicional = items.some((line) => line.onlyAfterRework);
+  const voltou = temCondicional ? await voltouPorAlteracao(item.id) : false;
+
+  const relevantes = items.filter((line) => {
+    if (line.onlyAfterRework && !voltou) return false;
+    if (item.reviewExempt && line.dependsOnReport) return false;
+    return true;
+  });
 
   const answers =
     relevantes.length > 0
@@ -115,7 +170,7 @@ export async function checklistOf(item: ItemDoChecklist): Promise<ChecklistLine[
     isCosign: false,
   }));
 
-  if (item.reviewExempt) {
+  if (momento === "aprovacao" && item.reviewExempt) {
     linhas.push({
       id: COASSINATURA_ID,
       text: CONFIRMACAO_DA_EXCECAO,
@@ -129,7 +184,10 @@ export async function checklistOf(item: ItemDoChecklist): Promise<ChecklistLine[
 }
 
 /** Quantos itens ainda faltam. Zero significa que a etapa pode avançar. */
-export async function pendingChecklist(item: ItemDoChecklist): Promise<number> {
-  const lines = await checklistOf(item);
+export async function pendingChecklist(
+  item: ItemDoChecklist,
+  momento: Momento,
+): Promise<number> {
+  const lines = await checklistOf(item, momento);
   return lines.filter((line) => !line.checked).length;
 }

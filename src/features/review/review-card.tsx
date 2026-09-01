@@ -136,7 +136,21 @@ export function ReviewCard({
 
   const { cycle } = panel;
   const verdict = cycle?.verdict ? VERDICT[cycle.verdict] : null;
-  const showChecklist = stageSlug === "aprovacao" && panel.checklist.length > 0;
+  /**
+   * Cada checklist na sua etapa, e nunca os dois juntos.
+   *
+   * O do operacional trava a saída da Pré revisão e é de quem produz; o da
+   * aprovação trava a saída da Aprovação e é de quem lidera. Mostrar os dois na
+   * mesma tela devolveria a lista de doze itens que ninguém lê inteira.
+   */
+  const lista =
+    stageSlug === "pre_revisao"
+      ? { linhas: panel.checklist, titulo: "Checklist da pré revisão", quem: "Quem produziu responde. A etapa não avança enquanto faltar item." }
+      : stageSlug === "aprovacao"
+        ? { linhas: panel.checklistAprovacao, titulo: "Checklist da aprovação", quem: "Quem aprova responde. A etapa não avança enquanto faltar item." }
+        : null;
+
+  const showChecklist = lista !== null && lista.linhas.length > 0;
 
   // Nada aconteceu e nada vai acontecer aqui: não ocupa espaço na tela.
   if (!cycle && !showChecklist && panel.notChecked.length === 0) return null;
@@ -441,13 +455,11 @@ export function ReviewCard({
         </p>
       ) : null}
 
-      {showChecklist ? (
-        <Bloco title="Checklist da aprovação">
-          <p className="-mt-1.5 mb-2 text-[11.5px] text-faint">
-            A etapa não avança enquanto faltar item.
-          </p>
+      {showChecklist && lista ? (
+        <Bloco title={lista.titulo}>
+          <p className="-mt-1.5 mb-2 text-[11.5px] text-faint">{lista.quem}</p>
           <div className="flex flex-col">
-            {panel.checklist.map((line) => (
+            {lista.linhas.map((line) => (
               <button
                 key={line.id}
                 type="button"

@@ -187,6 +187,16 @@ const checklistSchema = z.object({
   text: z.string().trim().min(8, "Escreva o item por extenso.").max(300),
   companyId: optional,
   skill: optional,
+  format: optional,
+  /**
+   * Em que etapa o item e cobrado, e por quem.
+   *
+   * `operacional` sai da Pre revisao e e de quem produz; `aprovacao` sai da
+   * Aprovacao e e de quem lidera. Sao perguntas diferentes para pessoas
+   * diferentes, e junta-las devolve a lista de doze itens que ninguem le.
+   */
+  momento: z.enum(["operacional", "aprovacao"]),
+  onlyAfterRework: z.coerce.boolean(),
   /**
    * A regra que este item cobre, quando cobre uma.
    *
@@ -221,6 +231,9 @@ export async function saveChecklistItem(
       text: String(form.get("text") ?? ""),
       companyId: String(form.get("companyId") ?? ""),
       skill: String(form.get("skill") ?? ""),
+      format: String(form.get("format") ?? ""),
+      momento: String(form.get("momento") ?? "operacional"),
+      onlyAfterRework: form.get("onlyAfterRework") === "on",
       ruleId: String(form.get("ruleId") ?? ""),
       isReliabilityProbe: form.get("isReliabilityProbe") === "on",
       dependsOnReport: form.get("dependsOnReport") === "on",
@@ -232,11 +245,15 @@ export async function saveChecklistItem(
 
     const data = parsed.data;
     if (data.skill && !isSkill(data.skill)) return { error: "Tipo de peça fora do catálogo." };
+    if (data.format && !isFormat(data.format)) return { error: "Formato fora do catálogo." };
 
     const values = {
       orgId: user.orgId,
       companyId: data.companyId,
       skill: data.skill,
+      format: data.format,
+      momento: data.momento,
+      onlyAfterRework: data.onlyAfterRework,
       text: data.text,
       ruleId: data.ruleId,
       isReliabilityProbe: data.isReliabilityProbe,

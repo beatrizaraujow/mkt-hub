@@ -70,7 +70,16 @@ export type ReviewPanel = {
   overlaps: Array<{ winner: string; loser: string; applied: boolean; why: string }>;
   /** As regras que continuam sendo responsabilidade de gente. */
   notChecked: Array<{ code: string; text: string; who: "pessoa" | "fora" }>;
+  /**
+   * Os dois checklists, separados porque são de etapas e de pessoas diferentes.
+   *
+   * O do operacional é por marca e por formato, quem produz responde, e trava a
+   * saída da Pré revisão. O da aprovação são os seis itens sobre a peça ser a
+   * peça certa, quem lidera responde, e trava a saída da Aprovação. Mandar os
+   * dois numa lista só devolveria o problema que existia até 01/09/2026.
+   */
   checklist: ChecklistLine[];
+  checklistAprovacao: ChecklistLine[];
 };
 
 export async function reviewPanelFor(item: WorkItem | undefined): Promise<ReviewPanel | null> {
@@ -97,7 +106,10 @@ export async function reviewPanelFor(item: WorkItem | undefined): Promise<Review
 
   const cycle = todas.at(-1);
 
-  const checklist = await checklistOf(item);
+  const [checklist, checklistAprovacao] = await Promise.all([
+    checklistOf(item, "operacional"),
+    checklistOf(item, "aprovacao"),
+  ]);
 
   if (!cycle) {
     return {
@@ -111,6 +123,7 @@ export async function reviewPanelFor(item: WorkItem | undefined): Promise<Review
       overlaps: [],
       notChecked,
       checklist,
+      checklistAprovacao,
     };
   }
 
@@ -176,5 +189,6 @@ export async function reviewPanelFor(item: WorkItem | undefined): Promise<Review
     overlaps: cycle.overlaps,
     notChecked,
     checklist,
+    checklistAprovacao,
   };
 }

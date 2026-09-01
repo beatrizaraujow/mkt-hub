@@ -24,6 +24,8 @@
     "revisor:designar": "tsx --env-file=.env.local src/db/designar-revisor.ts",
     "db:backup": "tsx --env-file=.env.local src/db/backup.ts",
     "db:pendentes": "tsx --env-file=.env.local src/db/aplicar-migrations.ts",
+    "checklist:ver": "tsx --env-file=.env.local src/db/ver-checklist.ts",
+    "checklist:aprovacao": "tsx --env-file=.env.local src/db/seed-checklist-aprovacao.ts",
     "clickup:importar": "tsx --env-file=.env.local src/db/import-clickup.ts",
     "clickup:baixar": "tsx --env-file=.env.local src/db/fetch-clickup.ts",
     "clickup:sincronizar": "tsx --env-file=.env.local src/db/sync-clickup.ts"

@@ -247,19 +247,32 @@ export async function setStage(
     const forward = from ? target.position > from.position : true;
 
     /**
-     * O checklist da aprovacao trava a saida para frente, e so para frente.
+     * Os dois checklists travam a saida para frente, e so para frente.
      *
      * Mandar a peca de volta para ajuste nao precisa de checklist respondido —
      * quem devolveu ja viu o que estava errado. Exigir ali so ensinaria o time
      * a marcar tudo para conseguir devolver.
+     *
+     * Cada um na sua etapa: o do operacional ao sair da Pre revisao, o da
+     * aprovacao ao sair da Aprovacao. Ate 01/09/2026 os dois eram a mesma lista
+     * cobrada na Aprovacao — a etapa errada e a pessoa errada, e uma peca com
+     * excecao declarada arrastava junto perguntas de manual que ela nunca
+     * deveria ter respondido.
      */
-    if (from?.slug === "aprovacao" && forward) {
-      const faltam = await pendingChecklist(item);
+    const porta =
+      from?.slug === "pre_revisao"
+        ? { momento: "operacional" as const, nome: "checklist da pré revisão" }
+        : from?.slug === "aprovacao"
+          ? { momento: "aprovacao" as const, nome: "checklist de aprovação" }
+          : null;
+
+    if (porta && forward) {
+      const faltam = await pendingChecklist(item, porta.momento);
       if (faltam > 0) {
         return fail(
           faltam === 1
-            ? "Falta 1 item do checklist de aprovação."
-            : `Faltam ${faltam} itens do checklist de aprovação.`,
+            ? `Falta 1 item do ${porta.nome}.`
+            : `Faltam ${faltam} itens do ${porta.nome}.`,
         );
       }
     }

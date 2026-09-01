@@ -251,6 +251,36 @@ peça não precisava de revisão automática, e o motivo declarado está correto
 item, não em `review_checklist_answers`: não há item de catálogo para responder, e inventar uma
 linha falsa só para ter onde pendurar a resposta seria mentir no schema.
 
+### Os dois checklists — 01/09/2026
+
+São dois, e até esta data eram um só cobrado no lugar errado.
+
+| | Pré revisão | Aprovação |
+|---|---|---|
+| Quem responde | quem produz | quem lidera |
+| Trava a saída de | `PRÉ REVISÃO` | `APROVAÇÃO` |
+| O que pergunta | se a peça segue o manual: acervo, produto, compliance | se a peça é **a peça certa** |
+| Escopo | por marca, tipo e formato | seis itens, universais |
+| A exceção declarada | **pula** | **não pula** |
+
+Os seis itens de produção estavam cadastrados sem essa distinção e eram cobrados na Aprovação — a
+etapa errada e a pessoa errada. Eles nasceram `operacional` na migration, que é o que sempre foram.
+
+O checklist de aprovação foi cadastrado em 01/09/2026 com os seis itens do documento de validação,
+como estavam. Dois deles não aparecem sempre, e é de propósito: *"a alteração pedida foi realmente
+feita"* só aparece quando a peça já voltou por alteração, e *"as margens que a gráfica pediu"* só em
+Mídia OFF. Item que aparece sem fazer sentido ensina a marcar sem ler, e aí o checklist inteiro
+deixa de valer.
+
+O sinal de "já voltou" é o retrabalho registrado: toda volta de etapa de revisão exige motivo
+escrito, e é a existência desse motivo no histórico que responde. Contar mudanças de etapa não
+serviria — avançar também é mudança, e a peça teria "voltado" no primeiro movimento normal dela.
+
+```bash
+npm run checklist:ver                 # o que está cadastrado, separado por momento
+npm run checklist:aprovacao aplicar   # cadastra os seis; roda quantas vezes quiser
+```
+
 **O termômetro** fica em **Revisor → Medição**, junto do resto. Porcentagem do total, quebra por
 motivo, por pessoa e por marca, a lista completa dos `Outro` com a justificativa por extenso, os
 pedidos recusados e os que estão parados esperando decisão. Teto sugerido de partida: 20% ao mês —

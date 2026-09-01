@@ -665,6 +665,46 @@ export const reviewChecklistItems = pgTable(
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     skill: text("skill"),
 
+    /**
+     * Formato da peca, quando o item so vale para um.
+     *
+     * "A arte esta no formato, na resolucao e com as margens que a grafica
+     * pediu" so faz sentido em Midia OFF. Sem este recorte ela apareceria em
+     * todo post de Instagram, e um item que nao se aplica ensina a marcar sem
+     * ler — que e o comeco do fim do checklist inteiro.
+     */
+    format: text("format"),
+
+    /**
+     * Em que momento do fluxo este item e cobrado.
+     *
+     *   `operacional`  quem produz responde, ao sair da Pre revisao. E o
+     *                  checklist por marca e por formato: acervo, produto
+     *                  protagonista, compliance. **A excecao declarada pula.**
+     *   `aprovacao`    quem lidera responde, ao sair da Aprovacao. Sao seis
+     *                  itens sobre a peca ser a peca certa, e nao sobre ela
+     *                  seguir o manual. **A excecao declarada NAO pula.**
+     *
+     * Sao dois checklists diferentes com perguntas diferentes para pessoas
+     * diferentes, e ate 01/09/2026 eram um so: o do operacional era cobrado na
+     * Aprovacao, que e a etapa errada e a pessoa errada. As linhas antigas
+     * nascem `operacional` porque e o que elas sempre foram.
+     */
+    momento: text("momento").notNull().default("operacional"),
+
+    /**
+     * So aparece quando a peca ja voltou por alteracao.
+     *
+     * "Se a peca ja voltou por alteracao antes, a alteracao pedida foi
+     * realmente feita" e uma pergunta sem sentido na primeira passagem. Mostrar
+     * mesmo assim ensinaria a responder "sim" para uma coisa que nao aconteceu.
+     *
+     * O sinal e o retrabalho registrado: toda volta de etapa de revisao exige
+     * motivo escrito (`work-items/rework`), e e a existencia desse motivo no
+     * historico que responde "ja voltou".
+     */
+    onlyAfterRework: boolean("only_after_rework").notNull().default(false),
+
     text: text("text").notNull(),
     /** A regra que o item cobre, quando cobre uma. */
     ruleId: uuid("rule_id").references((): AnyPgColumn => reviewRules.id, {
