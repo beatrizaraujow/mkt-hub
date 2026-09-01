@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
+import { casaEscopo } from "./escopo";
 import { companies, reviewRules, type ReviewRule } from "@/db/schema";
 import { resolveRules, type Overlap } from "./resolve";
 
@@ -53,12 +54,14 @@ export async function rulesFor(input: {
         eq(reviewRules.isActive, true),
         // Empresa nula = universal; senão, precisa estar na linha da empresa.
         or(isNull(reviewRules.companyId), inArray(reviewRules.companyId, chain)),
-        // Campo nulo na regra = vale para qualquer valor da entrega.
-        or(isNull(reviewRules.skill), input.skill ? eq(reviewRules.skill, input.skill) : undefined),
-        or(
-          isNull(reviewRules.format),
-          input.format ? eq(reviewRules.format, input.format) : undefined,
-        ),
+        /*
+         * Campo nulo na regra = vale para qualquer valor da entrega. E os dois
+         * lados sao listas: ver `escopo.ts` — a entrega guarda combinacao
+         * ("Captacao, Edicao de video"), e comparar por igualdade fazia essas
+         * tarefas nao casarem com regra nenhuma, sem erro na tela.
+         */
+        casaEscopo(reviewRules.skill, input.skill),
+        casaEscopo(reviewRules.format, input.format),
       ),
     )
     .orderBy(asc(reviewRules.position), asc(reviewRules.code));

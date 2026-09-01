@@ -276,15 +276,55 @@ O sinal de "já voltou" é o retrabalho registrado: toda volta de etapa de revis
 escrito, e é a existência desse motivo no histórico que responde. Contar mudanças de etapa não
 serviria — avançar também é mudança, e a peça teria "voltado" no primeiro movimento normal dela.
 
+O checklist do operacional foi cadastrado em 01/09/2026 com os blocos por marca do mesmo documento.
+
 ```bash
-npm run checklist:ver                 # o que está cadastrado, separado por momento
-npm run checklist:aprovacao aplicar   # cadastra os seis; roda quantas vezes quiser
+npm run checklist:ver                # o que está cadastrado, separado por momento
+npm run checklist:aprovacao aplicar  # os seis da aprovação
+npm run checklist:marcas aplicar     # os blocos por marca; roda quantas vezes quiser
 ```
+
+**UNIVERSAL é uma linha, não seis.** A etiqueta do documento promete que "mexer aqui muda para as
+6 marcas de uma vez", e uma linha por marca faria corrigir uma frase virar corrigir seis — na
+prática, corrigir cinco e esquecer uma. Item universal nasce com `company_id` nulo, e é isso que
+cumpre a promessa. Pela mesma razão o recorte de formato é uma **lista** numa linha só.
+
+**A Weevo não tem bloco próprio, e está certo.** O documento diz que ela usa só o bloco universal.
+Como o universal nasce sem empresa, ela já fica coberta sem uma linha com o nome dela.
+
+**O item da usina mora na Onevo mãe**, não em Investimentos e Energia separados: é a mesma frase
+nos dois blocos, e a cadeia de empresas já alcança as sub-marcas.
+
+**"O vídeo tem gancho claro nos 3 primeiros segundos" não foi cadastrado duas vezes.** O documento
+o repete no bloco de captação, e o bloco de vídeo já o carrega para os mesmos formatos — uma tarefa
+de captação veria a mesma frase duas vezes na mesma tela.
+
+O que o documento declara e não bate: vários blocos anunciam "N itens no total" e listam menos
+(SeuBoné Mídia OFF diz 7 e lista 3; Onevo Investimentos Estático diz 5 e lista 4). Foi cadastrado
+o que está escrito, não o que o contador promete. Formatos **Stories** e **Outros** não aparecem em
+bloco nenhum e por isso não têm checklist.
 
 **O termômetro** fica em **Revisor → Medição**, junto do resto. Porcentagem do total, quebra por
 motivo, por pessoa e por marca, a lista completa dos `Outro` com a justificativa por extenso, os
 pedidos recusados e os que estão parados esperando decisão. Teto sugerido de partida: 20% ao mês —
 quem define é a diretoria.
+
+### O recorte casa elemento a elemento — 01/09/2026
+
+Regra e item de checklist se aplicam à entrega comparando **listas dos dois lados**
+(`features/review/escopo.ts`), não por igualdade de texto. Dois motivos, e os dois só aparecem
+olhando os dados de verdade:
+
+- **A entrega guarda combinação.** O ClickUp permitia marcar mais de um valor, e a migração trouxe
+  isso inteiro: existem tarefas com `"Captação, Edição de vídeo"` e com `"Vídeo, Vídeo Ads"`.
+  Igualdade de texto fazia essas tarefas não casarem com recorte nenhum — e o sintoma não era erro,
+  era o checklist não aparecer e a regra não ser aplicada. Falha silenciosa e para o lado
+  permissivo. Em produção são 53 tarefas só na combinação captação × vídeo.
+- **O recorte também é lista**, pelo motivo do UNIVERSAL acima.
+
+Sem caixa (o board tem `"ADS VÍDEOS"` onde o catálogo tem `"ADS vídeos"`), com acento (`unaccent()`
+exige extensão instalada, e comparação que depende de extensão volta a falhar em silêncio no
+ambiente que não a tem).
 
 **A quebra "por pessoa" é por quem pediu, não por quem marcou.** Desde que só a liderança marca,
 quebrar por quem marcou daria uma lista de uma linha só com o nome de quem lidera: número verdadeiro

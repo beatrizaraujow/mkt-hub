@@ -230,8 +230,14 @@ export async function saveChecklistItem(
       id: String(form.get("id") ?? ""),
       text: String(form.get("text") ?? ""),
       companyId: String(form.get("companyId") ?? ""),
-      skill: String(form.get("skill") ?? ""),
-      format: String(form.get("format") ?? ""),
+      /*
+       * Recorte com mais de um valor vira lista separada por virgula — o mesmo
+       * formato em que a entrega guarda combinacao, que e o que `escopo.ts`
+       * compara elemento a elemento. `getAll` porque o formulario manda uma
+       * entrada por caixa marcada.
+       */
+      skill: form.getAll("skill").map(String).join(", "),
+      format: form.getAll("format").map(String).join(", "),
       momento: String(form.get("momento") ?? "operacional"),
       onlyAfterRework: form.get("onlyAfterRework") === "on",
       ruleId: String(form.get("ruleId") ?? ""),
@@ -244,8 +250,24 @@ export async function saveChecklistItem(
     }
 
     const data = parsed.data;
-    if (data.skill && !isSkill(data.skill)) return { error: "Tipo de peça fora do catálogo." };
-    if (data.format && !isFormat(data.format)) return { error: "Formato fora do catálogo." };
+
+    /*
+     * Cada valor da lista e conferido sozinho. Conferir a lista inteira contra
+     * o catalogo recusaria "Estatico, Estatico Ads" — que e exatamente o que a
+     * tela agora manda.
+     */
+    const fora = (valor: string | null, dentro: (v: string) => boolean) =>
+      (valor ?? "")
+        .split(",")
+        .map((parte) => parte.trim())
+        .filter(Boolean)
+        .find((parte) => !dentro(parte));
+
+    const skillFora = fora(data.skill, isSkill);
+    if (skillFora) return { error: `Tipo de peça fora do catálogo: ${skillFora}` };
+
+    const formatoFora = fora(data.format, isFormat);
+    if (formatoFora) return { error: `Formato fora do catálogo: ${formatoFora}` };
 
     const values = {
       orgId: user.orgId,

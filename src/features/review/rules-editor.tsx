@@ -4,7 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { ClipboardList, Pencil, Plus } from "lucide-react";
-import { FORMAT_GROUPS, SKILL_GROUPS } from "@/lib/catalog";
+import { FORMAT_GROUPS, SKILL_GROUPS, type OptionGroup } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Modal, ModalFooter } from "@/components/ui/modal";
@@ -351,6 +351,64 @@ function RuleForm({
 
 /* -------------------------------------------------------------- checklist */
 
+/**
+ * Recorte com mais de um valor, em caixas de marcar.
+ *
+ * Um `<select multiple>` nativo resolveria em menos linhas e exige ctrl+clique
+ * para marcar o segundo item — o tipo de interação que ninguém descobre
+ * sozinho e que faz a pessoa marcar um valor achando que marcou três. Trinta
+ * caixas numa caixa que rola é mais código e nenhuma pergunta.
+ *
+ * Os valores vão para o servidor separados por vírgula, no mesmo formato em que
+ * a própria entrega guarda combinação — é o que `escopo.ts` compara.
+ */
+function MultiEscopo({
+  name,
+  label,
+  hint,
+  grupos,
+  valor,
+}: {
+  name: string;
+  label: string;
+  hint: string;
+  grupos: OptionGroup[];
+  valor: string;
+}) {
+  const marcados = new Set(
+    valor
+      .split(",")
+      .map((parte) => parte.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  return (
+    <Field label={label} hint={hint}>
+      <div className="scroll-thin max-h-[168px] overflow-y-auto rounded-[var(--radius-control)] border border-line bg-surface p-2">
+        {grupos.map((grupo, indice) => (
+          <div key={grupo.label ?? indice} className="mb-2 last:mb-0">
+            {grupo.label ? <p className="label-mono mb-1">{grupo.label}</p> : null}
+            <div className="grid gap-x-3 gap-y-1 sm:grid-cols-2">
+              {grupo.items.map((opcao) => (
+                <label key={opcao} className="flex items-center gap-1.5 text-[12.5px] text-ink">
+                  <input
+                    type="checkbox"
+                    name={name}
+                    value={opcao}
+                    defaultChecked={marcados.has(opcao.toLowerCase())}
+                    className="accent-[var(--brand)]"
+                  />
+                  {opcao}
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Field>
+  );
+}
+
 function ChecklistForm({
   item,
   companies,
@@ -402,14 +460,43 @@ function ChecklistForm({
           </select>
         </Field>
 
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <ScopeSelects
-            companies={companies}
-            company={item?.companyId ?? ""}
-            skill={item?.skill ?? ""}
-            format={item?.format ?? ""}
-          />
-        </div>
+        <Field label="Empresa" hint="Em branco vale para todas. A da mãe alcança as sub-marcas.">
+          <select
+            name="companyId"
+            defaultValue={item?.companyId ?? ""}
+            className={cn(field, "cursor-pointer")}
+          >
+            <option value="">Todas as empresas</option>
+            {companies.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.parentId ? "— " : ""}
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {/*
+          Recorte com mais de um valor, e não é capricho: o bloco de estático
+          do documento vale para Estático, Estático Ads e Capa de reels. Uma
+          linha por formato faria "mexer no item universal" virar mexer em doze
+          linhas — o contrário do que UNIVERSAL promete.
+        */}
+        <MultiEscopo
+          name="format"
+          label="Formatos"
+          hint="Nenhum marcado vale para qualquer formato."
+          grupos={FORMAT_GROUPS}
+          valor={item?.format ?? ""}
+        />
+
+        <MultiEscopo
+          name="skill"
+          label="Tipos de peça"
+          hint="Nenhum marcado vale para qualquer tipo."
+          grupos={SKILL_GROUPS}
+          valor={item?.skill ?? ""}
+        />
 
         <label className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-line px-3 py-2.5">
           <input

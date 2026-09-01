@@ -10,6 +10,7 @@ import {
 import { CONFIRMACAO_DA_EXCECAO } from "@/lib/excecao";
 import { sql } from "drizzle-orm";
 import { companyChain } from "./rules";
+import { casaEscopo } from "./escopo";
 
 /**
  * O checklist humano.
@@ -110,14 +111,14 @@ export async function checklistFor(
         eq(reviewChecklistItems.isActive, true),
         eq(reviewChecklistItems.momento, momento),
         or(isNull(reviewChecklistItems.companyId), inArray(reviewChecklistItems.companyId, chain)),
-        or(
-          isNull(reviewChecklistItems.skill),
-          item.skill ? eq(reviewChecklistItems.skill, item.skill) : undefined,
-        ),
-        or(
-          isNull(reviewChecklistItems.format),
-          item.format ? eq(reviewChecklistItems.format, item.format) : undefined,
-        ),
+        /*
+         * Os dois lados sao listas. Ver `escopo.ts`: o item de checklist guarda
+         * "Estatico, Estatico Ads, Capa de reels" numa linha so, e a entrega
+         * pode guardar "Video, Video Ads". Igualdade de texto nao casaria
+         * nenhum dos dois — e o sintoma seria o checklist nao aparecer.
+         */
+        casaEscopo(reviewChecklistItems.skill, item.skill),
+        casaEscopo(reviewChecklistItems.format, item.format),
       ),
     )
     .orderBy(asc(reviewChecklistItems.position));
