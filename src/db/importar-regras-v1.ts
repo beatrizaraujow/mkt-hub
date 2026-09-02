@@ -3,6 +3,7 @@
  *
  *   npm run regras:importar -- caminho=../regras-v1.json
  *   npm run regras:importar -- caminho=../regras-v1.json aplicar
+ *   npm run regras:importar -- caminho=../regras-v1.json remover aplicar
  *
  * **Experimento, e so roda em desenvolvimento.** O documento de requisitos pede
  * plano aprovado antes de construir a camada de revisao, e este script nao e a
@@ -94,6 +95,7 @@ const GRUPO_EXPLICADO: Record<string, string> = {
 };
 
 const aplicar = ligado("aplicar");
+const remover = ligado("remover");
 const caminho = valorDe("caminho") ?? "../regras-v1.json";
 
 lerAmbienteDoArgumento();
@@ -135,6 +137,28 @@ async function main() {
     .select({ code: reviewRules.code })
     .from(reviewRules)
     .where(and(eq(reviewRules.orgId, org.id), inArray(reviewRules.code, codigos)));
+
+  /*
+   * O caminho de volta. O experimento muda o que qualquer outro teste ve no
+   * banco de desenvolvimento, entao desfazer precisa ser tao facil quanto
+   * fazer — e pelo mesmo script, para nao existir um segundo lugar que decide
+   * quais sao "as regras do arquivo".
+   */
+  if (remover) {
+    console.log(`\n${jaTem.length} regras do arquivo estao no banco.`);
+    if (!aplicar) {
+      console.log("Simulacao — nada foi apagado. Acrescente a palavra `aplicar`.");
+      return;
+    }
+    if (jaTem.length > 0) {
+      await db
+        .delete(reviewRules)
+        .where(and(eq(reviewRules.orgId, org.id), inArray(reviewRules.code, codigos)));
+    }
+    const sobrou = await db.select({ code: reviewRules.code }).from(reviewRules);
+    console.log(`\nApagadas. Sobraram ${sobrou.length}: ${sobrou.map((s) => s.code).join(", ") || "nenhuma"}`);
+    return;
+  }
 
   console.log(`  ${dentro.length} entram · ${fora.length} ficam de fora · ${jaTem.length} ja estavam`);
   for (const r of fora) console.log(`     fora: ${r.id}  (aplica_quando=${r.aplica_quando}, sem campo)`);
