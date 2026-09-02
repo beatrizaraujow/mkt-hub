@@ -315,6 +315,25 @@ o checklist está sendo levado a sério. Os outros cinco não têm regra que os 
 o repete no bloco de captação, e o bloco de vídeo já o carrega para os mesmos formatos — uma tarefa
 de captação veria a mesma frase duas vezes na mesma tela.
 
+**O checklist do operacional só alcança 9% das tarefas hoje, e a causa não é o código.** Todos os
+blocos do documento são recortados por **formato**, e o campo "Formato SKILL" está preenchido em
+323 das 3.558 tarefas. No fluxo aberto em 02/09/2026: 42 de 219 em Pendente, 0 de 8 em Em
+andamento. Onde o formato está vazio, a Pré revisão não pede nada — a trava existe e não morde.
+
+A Carbone é a exceção parcial, porque os seis itens antigos dela não têm recorte de formato e por
+isso aparecem sempre. O checklist de **aprovação** não tem esse problema: quatro dos seis itens
+valem para qualquer formato.
+
+Três caminhos, e a escolha é de processo, não técnica: passar a preencher o formato; recortar os
+blocos também por **tipo de peça** (preenchido em 49%), o que exige uma segunda leva de linhas e
+cria dois lugares para editar a mesma frase; ou fazer a Pré revisão recusar avanço sem formato, do
+mesmo jeito que o porteiro da IA recusa sem tipo — o que transformaria o silêncio em pendência
+visível, e travaria 91% das tarefas até alguém classificar.
+
+```bash
+npm run checklist:conferir   # 21 casos reais, cria e apaga as tarefas de teste
+```
+
 O que o documento declara e não bate: vários blocos anunciam "N itens no total" e listam menos
 (SeuBoné Mídia OFF diz 7 e lista 3; Onevo Investimentos Estático diz 5 e lista 4). Foi cadastrado
 o que está escrito, não o que o contador promete. Formatos **Stories** e **Outros** não aparecem em

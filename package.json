@@ -27,6 +27,7 @@
     "checklist:ver": "tsx --env-file=.env.local src/db/ver-checklist.ts",
     "checklist:aprovacao": "tsx --env-file=.env.local src/db/seed-checklist-aprovacao.ts",
     "checklist:marcas": "tsx --env-file=.env.local src/db/seed-checklist-marcas.ts",
+    "checklist:conferir": "tsx --conditions=react-server --env-file=.env.local src/db/conferir-checklist.ts",
     "clickup:importar": "tsx --env-file=.env.local src/db/import-clickup.ts",
     "clickup:baixar": "tsx --env-file=.env.local src/db/fetch-clickup.ts",
     "clickup:sincronizar": "tsx --env-file=.env.local src/db/sync-clickup.ts"
