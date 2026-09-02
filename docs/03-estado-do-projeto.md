@@ -393,10 +393,31 @@ pararia no primeiro `42701: column already exists` e não aplicaria a `0015`. O 
 compara por hash, aplica cada uma numa transação com o próprio registro, e aceita
 `0014_melodic_overlord` como argumento para registrar sem rodar o SQL.
 
-**As opções desse script são palavras soltas — `aplicar`, e a tag da migration.** O npm engole
-argumento com `--` mesmo depois do `--`: `-- ../mkt-prod.env --registrar 0014_x --aplicar` chegou
-no script como `../mkt-prod.env 0014_x`, sem o pedido de aplicar. Deu simulação, e o que salvou
-foi o padrão ser não escrever. É a mesma armadilha do `--env` de 31/08.
+**Opção de script é palavra solta, sem traços — e a culpa não é do npm, é do PowerShell.** Medido
+em 02/09/2026 com `npm run typecheck` de cobaia:
+
+| digitado no PowerShell | chega no script |
+|---|---|
+| `-- --aplicar` | nada |
+| `-- ../mkt-prod.env --aplicar` | só `../mkt-prod.env` |
+| `-- ../mkt-prod.env aplicar` | os dois |
+
+No bash a mesma linha passa inteira, e é por isso que a armadilha demorou a aparecer: quem escreveu
+os scripts testou num shell e quem os roda usa o outro. O efeito é sempre para o lado errado — o
+script não vê o pedido, diz "simulação" e ninguém percebe que nada foi escrito. Pior: o
+`mail:teste -- --so-verificar` **mandava e-mail de verdade**, porque o pedido de só verificar sumia.
+
+`ligado()` em `src/db/destino.ts` aceita as duas formas e tira o que reconheceu da linha, para o
+leitor do arquivo de ambiente não confundir a palavra com um caminho.
+
+**E metade dos scripts nunca leu o arquivo de ambiente.** Nove importam `./index`, que se conecta
+ao banco do `.env.local` no momento do import — antes de qualquer chance de trocar o destino. Um
+`../mkt-prod.env` na linha de comando era ignorado em silêncio. Foi assim que a simulação da
+sincronização de 02/09 foi lida como se fosse de produção e era de desenvolvimento: os números
+batiam de perto o bastante (4265 contra 4269 tarefas) para ninguém desconfiar. O
+`clickup:sincronizar` foi corrigido — abre a própria conexão depois de ler o argumento e anuncia o
+destino. Os outros oito continuam presos ao `.env.local`, e nenhum deles precisa apontar para
+produção hoje.
 
 **A caixinha de concluir da lista chama `setStage`.** Ela parece um toggle de "feito" e é um
 movimento de etapa como qualquer outro — por isso a esteira a barra numa tarefa que não passou pela

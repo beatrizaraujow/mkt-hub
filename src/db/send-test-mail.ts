@@ -13,6 +13,7 @@
  */
 import { mailConfigured, mailFaltando, sendMail, verificarSmtp } from "@/lib/mail";
 import { inviteEmail } from "@/features/people/invite-email";
+import { ligado } from "./destino";
 
 function arg(nome: string) {
   const i = process.argv.indexOf(`--${nome}`);
@@ -45,7 +46,7 @@ async function main() {
   }
   console.log("Autenticou no SMTP.");
 
-  if (process.argv.includes("--so-verificar")) {
+  if (ligado("so-verificar")) {
     console.log("Nada foi enviado (--so-verificar).");
     return;
   }

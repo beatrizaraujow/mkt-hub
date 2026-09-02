@@ -2,11 +2,18 @@
  * Alinha a etapa das tarefas ja importadas com o board do ClickUp.
  *
  *   npm run clickup:baixar
- *   npm run clickup:sincronizar               simula, nao escreve
- *   npm run clickup:sincronizar -- --aplicar  escreve
+ *   npm run clickup:sincronizar                          simula, em desenvolvimento
+ *   npm run clickup:sincronizar -- aplicar
+ *   npm run clickup:sincronizar -- ../mkt-prod.env aplicar
  *
- * **Aponta para desenvolvimento** (le `.env.local`). Para producao, sobrescreva
- * `DATABASE_URL` no ambiente e confira o **usuario** da conexao, nunca o host.
+ * **Ele diz em qual banco vai escrever antes de escrever.** Ate 02/09/2026 nao
+ * dizia: importava o cliente comum, ficava preso ao `.env.local`, e um
+ * `../mkt-prod.env` na linha de comando era ignorado em silencio. A simulacao
+ * daquele dia foi lida como se fosse de producao e era de desenvolvimento — os
+ * numeros batiam de perto o bastante para ninguem desconfiar. E o mesmo erro de
+ * 31/08, com outro script.
+ *
+ * A palavra `aplicar` nao leva tracos de proposito: ver `ligado` em `destino`.
  *
  * Existe porque o import so insere. Enquanto os dois sistemas convivem, o time
  * move o cartao la e o Hub continua mostrando o estado do dia do import — em
@@ -26,13 +33,41 @@
  */
 import fs from "node:fs";
 import { eq, sql } from "drizzle-orm";
-import { client, db } from "./index";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
 import { activityLog, workItemStages, workItems } from "./schema";
+import { anunciarDestino, lerAmbienteDoArgumento, ligado } from "./destino";
 import { ETAPAS_DE_FIM, etapaDe } from "@/features/work-items/clickup-map";
 import { podeAtravessar } from "@/lib/esteira";
 import { motivoValido } from "@/lib/excecao";
 
 const ORIGEM = process.env.CLICKUP_JSON ?? "./.cu-limpo.json";
+
+/*
+ * A ordem destas quatro linhas e o que faz o argumento de ambiente valer.
+ *
+ * `ligado` vem primeiro para tirar a palavra `aplicar` da linha — quem le o
+ * arquivo de ambiente pega o primeiro argumento solto, e sem isso `-- aplicar`
+ * sozinho tentaria abrir um arquivo com esse nome.
+ *
+ * E o cliente nasce **aqui**, nao em `./index`. Em ESM os imports sao avaliados
+ * antes das instrucoes, entao importar o cliente comum abriria a conexao com o
+ * banco do `.env.local` antes de qualquer chance de trocar o destino. Foi
+ * exatamente esse import que fez este script ignorar `../mkt-prod.env`.
+ */
+const aplicar = ligado("aplicar");
+lerAmbienteDoArgumento();
+anunciarDestino();
+
+const client = postgres(process.env.DATABASE_URL as string, {
+  prepare: false,
+  max: Number(process.env.DB_MAX ?? 1),
+  idle_timeout: 20,
+  onnotice: () => {},
+});
+
+const db = drizzle(client, { schema });
 
 type Bruta = {
   id: string;
@@ -49,8 +84,6 @@ function concluidaEm(tarefa: Bruta): Date | null {
 }
 
 async function main() {
-  const aplicar = process.argv.includes("--aplicar");
-
   if (!fs.existsSync(ORIGEM)) {
     console.error(`Nao achei ${ORIGEM}. Rode antes: npm run clickup:baixar`);
     process.exit(1);
@@ -194,7 +227,7 @@ async function main() {
   }
 
   console.log(
-    `\n${aplicar ? "Aplicado." : "Simulacao — nada foi escrito. Use -- --aplicar."}` +
+    `\n${aplicar ? "Aplicado." : "Simulacao — nada foi escrito. Acrescente a palavra `aplicar`."}` +
       `\n  vindas do ClickUp: ${aqui.length}   etapa alinhada: ${mudadas}   nao estao mais no board: ${sumiram}` +
       `   fora da esteira: ${divergentes.length}`,
   );

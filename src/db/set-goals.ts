@@ -29,6 +29,7 @@
 import { eq } from "drizzle-orm";
 import { client, db } from "./index";
 import { performanceGoals, users } from "./schema";
+import { ligado } from "./destino";
 
 type Regua =
   | { email: string; rule: "pontos"; porDia: number; semanal: number; semanal120: number }
@@ -47,7 +48,7 @@ const REGUAS: Regua[] = [
 ];
 
 async function main() {
-  const aplicar = process.argv.includes("--aplicar");
+  const aplicar = ligado("aplicar");
 
   const pessoas = new Map(
     (await db.select({ id: users.id, email: users.email, name: users.name, orgId: users.orgId }).from(users)).map(

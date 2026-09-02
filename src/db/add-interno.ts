@@ -23,6 +23,7 @@
 import { and, eq } from "drizzle-orm";
 import { client, db } from "./index";
 import { companies, organizations } from "./schema";
+import { ligado } from "./destino";
 
 const INTERNO = {
   name: "Interno",
@@ -31,7 +32,7 @@ const INTERNO = {
 };
 
 async function main() {
-  const aplicar = process.argv.includes("--aplicar");
+  const aplicar = ligado("aplicar");
 
   const [org] = await db.select().from(organizations).limit(1);
   if (!org) throw new Error("Nenhuma organizacao. Rode `npm run seed` antes.");

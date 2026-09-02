@@ -21,10 +21,18 @@
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { anunciarDestino, lerAmbienteDoArgumento } from "./destino";
+import { anunciarDestino, lerAmbienteDoArgumento, ligado } from "./destino";
 import { organizations, reviewSettings, users } from "./schema";
 
 const CHAVE = "revisores_designados";
+
+/*
+ * As palavras de opcao saem da linha antes de o ambiente ser lido: quem le o
+ * arquivo de ambiente pega o primeiro argumento solto, e sem esta ordem um
+ * `-- aplicar` sozinho tentaria abrir um arquivo com esse nome.
+ */
+const aplicar = ligado("aplicar");
+const tirar = ligado("tirar");
 
 lerAmbienteDoArgumento();
 anunciarDestino();
@@ -37,8 +45,6 @@ const client = postgres(process.env.DATABASE_URL as string, {
 const db = drizzle(client);
 
 async function main() {
-  const aplicar = process.argv.includes("--aplicar");
-  const tirar = process.argv.includes("--tirar");
   const email = process.argv.slice(2).find((a) => !a.startsWith("--") && a.includes("@"));
 
   const [org] = await db.select().from(organizations).limit(1);

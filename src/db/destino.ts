@@ -99,6 +99,36 @@ export function lerDoArquivo(caminho: string): void {
 }
 
 /**
+ * Uma opcao de linha de comando, e por que ela tem duas formas.
+ *
+ * **No PowerShell, todo argumento que comeca com `--` some antes de chegar no
+ * script**, mesmo depois do `--` que deveria repassar tudo. Medido em
+ * 02/09/2026, com `npm run typecheck` como cobaia:
+ *
+ *   -- --aplicar                       chegou: nada
+ *   -- ../mkt-prod.env --aplicar       chegou: ../mkt-prod.env
+ *   -- ../mkt-prod.env aplicar         chegou: ../mkt-prod.env aplicar
+ *
+ * No bash o mesmo comando passa inteiro — e foi por isso que a armadilha
+ * demorou a aparecer: quem escreveu os scripts testou num shell e quem os roda
+ * usa o outro. O efeito e sempre para o lado errado: o script nao ve o pedido
+ * de aplicar, diz "simulacao" e ninguem percebe que nada foi escrito.
+ *
+ * Entao a forma documentada e a **palavra solta**, e a com tracos continua
+ * aceita para quem chama pelo `tsx` direto.
+ *
+ * Ela tira da linha o que reconheceu, de proposito: quem le o arquivo de
+ * ambiente pega o primeiro argumento solto, e sem esta limpeza um
+ * `-- aplicar` sozinho tentaria abrir um arquivo chamado "aplicar".
+ */
+export function ligado(nome: string): boolean {
+  const formas = [nome, `--${nome}`];
+  const achou = process.argv.some((arg) => formas.includes(arg));
+  if (achou) process.argv = process.argv.filter((arg) => !formas.includes(arg));
+  return achou;
+}
+
+/**
  * Aplica o arquivo de ambiente passado na linha de comando, se houver.
  *
  * O caminho vem como argumento solto, nao como `--env <caminho>`: o npm engole

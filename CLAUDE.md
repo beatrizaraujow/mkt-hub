@@ -103,8 +103,15 @@ npm run typecheck
 npm run test       # funcoes puras do revisor (veredito, camadas, copy)
 npm run db:push    # aplica o schema no Supabase (usa DIRECT_URL, porta 5432)
 npm run seed       # organização, 4 empresas, pipelines e o primeiro admin
-npm run mail:teste -- --so-verificar   # autentica no SMTP sem mandar nada
+npm run mail:teste -- so-verificar     # autentica no SMTP sem mandar nada
 ```
+
+**Opção de script é palavra solta, sem traços.** No PowerShell — que é onde estes comandos são
+digitados — todo argumento começando com `--` some antes de chegar no script, mesmo depois do `--`
+que deveria repassar tudo. No bash ele passa, e foi por isso que a armadilha demorou a aparecer.
+O efeito é sempre para o lado errado: `mail:teste -- --so-verificar` **mandava e-mail de verdade**,
+porque o script não via o pedido de só verificar. Medido e corrigido em 02/09/2026; `ligado()` em
+`src/db/destino.ts` aceita as duas formas.
 
 `.env.local` precisa de `DATABASE_URL` (pooler 6543), `DIRECT_URL` (pooler 5432) e
 `SESSION_SECRET` (32+ caracteres). Para anexos, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`.

@@ -43,6 +43,7 @@
 import { eq } from "drizzle-orm";
 import { client, db } from "./index";
 import { companies, routines, users } from "./schema";
+import { ligado } from "./destino";
 
 const MALU = "marialuiza.mariz@grupoquatro5.com";
 const ZION = "zion.bagatoli@grupoquatro5.com";
@@ -103,7 +104,7 @@ function diasDe(mascara: string): number[] {
 }
 
 async function main() {
-  const aplicar = process.argv.includes("--aplicar");
+  const aplicar = ligado("aplicar");
 
   const empresas = new Map(
     (

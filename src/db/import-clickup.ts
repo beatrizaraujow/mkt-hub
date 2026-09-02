@@ -36,6 +36,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { client, db } from "./index";
 import { companies, users, workItemStages, workItems } from "./schema";
 import { ETAPAS_DE_FIM, chave, etapaDe } from "@/features/work-items/clickup-map";
+import { ligado } from "./destino";
 
 const ORIGEM = process.env.CLICKUP_JSON ?? "./.cu-limpo.json";
 
@@ -154,7 +155,7 @@ function empresaDe(tarefa: Bruta): string | null {
 }
 
 async function main() {
-  const aplicar = process.argv.includes("--aplicar");
+  const aplicar = ligado("aplicar");
   const brutas: Bruta[] = JSON.parse(fs.readFileSync(ORIGEM, "utf-8"));
   /*
    * **Tudo atravessa, por decisao de 31/08/2026.** Antes o import trazia so o

@@ -29,7 +29,7 @@
  * de um update ir para o banco errado por causa disso.
  */
 import { spawnSync } from "node:child_process";
-import { anunciarDestino, lerAmbienteDoArgumento } from "./destino";
+import { anunciarDestino, lerAmbienteDoArgumento, ligado } from "./destino";
 
 function rodar(passo: string, script: string, args: string[]): void {
   console.log(`
@@ -48,7 +48,7 @@ Parou em: ${passo}. Nada depois disto rodou.`);
   }
 }
 
-const aplicar = process.argv.includes("--aplicar");
+const aplicar = ligado("aplicar");
 
 lerAmbienteDoArgumento();
 const onde = anunciarDestino();

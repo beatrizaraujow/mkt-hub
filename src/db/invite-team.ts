@@ -21,6 +21,7 @@ import { companies, userCompanyAccess, users, type UserRole } from "@/db/schema"
 import { inviteUrl, newInviteToken } from "@/lib/invite";
 import { mailConfigured, sendMail } from "@/lib/mail";
 import { inviteEmail } from "@/features/people/invite-email";
+import { ligado } from "./destino";
 
 type Person = {
   name: string;
@@ -59,8 +60,8 @@ function arg(name: string) {
 
 async function main() {
   const base = arg("base");
-  const dry = process.argv.includes("--dry");
-  const enviar = process.argv.includes("--enviar");
+  const dry = ligado("dry");
+  const enviar = ligado("enviar");
   const quemConvida = arg("de") ?? "Anny Beatriz";
 
   if (enviar && !mailConfigured()) {
