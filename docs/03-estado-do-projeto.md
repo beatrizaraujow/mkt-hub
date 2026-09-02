@@ -17,6 +17,37 @@ Para o revisor de entregas, [04-revisor.md](04-revisor.md).
 | Banco de desenvolvimento | Supabase `mkt-hub-dev` (`hqohquknxgiywpokmndp`) · sa-east-1 · mesma org |
 | Deploy | push em `main` sobe sozinho; função roda em `gru1` |
 
+## O revisor rodou em produção — 02/09/2026
+
+Primeira revisão de verdade, ponta a ponta, com peça criada para violar as três regras ativas.
+
+| | |
+|---|---|
+| veredito | **reprovado**, correto |
+| achados | 4 — a `E4` pegou dois trechos separados |
+| falsos positivos | nenhum |
+| `não verifiquei` | nenhum |
+| tempo | 4,4 s de ponta a ponta |
+| custo | 2.373 tokens de entrada, 385 de saída |
+| modelo | `claude-sonnet-5` |
+
+Cada achado veio com o trecho exato entre aspas — *"Investimento: 12x de R$ 1.297"*, *"É rápido e
+fácil"* — que é o que o RF-42 exige do grupo A. A parte de que eu mais duvidava, o modelo citar em
+vez de parafrasear, passou nas quatro.
+
+E o modo silencioso fez o que promete: o veredito foi reprovado e **a peça não se moveu**.
+
+**O que isso não prova:** foram três regras, todas do grupo A, todas sobre texto que estava na copy.
+As 33 das 50 que precisam ver o arquivo continuam sem teste, e é onde o risco mora. Também não
+prova nada sobre volume: 2.373 tokens com três regras viram outra ordem de grandeza com 29 e
+imagens junto.
+
+**O provedor mudou sem registro.** Em 01/09 respondeu `gemini-3.6-flash`; em 02/09, `claude-sonnet-5`.
+É variável de ambiente na Vercel e não passa por deploy — vale conferir qual está valendo antes de
+estimar custo.
+
+A peça de teste foi apagada depois de lida. Este bloco é o que sobrou dela.
+
 ## O que funciona
 
 **Entrar e permissões.** Sessão de 12h em cookie httpOnly, senha com bcrypt. Quatro papéis; o
