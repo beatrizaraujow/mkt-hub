@@ -129,6 +129,22 @@ export function ligado(nome: string): boolean {
 }
 
 /**
+ * O valor de uma opcao escrita como `chave=valor`.
+ *
+ * Pela mesma razao de `ligado`: `--chave valor` nao sobrevive ao PowerShell, e
+ * `chave=valor` sobrevive inteiro, inclusive com espaco quando vem entre aspas.
+ * Tambem sai da linha depois de lido, para nao ser confundido com outro
+ * argumento.
+ */
+export function valorDe(nome: string): string | undefined {
+  const prefixo = `${nome}=`;
+  const achado = process.argv.find((arg) => arg.startsWith(prefixo));
+  if (!achado) return undefined;
+  process.argv = process.argv.filter((arg) => arg !== achado);
+  return achado.slice(prefixo.length);
+}
+
+/**
  * Aplica o arquivo de ambiente passado na linha de comando, se houver.
  *
  * O caminho vem como argumento solto, nao como `--env <caminho>`: o npm engole
@@ -143,7 +159,18 @@ export function ligado(nome: string): boolean {
  * usa isto abre a propria conexao depois de chamar esta funcao.
  */
 export function lerAmbienteDoArgumento(): string | null {
-  const soltos = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+  /*
+   * So conta como arquivo de ambiente o argumento que **parece** um: precisa
+   * ter `.env` no nome. Sem isso, o primeiro argumento solto de qualquer
+   * script virava candidato a caminho — e `revisor:designar -- igor@seubone.com`
+   * respondia "Nao consegui ler igor@seubone.com", como se o e-mail fosse um
+   * arquivo. O script que recebe e-mail, tag de migration ou nome de pessoa
+   * como argumento solto passou a conviver com este aqui sem se atrapalhar.
+   */
+  const soltos = process.argv
+    .slice(2)
+    .filter((a) => !a.startsWith("--") && a.toLowerCase().includes(".env"));
+
   const posEnv = process.argv.indexOf("--env");
   const caminho = posEnv !== -1 ? process.argv[posEnv + 1] : soltos[0];
 
