@@ -86,7 +86,13 @@ async function main() {
 
   let mudadas = 0;
   let sumiram = 0;
-  const recusadas: Array<{ titulo: string; de: string; para: string; motivo: string }> = [];
+  /*
+   * Movimentos que a esteira nao permitiria se tivessem sido feitos aqui.
+   * Espelhados assim mesmo — ver a nota onde sao detectados —, e listados no
+   * fim porque o tamanho desta lista e a medida de quanto os dois sistemas
+   * discordam enquanto convivem.
+   */
+  const divergentes: Array<{ titulo: string; de: string; para: string; motivo: string }> = [];
   const desconhecidos = new Set<string>();
 
   for (const item of aqui) {
@@ -113,16 +119,23 @@ async function main() {
     if (!destino) throw new Error(`Etapa ${slugAlvo} nao existe no pipeline de tarefa.`);
 
     /*
-     * A esteira vale para a sincronizacao tambem, e nao e detalhe.
+     * A esteira e conferida aqui e **nao bloqueia**. Decidido em 02/09/2026,
+     * depois de a simulacao travar 14 tarefas em tres dias.
      *
-     * O board do ClickUp nao conhece pre revisao nem revisao IA como obrigacao:
-     * la alguem arrasta de "Em progresso" para "Aprovar" e pronto. Deixar a
-     * sincronizacao espelhar isso abriria, por automacao, exatamente a porta
-     * lateral que a tela fecha — e por uma porta que ninguem esta olhando,
-     * porque roda por comando e nao por clique.
+     * A trava existe para impedir que alguem pule etapa **no Hub**. Isto aqui
+     * nao e alguem pulando etapa: e o registro de um fato que aconteceu em
+     * outro sistema, que nunca teve esteira. Enquanto os dois convivem o
+     * ClickUp e a fonte da verdade, e bloquear nao deixa o Hub mais correto —
+     * deixa desatualizado. Onze das catorze travadas eram "Pendente ->
+     * Completo": trabalho que o time entregou e fechou la.
      *
-     * Recusar aqui deixa a tarefa parada onde esta, com a divergencia visivel
-     * no fim do relatorio. Divergencia visivel e melhor que atalho silencioso.
+     * O que torna isto seguro e o recorte da consulta la em cima: este script
+     * so toca item com `meta->>'origem' = 'clickup'`. Tarefa nascida no Hub e
+     * intocavel por ele, e todas as outras portas — arrasto, painel, caixinha
+     * de concluir, API — continuam com a trava inteira.
+     *
+     * A divergencia nao some: vai para o relatorio, e o numero dela e o que
+     * mostra quanto os dois sistemas discordam enquanto convivem.
      */
     const passagem = podeAtravessar({
       de: atual?.slug,
@@ -137,8 +150,12 @@ async function main() {
     });
 
     if (!passagem.ok) {
-      recusadas.push({ titulo: item.title, de: atual?.name ?? "?", para: destino.name, motivo: passagem.motivo });
-      continue;
+      divergentes.push({
+        titulo: item.title,
+        de: atual?.name ?? "?",
+        para: destino.name,
+        motivo: passagem.motivo,
+      });
     }
 
     const fim = ETAPAS_DE_FIM.has(slugAlvo);
@@ -179,13 +196,16 @@ async function main() {
   console.log(
     `\n${aplicar ? "Aplicado." : "Simulacao — nada foi escrito. Use -- --aplicar."}` +
       `\n  vindas do ClickUp: ${aqui.length}   etapa alinhada: ${mudadas}   nao estao mais no board: ${sumiram}` +
-      `   recusadas pela esteira: ${recusadas.length}`,
+      `   fora da esteira: ${divergentes.length}`,
   );
   for (const s of desconhecidos) console.log(`  ! status sem de-para: "${s}"`);
 
-  if (recusadas.length > 0) {
-    console.log("\nEstas o ClickUp moveu e a esteira nao deixa acompanhar. Ficaram onde estavam:");
-    for (const r of recusadas) {
+  if (divergentes.length > 0) {
+    console.log(
+      "\nEstas o ClickUp moveu por um caminho que a esteira nao permitiria aqui." +
+        "\nForam espelhadas assim mesmo: la e a fonte da verdade enquanto os dois convivem.",
+    );
+    for (const r of divergentes) {
       console.log(`  ${r.titulo.slice(0, 46).padEnd(46)} ${r.de} -> ${r.para}`);
       console.log(`    ${r.motivo}`);
     }

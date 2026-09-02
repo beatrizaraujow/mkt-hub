@@ -185,8 +185,9 @@ devolver.
 
 Até aqui nada impedia arrastar uma peça de `EM ANDAMENTO` direto para `APROVAR`, nem marcá-la como
 concluída pela caixinha da lista e pular o fluxo inteiro. A trava mora em `src/lib/esteira.ts`, é
-função pura e testada, e vale para **toda** porta: arrasto no quadro, seletor do painel, botão de
-concluir da lista, e a sincronização com o ClickUp.
+função pura e testada, e vale para **toda** porta de decisão: arrasto no quadro, seletor do painel,
+botão de concluir da lista, e qualquer server action. A sincronização com o ClickUp é a única
+exceção, e é deliberada — ver a nota logo abaixo.
 
 O que ela recusa, sempre com mensagem em português dizendo qual é o caminho certo:
 
@@ -403,10 +404,19 @@ aprovação. Quem espera riscar item e vê recusa não está diante de um defeit
 fazendo o trabalho dela. Numa tarefa interna, o caminho é a exceção declarada com o motivo
 *Organização de processo / Arquivo*.
 
-**A sincronização com o ClickUp respeita a esteira.** O board de lá não conhece pré revisão como
-obrigação, e espelhar o movimento abriria por automação a porta que a tela fecha — por uma porta
-que ninguém está olhando, porque roda por comando e não por clique. As recusadas aparecem no fim do
-relatório do script, com o motivo. Divergência visível é melhor que atalho silencioso.
+**A sincronização com o ClickUp espelha, e a esteira não a bloqueia.** Foi o contrário por um dia,
+e a simulação de 02/09/2026 mostrou o custo: **14 tarefas travadas em três dias**, onze delas
+`Pendente → Completo` — trabalho que o time entregou e fechou lá.
+
+A trava existe para impedir que alguém pule etapa **no Hub**. A sincronização não é alguém pulando
+etapa: é o registro de um fato que aconteceu em outro sistema, que nunca teve esteira. Enquanto os
+dois convivem o ClickUp é a fonte da verdade, e bloquear não deixa o Hub mais correto — deixa
+desatualizado, e a divergência cresce todo dia até a data de corte.
+
+O que torna isso seguro é o recorte da consulta: o script só toca item com
+`meta->>'origem' = 'clickup'`. **Tarefa nascida no Hub é intocável por ele**, e todas as outras
+portas continuam com a trava inteira. As divergências aparecem no fim do relatório com o motivo, e
+o tamanho dessa lista é a medida de quanto os dois sistemas discordam.
 
 **O pooler do Supabase tem dois modos, e eles não aceitam as mesmas credenciais.** O modo
 transação (6543) só aceita o `postgres`; o modo sessão (5432) aceita qualquer role. Um usuário
