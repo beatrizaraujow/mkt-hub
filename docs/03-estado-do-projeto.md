@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Onde o MKT Hub 2 está. Atualizado em **01/09/2026**.
+Onde o MKT Hub 2 está. Atualizado em **02/09/2026**.
 
 Para o porquê de cada decisão, veja [01-analise-e-arquitetura.md](01-analise-e-arquitetura.md).
 Para o board que estamos substituindo, [02-clickup-house-quatro5.md](02-clickup-house-quatro5.md).
@@ -16,37 +16,6 @@ Para o revisor de entregas, [04-revisor.md](04-revisor.md).
 | Banco de produção | Supabase `mkt-hub` (`tnfjjaxrmatuovwjiptz`) · sa-east-1 · org mktimer45 |
 | Banco de desenvolvimento | Supabase `mkt-hub-dev` (`hqohquknxgiywpokmndp`) · sa-east-1 · mesma org |
 | Deploy | push em `main` sobe sozinho; função roda em `gru1` |
-
-## O revisor rodou em produção — 02/09/2026
-
-Primeira revisão de verdade, ponta a ponta, com peça criada para violar as três regras ativas.
-
-| | |
-|---|---|
-| veredito | **reprovado**, correto |
-| achados | 4 — a `E4` pegou dois trechos separados |
-| falsos positivos | nenhum |
-| `não verifiquei` | nenhum |
-| tempo | 4,4 s de ponta a ponta |
-| custo | 2.373 tokens de entrada, 385 de saída |
-| modelo | `claude-sonnet-5` |
-
-Cada achado veio com o trecho exato entre aspas — *"Investimento: 12x de R$ 1.297"*, *"É rápido e
-fácil"* — que é o que o RF-42 exige do grupo A. A parte de que eu mais duvidava, o modelo citar em
-vez de parafrasear, passou nas quatro.
-
-E o modo silencioso fez o que promete: o veredito foi reprovado e **a peça não se moveu**.
-
-**O que isso não prova:** foram três regras, todas do grupo A, todas sobre texto que estava na copy.
-As 33 das 50 que precisam ver o arquivo continuam sem teste, e é onde o risco mora. Também não
-prova nada sobre volume: 2.373 tokens com três regras viram outra ordem de grandeza com 29 e
-imagens junto.
-
-**O provedor mudou sem registro.** Em 01/09 respondeu `gemini-3.6-flash`; em 02/09, `claude-sonnet-5`.
-É variável de ambiente na Vercel e não passa por deploy — vale conferir qual está valendo antes de
-estimar custo.
-
-A peça de teste foi apagada depois de lida. Este bloco é o que sobrou dela.
 
 ## O que funciona
 
@@ -403,6 +372,88 @@ processo, não a pessoa.
 dá 1.63:1. O `pendente` (`#6B7280`) fica em 4.34 e é o único abaixo do mínimo — clarear o cinza
 resolve, e a cor é decisão de quem desenhou o fluxo.
 
+## A camada de revisão de criativos — 02/09/2026
+
+A diretoria mandou um documento de requisitos com 65 RFs e 16 critérios de aceite, mais
+`regras-v1.json`: **50 regras** de revisão automática, aprovadas por ela. O §19 pede plano
+aprovado antes de qualquer código, então **nada foi construído**. O que existe são três documentos
+e um experimento.
+
+### O que está no ar, e o que não está
+
+| | |
+|---|---|
+| esteira, exceção declarada, pedido, dois checklists | **em produção** |
+| o revisor como máquina | **provado em produção** |
+| as 50 regras | **em lugar nenhum** — produção tem 4, três ativas |
+| a IA ver a peça | não existe; ela lê um campo de texto |
+
+As 3 regras ativas em produção — `D4`, `E1`, `E4` — são anteriores, escritas à mão a partir do
+manual da Carbone. **Nenhuma delas veio do arquivo.**
+
+### A primeira revisão real
+
+Rodou em 02/09 com uma peça criada para violar as três regras ativas, apagada depois de lida.
+
+| | |
+|---|---|
+| veredito | **reprovado**, correto |
+| achados | 4 — a `E4` pegou dois trechos separados |
+| falsos positivos · `não verifiquei` | nenhum · nenhum |
+| tempo · custo | 4,4 s · 2.373 tokens de entrada, 385 de saída |
+| modelo | `claude-sonnet-5` |
+
+Cada achado veio com o trecho exato entre aspas — *"Investimento: 12x de R$ 1.297"*, *"É rápido e
+fácil"* — que é o que o RF-42 exige do grupo A. A parte de que mais se duvidava, o modelo citar em
+vez de parafrasear, passou nas quatro. E o modo silencioso fez o que promete: reprovou e **não
+moveu a peça**.
+
+**O que isso não prova:** foram três regras, todas do grupo A, todas sobre texto que estava na copy.
+
+### O número que decide o projeto
+
+**33 das 50 regras precisam ver o arquivo.** Os 7 do grupo B e os 8 do C são medição pura e não
+rodam sem a imagem; das 24 do grupo A, 16 procuram termo *na arte*, não só na legenda.
+
+E há um segundo número que ninguém tinha olhado: **nenhuma tarefa de produção tem o campo de copy
+preenchido** — zero de 3.558. Mesmo a perna do texto depende de alguém passar a preencher.
+
+### O que o experimento mediu
+
+As 48 regras possíveis foram carregadas no banco de **desenvolvimento** (`npm run regras:importar`,
+que se recusa a rodar em produção) e removidas depois. Duas não entram: `ugc` e `peca_com_pessoas`
+não existem como campo de tarefa.
+
+- Uma peça do Carbone Club monta um pedido de **11.151 caracteres com 29 regras**, quando o arquivo
+  promete 21. As 8 a mais são a **herança**: no banco, Club é sub-marca de Carbone Educação, e a
+  regra de preço da Educação entra como terceira sobre o mesmo defeito.
+- **Zero sobreposições resolvidas**, porque o arquivo não declara nenhuma. Seis defeitos disparam
+  mais de uma regra: preço em três, escassez em três com vereditos diferentes, fundo claro em duas.
+- **Nove regras de grupo D num pedido só.** Grupo D nunca reprova, vira ressalva — e o RF-52 trava
+  o botão de aprovar enquanto houver ressalva sem decisão. Somando as que a IA não consegue
+  verificar lendo texto, uma peça do Club chegaria na aprovação com cerca de **treze ressalvas**.
+
+### Os três documentos
+
+1. **Camada de revisão de criativos** — o plano em dez blocos, o mapa do que existe, seis conflitos
+   e sete perguntas. Escrito para a diretoria, respondendo ao §19.
+2. **Sobreposição das 50 regras** — os seis grupos com o texto novo proposto, para riscar e devolver.
+   Se tudo for aceito, o conjunto vai de 50 para 46 e nenhuma verificação se perde.
+3. **O revisor por dentro** — referência interna, com catálogo interativo por marca e formato.
+
+### O que trava, e de quem é
+
+**Da diretoria:** as sobreposições, a herança do Club, a lista de termos proibidos que a
+`universal.essencial.0.10` exige e **não está no arquivo**, e a contradição do asterisco
+(`onevo.aprovar.0.2` exige asterisco, `onevo.inv.1.0` não).
+
+**Nosso, e não depende de decisão nenhuma:** a IA ver a peça, o grupo e a confiança com o
+rebaixamento feito pela aplicação, e a ressalva com botão para ser decidida.
+
+**O provedor mudou sem registro.** Em 01/09 respondeu `gemini-3.6-flash`; em 02/09,
+`claude-sonnet-5`. É variável de ambiente na Vercel e não passa por deploy — vale conferir qual
+está valendo antes de estimar custo, porque com 29 regras e imagens junto a diferença multiplica.
+
 ## Decisões que governam o resto
 
 1. **Ponte, não big bang** — o sistema novo serve os dados para o MKT Hub atual continuar
@@ -416,6 +467,25 @@ resolve, e a cor é decisão de quem desenhou o fluxo.
 7. **Formulário de solicitação entra no MVP.**
 
 ## Armadilhas que já custaram tempo
+
+**Metade dos scripts nunca leu o arquivo de ambiente, e ninguém sabia.** Nove importam `./index`,
+que se conecta ao banco do `.env.local` **no momento do import** — antes de qualquer chance de
+trocar o destino. Um `../mkt-prod.env` na linha de comando era ignorado em silêncio. Foi assim que
+a simulação da sincronização de 02/09 foi lida como se fosse de produção e era de desenvolvimento:
+os números batiam de perto o bastante (4265 contra 4269 tarefas) para ninguém desconfiar.
+
+O conserto é sempre o mesmo: o script abre a própria conexão **depois** de ler o argumento, e
+anuncia o destino antes de escrever. Feito no `clickup:sincronizar` e no `invite`. Os outros sete
+continuam presos ao `.env.local`, e nenhum deles precisa apontar para produção hoje.
+
+**`??` não cai para o padrão quando o valor é vazio.** A `APP_URL` existe vazia no `.env.local`, e
+`baseArg ?? process.env.APP_URL ?? padrão` devolvia `""` — o link do convite saía como
+`/convite/<token>`, sem endereço nenhum. Link que não abre em lugar nenhum é pior que link
+faltando, porque parece pronto. Use `||` onde vazio também é ausência.
+
+**A tela de Time pode recusar o cadastro sem que a mensagem seja vista.** Aconteceu em 02/09 e a
+causa nunca foi encontrada: as quatro validações da action não se aplicavam, e o mesmo cadastro
+passou por comando sem reclamar. Se repetir, abrir o console do navegador antes de clicar.
 
 **`drizzle-kit migrate` não serve para este projeto, e `npm run db:pendentes` serve.** Produção
 nasceu por `db:push`, que escreve o schema sem registrar nada em `drizzle.__drizzle_migrations`:
@@ -615,10 +685,17 @@ todas as tabelas antes — o projeto de produção está sem backup no painel.
   saber, **a única conta que alguém já tinha usado**: as seis do time nunca definiram senha, e os
   convites de 25/08 nunca chegaram a ninguém. Desativá-la deixou a produção sem porta de entrada.
   Ver o item novo abaixo.
-- **Ninguém consegue entrar em produção.** Klenio, Maria Clara, Maria Luiza, Samuel, Thiago e Zion
-  têm conta ativa e **nenhuma senha**; a conta da Anny tem senha mas nunca foi usada. Resolve em
-  uma hora, sem depender de e-mail: `create-user` para o admin e `npm run invite` para os seis,
-  entregando os links à mão. É o item mais sério desta lista inteira.
+- ~~Ninguém consegue entrar em produção.~~ **Resolvido.** Em 02/09 as oito contas têm senha e todas
+  já entraram — Samuel, Maria Luiza e Thiago entre 31/08 e 01/09. O `teste@mkthub.test` continua
+  inativo, como devia.
+- **Mandar o link do convite para o Igor Freire** (`igor@seubone.com`), criado em 02/09 como
+  colaborador com as quatro marcas e designado no Revisor junto com o Klenio. É a única conta sem
+  primeiro acesso. O convite **não sai por e-mail**: produção não tem SMTP, então o link precisa ir
+  à mão e vence sete dias depois de gerado. `npm run invite -- ../mkt-prod.env nome="..."
+  email=...` gera outro quando vencer.
+- **Conferir qual provedor de IA está valendo na Vercel.** Mudou de `gemini-3.6-flash` para
+  `claude-sonnet-5` entre 01/09 e 02/09 sem registro, e é variável de ambiente — não passa por
+  deploy.
 - ~~Decidir como o board do ClickUp atravessa.~~ **Decidido em 31/08/2026: a data de corte é
   07/09/2026.** A partir dela, tarefa nova nasce só no Hub 2; o que estiver em andamento no
   ClickUp termina lá. As 258 vivas já atravessaram, e `npm run clickup:sincronizar` alinha a etapa
@@ -650,9 +727,13 @@ todas as tabelas antes — o projeto de produção está sem backup no painel.
   a action **recusa quem já tem senha**, em vez de abrir uma segunda porta para a mesma conta.
   Virou urgente quando o convite passou a sair por e-mail, porque a segunda porta deixaria de
   morrer na tela de quem convida e passaria a ficar numa caixa de entrada, encaminhável
-- No banco de **desenvolvimento** ficaram quatro regras de exemplo (SB-01 a SB-04), três itens de
-  checklist e a entrega "Peça de teste do revisor", com três rodadas de parecer. Servem para
-  conhecer a tela; apagar quando as regras reais entrarem
+- No banco de **desenvolvimento** ficaram quatro regras de exemplo (SB-01 a SB-04). As 48 do
+  arquivo da diretoria entraram para o experimento de 02/09 e **foram removidas** —
+  `npm run regras:importar -- remover aplicar` faz o caminho de volta. O catálogo de checklist do
+  dev foi alinhado com o de produção no mesmo dia, para os testes valerem
+- Duas contas de teste em desenvolvimento (`teste@mkthub.test` e `colab@mkthub.test`) ganharam
+  senha conhecida em 02/09, para os testes de tela. Só desenvolvimento; desativar quando não
+  precisar mais
 
 ## O que falta
 
